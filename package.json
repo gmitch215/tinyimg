@@ -1,0 +1,105 @@
+{
+	"name": "@gmitch215/tinyimg",
+	"version": "1.0.0",
+	"type": "module",
+	"description": "Image toolkit library for Cloudflare Workers",
+	"license": "MIT",
+	"author": "Gregory Mitchell <me@gmitch215.xyz>",
+	"homepage": "https://tinyimg.gmitch215.dev",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./tinyimg.wasm": "./dist/tinyimg.wasm",
+		"./package.json": "./package.json"
+	},
+	"sideEffects": false,
+	"files": [
+		"dist",
+		"LICENSE",
+		"README.md"
+	],
+	"scripts": {
+		"build": "bun run build:wasm && bun run build:ts",
+		"build:wasm": "cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/wasm32.cmake -DDOCS_TINYIMG=OFF && cmake --build build",
+		"build:ts": "tsc -p tsconfig.build.json && bun scripts/copy-wasm.ts",
+		"build:native": "cmake -S . -B build-native && cmake --build build-native",
+		"clean": "rm -rf build build-native bin dist coverage typedoc",
+		"test": "bun run test:c && bun run test:node && bun run test:workers",
+		"test:c": "bun run build:native && ctest --test-dir build-native --output-on-failure",
+		"test:c:coverage": "cmake -S . -B build-native -DTINYIMG_COVERAGE=ON && cmake --build build-native && ctest --test-dir build-native --output-on-failure && gcovr --root . --filter 'src/' --xml-pretty -o coverage/c.xml --txt",
+		"test:node": "vitest run --project=node",
+		"test:workers": "vitest run --project=workers",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.workers.json --noEmit",
+		"size": "bun scripts/size-report.ts",
+		"bench": "bun bench/run.ts",
+		"fixtures": "bun scripts/fixtures.ts",
+		"fixtures:check": "bun scripts/fixtures.ts --check",
+		"blobs": "bun scripts/fixtures.ts --blobs",
+		"format": "bash format.sh && prettier --write .",
+		"format:check": "bash check-format.sh && prettier --check .",
+		"docs:build": "typedoc",
+		"docs:c": "cmake -S . -B build-native -DDOCS_TINYIMG=ON && cmake --build build-native --target docs",
+		"docs:site": "bun docs/render.ts",
+		"prepare": "bash scripts/setup-hooks.sh",
+		"prepublishOnly": "bun run build"
+	},
+	"keywords": [
+		"cloudflare",
+		"workers",
+		"image",
+		"images",
+		"wasm",
+		"webassembly",
+		"resize",
+		"canvas",
+		"jpeg",
+		"png",
+		"webp",
+		"gif",
+		"transform"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/gmitch215/tinyimg.git"
+	},
+	"bugs": {
+		"url": "https://github.com/gmitch215/tinyimg/issues"
+	},
+	"devDependencies": {
+		"@cloudflare/vitest-pool-workers": "^0.22.0",
+		"@cloudflare/workers-types": "^5.20260811.1",
+		"@jsquash/jpeg": "^1.6.0",
+		"@jsquash/png": "^3.1.1",
+		"@jsquash/webp": "^1.5.0",
+		"@types/bun": "latest",
+		"@types/node": "^26.4.0",
+		"@vitest/coverage-v8": "^4.1.11",
+		"marked": "^18.0.11",
+		"marked-gfm-heading-id": "^4.1.4",
+		"prettier": "^3.9.6",
+		"prettier-plugin-organize-imports": "^4.3.0",
+		"prettier-plugin-sh": "^0.19.0",
+		"shiki": "^4.4.3",
+		"typedoc": "^0.28.20",
+		"typescript": "^5.9.3",
+		"vitest": "^4.1.11",
+		"wrangler": "^4.127.1"
+	},
+	"peerDependencies": {
+		"typescript": "^5.8.3 || ^7.0.0"
+	},
+	"peerDependenciesMeta": {
+		"typescript": {
+			"optional": true
+		}
+	}
+}
