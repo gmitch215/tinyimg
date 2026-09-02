@@ -4,7 +4,7 @@ set -euo pipefail
 shopt -s nullglob
 
 usage() {
-	cat <<EOF
+	cat << EOF
 Usage: ./check-format.sh [files...]
 
 Without arguments, checks all tracked C/C++ source files for clang-format compliance.
@@ -18,7 +18,7 @@ if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
 	exit 0
 fi
 
-if ! command -v clang-format >/dev/null 2>&1; then
+if ! command -v clang-format > /dev/null 2>&1; then
 	echo "Error: clang-format not found in PATH" >&2
 	exit 1
 fi
@@ -26,13 +26,13 @@ fi
 if [[ $# -gt 0 ]]; then
 	files=("$@")
 else
-	if command -v mapfile >/dev/null 2>&1; then
-		mapfile -t files < <(git ls-files '*.c' '*.cpp' '*.h' '*.hpp')
+	if command -v mapfile > /dev/null 2>&1; then
+		mapfile -t files < <(git ls-files --cached --others --exclude-standard '*.c' '*.cpp' '*.h' '*.hpp')
 	else
 		files=()
 		while IFS= read -r line; do
 			files+=("$line")
-		done < <(git ls-files '*.c' '*.cpp' '*.h' '*.hpp')
+		done < <(git ls-files --cached --others --exclude-standard '*.c' '*.cpp' '*.h' '*.hpp')
 	fi
 fi
 
@@ -49,7 +49,7 @@ for file in "${files[@]}"; do
 	fi
 
 	# Check if file is properly formatted by comparing original with formatted version
-	if ! diff -q "$file" <(clang-format "$file" --style=file) >/dev/null 2>&1; then
+	if ! diff -q "$file" <(clang-format "$file" --style=file) > /dev/null 2>&1; then
 		echo "Format check failed: $file" >&2
 		fail=1
 	else
