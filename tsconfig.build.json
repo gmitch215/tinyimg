@@ -1,0 +1,15 @@
+{
+	"extends": "./tsconfig.workers.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"outDir": "dist",
+		"rootDir": "src/ts",
+		"allowImportingTsExtensions": false,
+		"types": ["@cloudflare/workers-types"],
+		"noEmitOnError": true
+	},
+	"include": ["src/ts/**/*.ts"]
+}
