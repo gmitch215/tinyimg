@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>tinyimg</title>
+		<meta
+			name="description"
+			content="Lightweight and fast image processing library for Cloudflare Workers."
+		/>
+		<style>
+			:root {
+				color-scheme: light dark;
+				--fg: #16181d;
+				--muted: #5b6270;
+				--bg: #fbfbfc;
+				--card: #ffffff;
+				--line: #e3e5ea;
+				--accent: #2c7a5f;
+				--code-bg: #f5f6f8;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--fg: #e9ebf0;
+					--muted: #98a0b0;
+					--bg: #101216;
+					--card: #171a20;
+					--line: #262a33;
+					--accent: #4cc39a;
+					--code-bg: #1b1f27;
+				}
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				padding: 4rem 1.5rem 6rem;
+				background: var(--bg);
+				color: var(--fg);
+				font:
+					16px/1.7 ui-sans-serif,
+					system-ui,
+					-apple-system,
+					Segoe UI,
+					Roboto,
+					sans-serif;
+			}
+			main {
+				max-width: 48rem;
+				margin: 0 auto;
+			}
+			h1 {
+				margin: 0 0 0.25rem;
+				font-size: 2.75rem;
+				letter-spacing: -0.02em;
+			}
+			p.lead {
+				margin: 0 0 2rem;
+				color: var(--muted);
+				font-size: 1.125rem;
+			}
+			.links {
+				display: grid;
+				gap: 1rem;
+				grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+				margin-bottom: 3rem;
+			}
+			a.card {
+				display: block;
+				padding: 1.25rem 1.5rem;
+				border: 1px solid var(--line);
+				border-radius: 0.75rem;
+				background: var(--card);
+				color: inherit;
+				text-decoration: none;
+			}
+			a.card:hover {
+				border-color: var(--accent);
+			}
+			a.card strong {
+				display: block;
+				font-size: 1.05rem;
+			}
+			a.card span {
+				color: var(--muted);
+				font-size: 0.9rem;
+			}
+
+			.readme h2 {
+				margin: 3rem 0 1rem;
+				font-size: 1.5rem;
+				letter-spacing: -0.01em;
+			}
+			.readme h3 {
+				margin: 2rem 0 0.75rem;
+				font-size: 1.15rem;
+			}
+			.readme a {
+				color: var(--accent);
+			}
+			.readme hr {
+				margin: 3rem 0;
+				border: 0;
+				border-top: 1px solid var(--line);
+			}
+			.readme blockquote {
+				margin: 1.5rem 0;
+				padding: 0.25rem 0 0.25rem 1.25rem;
+				border-left: 3px solid var(--line);
+				color: var(--muted);
+			}
+			.readme ul {
+				padding-left: 1.25rem;
+			}
+			.readme li {
+				margin: 0.35rem 0;
+			}
+			.readme :not(pre) > code {
+				padding: 0.15em 0.4em;
+				border-radius: 0.35rem;
+				background: var(--code-bg);
+				font-size: 0.875em;
+			}
+			.readme pre {
+				margin: 1.25rem 0;
+				padding: 1rem 1.25rem;
+				border: 1px solid var(--line);
+				border-radius: 0.75rem;
+				overflow-x: auto;
+				font-size: 0.875rem;
+				line-height: 1.6;
+			}
+			.readme pre code {
+				display: block;
+			}
+
+			/* shiki writes both palettes onto every token, and this picks the one in use */
+			.readme .shiki,
+			.readme .shiki span {
+				color: var(--shiki-light);
+				background-color: var(--shiki-light-bg);
+			}
+			@media (prefers-color-scheme: dark) {
+				.readme .shiki,
+				.readme .shiki span {
+					color: var(--shiki-dark);
+					background-color: var(--shiki-dark-bg);
+				}
+			}
+
+			.readme .table {
+				overflow-x: auto;
+				margin: 1.25rem 0;
+			}
+			.readme table {
+				width: 100%;
+				border-collapse: collapse;
+				font-size: 0.925rem;
+			}
+			.readme th,
+			.readme td {
+				padding: 0.5rem 0.85rem;
+				border-bottom: 1px solid var(--line);
+				text-align: left;
+				vertical-align: top;
+			}
+			.readme th {
+				font-weight: 600;
+				white-space: nowrap;
+			}
+			.readme tbody tr:last-child td {
+				border-bottom: 0;
+			}
+
+			.readme p img {
+				vertical-align: middle;
+			}
+
+			footer {
+				max-width: 48rem;
+				margin: 4rem auto 0;
+				padding-top: 1.5rem;
+				border-top: 1px solid var(--line);
+				color: var(--muted);
+				font-size: 0.9rem;
+			}
+			footer a {
+				color: inherit;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>🏞️ tinyimg</h1>
+			<p class="lead">Lightweight and fast image processing for Cloudflare Workers.</p>
+			<div class="links">
+				<a class="card" href="doxygen/">
+					<strong>C API</strong>
+					<span>The image model, codecs, transforms and the planner</span>
+				</a>
+				<a class="card" href="typedoc/">
+					<strong>TypeScript API</strong>
+					<span>The wrapper that runs the module on Workers</span>
+				</a>
+			</div>
+			<div class="readme">
+				<!-- readme -->
+			</div>
+		</main>
+		<footer>
+			<a href="https://github.com/gmitch215/tinyimg">github.com/gmitch215/tinyimg</a>
+		</footer>
+	</body>
+</html>
