@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR wasm32)
 
+set(TINYIMG_WASM ON CACHE BOOL "Building the wasm32 target" FORCE)
+
 # find the cross compiler
 find_program(WASM_CLANG
     NAMES clang
