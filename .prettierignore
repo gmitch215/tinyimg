@@ -1,0 +1,21 @@
+build/
+build-native/
+bin/
+dist/
+blobs/
+coverage/
+typedoc/
+node_modules/
+.husky/
+Testing/
+docs/CNAME
+docs/Doxyfile.in
+docs/index.html
+tests/fixtures/
+bench/results/
+
+# hand-aligned config prettier should not restyle
+.clang-format
+.gitattributes
+.editorconfig
+renovate.json

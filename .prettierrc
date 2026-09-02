@@ -1,0 +1,40 @@
+{
+	"plugins": ["prettier-plugin-organize-imports", "prettier-plugin-sh"],
+	"embeddedLanguageFormatting": "off",
+	"printWidth": 100,
+	"singleQuote": true,
+	"semi": true,
+	"useTabs": true,
+	"trailingComma": "none",
+	"endOfLine": "lf",
+	"tabWidth": 4,
+	"overrides": [
+		{
+			"files": "*.{yml,yaml}",
+			"options": {
+				"useTabs": false,
+				"tabWidth": 2
+			}
+		},
+		{
+			"files": "*.jsonc",
+			"options": {
+				"parser": "json"
+			}
+		},
+		{
+			"files": [".prettierrc", ".babelrc"],
+			"options": {
+				"parser": "json",
+				"singleQuote": false
+			}
+		},
+		{
+			"files": "*.md",
+			"options": {
+				"useTabs": false,
+				"tabWidth": 2
+			}
+		}
+	]
+}
