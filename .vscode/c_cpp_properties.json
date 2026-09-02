@@ -1,33 +1,25 @@
 {
-    "configurations": [
-        {
-            "name": "Linux",
-            "includePath": [
-                "${workspaceFolder}/**"
-            ],
-            "defines": [],
-            "compilerPath": "/usr/bin/clang",
-            "cStandard": "c11",
-            "cppStandard": "c++11",
-            "intelliSenseMode": "linux-clang-x64",
-            "compileCommands": [
-                "${workspaceFolder}/build/compile_commands.json"
-            ]
-        },
+	"configurations": [
+		{
+			"name": "Linux",
+			"includePath": ["${workspaceFolder}/**"],
+			"defines": [],
+			"compilerPath": "/usr/bin/clang",
+			"cStandard": "c11",
+			"cppStandard": "c++11",
+			"intelliSenseMode": "linux-clang-x64",
+			"compileCommands": ["${workspaceFolder}/build/compile_commands.json"]
+		},
 		{
 			"name": "Mac",
-			"includePath": [
-				"${workspaceFolder}/**"
-			],
+			"includePath": ["${workspaceFolder}/**"],
 			"defines": [],
 			"compilerPath": "/usr/bin/clang",
 			"cStandard": "c11",
 			"cppStandard": "c++11",
 			"intelliSenseMode": "macos-clang-x64",
-			"compileCommands": [
-				"${workspaceFolder}/build/compile_commands.json"
-			]
+			"compileCommands": ["${workspaceFolder}/build/compile_commands.json"]
 		}
-    ],
-    "version": 4
+	],
+	"version": 4
 }
