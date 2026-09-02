@@ -1,0 +1,142 @@
+{
+  "side": 128,
+  "scaledLongSide": 256,
+  "crops": {
+    "budapest.jpg": {
+      "x": 666,
+      "y": 1000,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 2000,
+      "sourceHeight": 3000
+    },
+    "dog.jpg": {
+      "x": 1000,
+      "y": 667,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 3000,
+      "sourceHeight": 2003
+    },
+    "face_art.jpg": {
+      "x": 453,
+      "y": 640,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1360,
+      "sourceHeight": 1920
+    },
+    "family.jpg": {
+      "x": 769,
+      "y": 1000,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 2308,
+      "sourceHeight": 3000
+    },
+    "flower.jpg": {
+      "x": 1000,
+      "y": 665,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 3000,
+      "sourceHeight": 1995
+    },
+    "forest.png": {
+      "x": 666,
+      "y": 277,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 2000,
+      "sourceHeight": 831
+    },
+    "man.jpg": {
+      "x": 640,
+      "y": 360,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1920,
+      "sourceHeight": 1080
+    },
+    "moped.jpg": {
+      "x": 640,
+      "y": 519,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1920,
+      "sourceHeight": 1557
+    },
+    "mountains.jpg": {
+      "x": 640,
+      "y": 426,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1920,
+      "sourceHeight": 1280
+    },
+    "mushroom.jpg": {
+      "x": 640,
+      "y": 416,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1920,
+      "sourceHeight": 1250
+    },
+    "road.jpg": {
+      "x": 427,
+      "y": 640,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1281,
+      "sourceHeight": 1920
+    },
+    "sf-24.jpg": {
+      "x": 611,
+      "y": 344,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1835,
+      "sourceHeight": 1032
+    },
+    "smile.jpg": {
+      "x": 490,
+      "y": 640,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1470,
+      "sourceHeight": 1920
+    },
+    "webassembly.png": {
+      "x": 170,
+      "y": 170,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 512,
+      "sourceHeight": 512
+    },
+    "winter_cabin.jpg": {
+      "x": 640,
+      "y": 640,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1920,
+      "sourceHeight": 1920
+    },
+    "winter_forest.png": {
+      "x": 200,
+      "y": 118,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 600,
+      "sourceHeight": 354
+    },
+    "woman.jpg": {
+      "x": 757,
+      "y": 1000,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 2272,
+      "sourceHeight": 3000
+    }
+  }
+}
