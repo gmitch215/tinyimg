@@ -1,0 +1,53 @@
+name: CodeQL Analysis
+
+on:
+  push:
+    branches: [master, ver/*]
+  pull_request:
+    branches: [master, ver/*]
+  schedule:
+    - cron: '25 16 * * 5'
+
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: c-cpp
+            build-mode: manual
+
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended,security-and-quality
+      - name: Configure Project
+        if: ${{ matrix.build-mode == 'manual' }}
+        run: cmake -S . -B build-native -DDOCS_TINYIMG=OFF -DTINYIMG_TESTS=OFF
+      - name: Build Project
+        if: ${{ matrix.build-mode == 'manual' }}
+        run: cmake --build build-native
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:${{ matrix.language }}'
