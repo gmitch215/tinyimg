@@ -4,4 +4,15 @@
 *.png			binary
 *.ico			binary
 *.jpg			binary
+*.jpeg			binary
 *.icns			binary
+*.gif			binary
+*.bmp			binary
+*.tif			binary
+*.tiff			binary
+*.webp			binary
+*.avif			binary
+*.wasm			binary
+*.ttf			binary
+*.otf			binary
+*.icc			binary
