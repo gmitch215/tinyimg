@@ -319,6 +319,42 @@ int tiny_strcopy(char* dest, const char* src, size_t capacity);
 
 #pragma endregion
 
+#pragma region huffman
+
+/**
+ * @brief Builds length limited Huffman code lengths from symbol frequencies.
+ *
+ * Shared by every encoder that writes a prefix code, which is DEFLATE for its
+ * literals, its distances and its own code length alphabet, and WebP lossless
+ * for all five of its alphabets. They differ only in how many symbols they have
+ * and how deep a code they can express.
+ *
+ * The lengths are canonical: the caller turns them into codes, and a symbol
+ * whose frequency is zero gets a length of zero and no code. An alphabet with
+ * one used symbol gets that symbol a length of one, which a canonical builder
+ * can express and which the two formats then treat differently.
+ *
+ * O(n^2) time complexity in the alphabet size, because the two lowest weight
+ * nodes are found by scanning rather than through a heap. At the 536 symbols
+ * the larger caller reaches that is about 143k comparisons, against a heap's
+ * 5k, and it is a third of the code; past a few thousand symbols the trade
+ * stops being worth it, which is one reason WebP's colour cache is capped where
+ * it is.
+ *
+ * @param frequencies How often each symbol occurs, `count` entries.
+ * @param count Symbols in the alphabet.
+ * @param limit Longest code the format can express, in bits.
+ * @param lengths Receives `count` lengths, zero for an unused symbol.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL, TINYIMG_ERR_RANGE for a zero count
+ * or limit, or TINYIMG_ERR_MEMORY when the arena has no room for the tree.
+ */
+int tiny_huffman_lengths(
+    const uint32_t* frequencies, uint32_t count, uint32_t limit,
+    uint8_t* lengths
+);
+
+#pragma endregion
+
 #pragma region byte writer
 
 /**

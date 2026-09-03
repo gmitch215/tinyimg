@@ -310,6 +310,207 @@ int tiny_strcopy(char* dest, const char* src, size_t capacity) {
 
 #pragma endregion
 
+#pragma region huffman
+
+/**
+ * @brief Merges the live symbols into one tree, cheapest pair first.
+ *
+ * @param weight Node weights; the leaves are already in place and the internal
+ * nodes are written after them.
+ * @param parent Receives each node's parent, or -1 for the root.
+ * @param leaves How many leaves there are, at least two.
+ * @return uint32_t How many nodes the tree ended up with.
+ */
+static uint32_t merge_tree(uint32_t* weight, int32_t* parent, uint32_t leaves) {
+    uint32_t nodes = leaves;
+
+    for (uint32_t i = 0; i < 2u * leaves - 1u; i++) parent[i] = -1;
+
+    // one internal node per merge, so the tree closes after leaves - 1 of them
+    for (uint32_t merged = 0; merged + 1u < leaves; merged++) {
+        uint32_t first = 0;
+        uint32_t second = 0;
+        int found = 0;
+
+        for (uint32_t i = 0; i < nodes; i++) {
+            if (parent[i] != -1) continue;
+
+            if (found == 0) {
+                first = i;
+                found = 1;
+            }
+            else if (found == 1) {
+                second = i;
+                found = 2;
+
+                if (weight[second] < weight[first]) {
+                    uint32_t swap = first;
+                    first = second;
+                    second = swap;
+                }
+            }
+            else if (weight[i] < weight[first]) {
+                second = first;
+                first = i;
+            }
+            else if (weight[i] < weight[second]) {
+                second = i;
+            }
+        }
+
+        if (found < 2) break;
+
+        weight[nodes] = weight[first] + weight[second];
+        parent[first] = (int32_t) nodes;
+        parent[second] = (int32_t) nodes;
+        nodes++;
+    }
+
+    return nodes;
+}
+
+int tiny_huffman_lengths(
+    const uint32_t* frequencies, uint32_t count, uint32_t limit,
+    uint8_t* lengths
+) {
+    if (!frequencies || !lengths) return TINYIMG_ERR_NULL;
+    if (count == 0 || limit == 0) return TINYIMG_ERR_RANGE;
+
+    // a code of this depth has 2^limit patterns in it, and it cannot name more
+    // symbols than that however the lengths are arranged
+    if (limit < 32u && count > (1u << limit)) return TINYIMG_ERR_RANGE;
+
+    tiny_memset(lengths, 0, count);
+
+    uint32_t leaves = 0;
+    for (uint32_t i = 0; i < count; i++) {
+        if (frequencies[i] > 0) leaves++;
+    }
+
+    // nothing was used, so nothing gets a code and the caller decides what an
+    // empty alphabet means for its format
+    if (leaves == 0) return TINYIMG_OK;
+
+    if (leaves == 1) {
+        for (uint32_t i = 0; i < count; i++) {
+            if (frequencies[i] > 0) lengths[i] = 1;
+        }
+
+        return TINYIMG_OK;
+    }
+
+    TinyArenaMark mark;
+    tiny_arena_mark(&mark);
+
+    uint32_t nodes_max = 2u * leaves - 1u;
+    uint32_t* weight = tiny_arena_alloc(nodes_max * sizeof(uint32_t), 0);
+    int32_t* parent = tiny_arena_alloc(nodes_max * sizeof(int32_t), 0);
+    uint32_t* depth = tiny_arena_alloc(nodes_max * sizeof(uint32_t), 0);
+    uint32_t* symbol = tiny_arena_alloc(leaves * sizeof(uint32_t), 0);
+    uint32_t* histogram = tiny_arena_alloc((limit + 2u) * sizeof(uint32_t), 0);
+
+    if (!weight || !parent || !depth || !symbol || !histogram) {
+        tiny_arena_release(&mark);
+        return TINYIMG_ERR_MEMORY;
+    }
+
+    uint32_t live = 0;
+    for (uint32_t i = 0; i < count; i++) {
+        if (frequencies[i] == 0) continue;
+
+        weight[live] = frequencies[i];
+        symbol[live] = i;
+        live++;
+    }
+
+    uint32_t nodes = merge_tree(weight, parent, leaves);
+
+    /*
+     * Downward, because a node's parent is always created after it, so the
+     * parent's depth is already known. Walking up from each leaf instead is
+     * quadratic on a skewed tree, which is exactly the tree that gets here.
+     */
+    for (uint32_t i = nodes; i-- > 0;) {
+        depth[i] = parent[i] < 0 ? 0u : depth[parent[i]] + 1u;
+    }
+
+    tiny_memset(histogram, 0, (limit + 2u) * sizeof(uint32_t));
+
+    /*
+     * Every leaf goes into the histogram at the limit or below, so the total is
+     * the leaf count whatever the tree looked like. Counting them anywhere else
+     * is what makes a length limited code come out incomplete.
+     */
+    for (uint32_t i = 0; i < leaves; i++) {
+        histogram[depth[i] > limit ? limit : depth[i]]++;
+    }
+
+    /*
+     * A complete prefix code has a Kraft sum of exactly one, and shortening the
+     * codes that were too long pushed it above that. Measured in 2^-limit units
+     * the sum is an integer, so the amount to give back is exact rather than
+     * estimated.
+     *
+     * Each round gives back exactly one unit: a leaf moves from some length to
+     * the one below it, which costs nothing on its own because two leaves at
+     * that length replace it, and one leaf comes off the limit. The leaf count
+     * does not change, so the code stays a code, and the sum falls by one unit
+     * every time. Counting the rounds any other way leaves an oversubscribed
+     * table that a decoder is right to refuse.
+     */
+    int64_t excess = -((int64_t) 1 << limit);
+    for (uint32_t bits = 1; bits <= limit; bits++) {
+        excess += (int64_t) histogram[bits] << (limit - bits);
+    }
+
+    while (excess > 0 && histogram[limit] > 0) {
+        uint32_t at = limit - 1u;
+        while (at > 0 && histogram[at] == 0) at--;
+
+        if (at == 0) break;
+
+        histogram[at]--;
+        histogram[at + 1u] += 2u;
+        histogram[limit]--;
+        excess--;
+    }
+
+    /*
+     * The longest codes go to the least frequent symbols, which is what makes
+     * the lengths optimal for this histogram rather than merely legal. Walking
+     * the histogram from the bottom up and taking the smallest weight each time
+     * is the same O(n^2) trade the merge makes, and it assigns exactly as many
+     * symbols as the histogram holds, so no leaf is left without a length.
+     */
+    for (uint32_t i = 0; i < leaves; i++) depth[i] = 0;
+
+    for (uint32_t bits = limit; bits >= 1u; bits--) {
+        for (uint32_t taken = 0; taken < histogram[bits]; taken++) {
+            uint32_t worst = leaves;
+
+            for (uint32_t i = 0; i < leaves; i++) {
+                if (depth[i] != 0) continue;
+                if (worst == leaves ||
+                    frequencies[symbol[i]] < frequencies[symbol[worst]]) {
+                    worst = i;
+                }
+            }
+
+            if (worst == leaves) break;
+            depth[worst] = bits;
+        }
+    }
+
+    for (uint32_t i = 0; i < leaves; i++) {
+        lengths[symbol[i]] = (uint8_t) depth[i];
+    }
+
+    tiny_arena_release(&mark);
+    return TINYIMG_OK;
+}
+
+#pragma endregion
+
 #pragma region byte writer
 
 TINYIMG_EXPORT("tiny_writer_init")
