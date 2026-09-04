@@ -59,7 +59,7 @@ static int linear(void) {
     return failures;
 }
 
-/** A radial gradient is symmetric about its centre. */
+/** A radial gradient is symmetric about its center. */
 static int radial(void) {
     int failures = 0;
     TinyImage image;
@@ -79,7 +79,7 @@ static int radial(void) {
     failures += assertEquals(at(&image, 20, 30)[0], reference);
     failures += assertEquals(at(&image, 20, 10)[0], reference);
 
-    // past the radius the outer colour is held rather than extrapolated
+    // past the radius the outer color is held rather than extrapolated
     failures += assertEquals(at(&image, 0, 0)[0], 0);
 
     failures += assertEquals(
@@ -113,7 +113,7 @@ static int fade(void) {
     failures += assertEquals(at(&image, 63, 0)[3], 0);
     failures += assertIn((double) at(&image, 32, 0)[3], 124.0, 132.0);
 
-    // the colour is untouched; only the alpha moves
+    // the color is untouched; only the alpha moves
     failures += assertEquals(at(&image, 63, 0)[0], 200);
 
     tiny_image_destroy(&image);
@@ -155,7 +155,7 @@ static int fade(void) {
         tiny_image_gradient_fade(0, 0.0f, 0.0f, 1.0f), TINYIMG_ERR_NULL
     );
 
-    // a negative direction is still a direction, and the extent normalisation
+    // a negative direction is still a direction, and the extent normalization
     // has to account for where it starts from
     failures +=
         assertEquals(tiny_image_gradient_fade(&image, 180.0f, 0.0f, 1.0f), 0);
@@ -205,7 +205,7 @@ static int borders(void) {
     failures += assertEquals(image.width, 14);
     failures += assertEquals(image.height, 14);
 
-    // the border is the colour given and the middle is the original
+    // the border is the color given and the middle is the original
     failures += assertEquals(at(&image, 0, 0)[0], 255);
     failures += assertEquals(at(&image, 13, 13)[0], 255);
     failures += assertEquals(at(&image, 2, 3)[1], 200);
@@ -213,7 +213,7 @@ static int borders(void) {
 
     tiny_image_destroy(&image);
 
-    // a NULL colour leaves the new pixels as the zeros create gave them
+    // a NULL color leaves the new pixels as the zeros create gave them
     if (tiny_image_create(&image, 4, 4, 4) != TINYIMG_OK) return failures + 1;
 
     for (uint32_t i = 0; i < 16u; i++) image.data[i * 4u + 3u] = 255u;
@@ -276,7 +276,7 @@ static int replacement(void) {
     return failures;
 }
 
-/** A one channel target takes a colour of its own width. */
+/** A one channel target takes a color of its own width. */
 static int single_channel(void) {
     int failures = 0;
     TinyImage image;

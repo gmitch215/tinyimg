@@ -305,7 +305,7 @@ static int circles(void) {
     failures += assertEquals(at(&image, 30, 10)[0], 255);
 
     // the property that matters is that the outline is closed, which a count
-    // cannot check: a 4-connected flood from the centre must not escape it.
+    // cannot check: a 4-connected flood from the center must not escape it.
     // measured for reference, the count is 5.6 r, which is the telescoping sum
     // of the per-row widths rather than the 2 pi r an arc-length guess gives
     failures += assertFalse(escapes(&image, 30, 30));
@@ -352,7 +352,7 @@ static int ellipses(void) {
     return failures;
 }
 
-/** Every entry point rejects a null image or colour. */
+/** Every entry point rejects a null image or color. */
 static int nulls(void) {
     int failures = 0;
     TinyImage image;
