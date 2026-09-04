@@ -18,13 +18,28 @@ extern "C" {
 #endif
 
 /**
- * @brief Maximum number of pixels allowed in an image. This limit is set to
- * prevent excessive memory usage and potential performance issues when
- * processing large images.
+ * @brief Maximum number of pixels allowed in an image, whatever its channel
+ * count. Bounds decode time, which scales with pixels rather than bytes.
  *
- * Correlates to a maximum image size of 4000x4000 pixels.
+ * A grayscale image is the only one that reaches this, because
+ * TINYIMG_MAX_IMAGE_BYTES binds first at every wider channel count.
  */
 #define TINYIMG_MAX_PIXELS 16000000u
+
+/**
+ * @brief Largest pixel buffer a single image may hold.
+ *
+ * The pixel cap alone cannot express the constraint that actually fails: an
+ * allocation is bytes, so a 15 megapixel RGBA image passes a 16 megapixel
+ * check and then dies in the allocator. Half the heap leaves room for the
+ * encoded source, a decoder's component planes and one scratch buffer.
+ *
+ * Measured full-decode ceilings against the 64 MiB heap, which is what this
+ * number is set from: JPEG 4:2:0 13.81 Mpx, 4:2:2 12.28, 4:4:4 10.32, PNG RGB
+ * 10.97, PNG RGBA 8.56. Every one of those failed in the allocator before this
+ * cap existed, so the specific error was unreachable for all of them.
+ */
+#define TINYIMG_MAX_IMAGE_BYTES 33554432u
 
 /**
  * @brief Alignment every allocation is rounded up to.
@@ -124,7 +139,7 @@ int tiny_heap_init(void* memory, size_t size);
  * TINYIMG_HEAP_MAX, which stays untouched address space until written to.
  *
  * Idempotent, and called by every allocation, so nothing has to remember to
- * initialise the library before using it.
+ * initialize the library before using it.
  */
 void tiny_heap_bootstrap(void);
 
@@ -189,7 +204,7 @@ void* tiny_alloc(size_t size);
 void* tiny_realloc(void* pointer, size_t size);
 
 /**
- * @brief Returns a block to the heap, coalescing it with free neighbours.
+ * @brief Returns a block to the heap, coalescing it with free neighbors.
  *
  * A NULL pointer, a pointer the heap never handed out, and a second free of the
  * same pointer are all ignored rather than corrupting the block list.
@@ -230,7 +245,7 @@ typedef struct {
  * tiny_arena_reset. Use it for scratch that lives no longer than the call that
  * asked for it.
  *
- * Amortised O(1) time complexity. The arena takes chunks from the heap as it
+ * Amortized O(1) time complexity. The arena takes chunks from the heap as it
  * needs them, so an allocation never invalidates a pointer it handed out
  * earlier.
  *
@@ -291,7 +306,7 @@ typedef enum TinyBlobKind
      */
     TINYIMG_BLOB_FONT = 0,
     /**
-     * @brief An ICC colour profile.
+     * @brief An ICC color profile.
      */
     TINYIMG_BLOB_ICC = 1,
     /**
@@ -339,6 +354,26 @@ int tiny_blob_load(
  * @return const uint8_t* The bytes, or NULL when nothing matches.
  */
 const uint8_t* tiny_blob_get(TinyBlobKind kind, const char* id, size_t* size);
+
+/**
+ * @brief Walks the resident blobs of one kind.
+ *
+ * The way to act on every blob of a kind without knowing what any of them is
+ * called. Face detection needs it: a caller loads whichever cascades they have
+ * and the detector runs all of them, so nothing in the library names a blob.
+ *
+ * The order is the slot order, which is not the load order once a blob has been
+ * freed and its slot reused.
+ *
+ * @param kind What to walk.
+ * @param index Which one, from zero.
+ * @param id Receives the id it was loaded under. May be NULL.
+ * @param size Receives the byte length. May be NULL.
+ * @return const uint8_t* The bytes, or NULL once `index` is past the last one.
+ */
+const uint8_t* tiny_blob_at(
+    TinyBlobKind kind, uint32_t index, const char** id, size_t* size
+);
 
 /**
  * @brief Releases one resident blob.
