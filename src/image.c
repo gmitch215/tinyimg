@@ -6,6 +6,7 @@
 #include "tinyimg/plan.h"
 #include "tinyimg/tinyimg.h"
 #include "tinyimg/util.h"
+#include "tinyimg/work.h"
 
 #pragma region image handling
 
@@ -24,9 +25,12 @@ int tiny_image_create(
     }
 
     uint64_t pixels = (uint64_t) width * height;
-    if (pixels > TINYIMG_MAX_PIXELS) return TINYIMG_ERR_TOO_LARGE;
+    uint64_t wanted = pixels * channels;
+    if (pixels > TINYIMG_MAX_PIXELS || wanted > TINYIMG_MAX_IMAGE_BYTES) {
+        return TINYIMG_ERR_TOO_LARGE;
+    }
 
-    size_t bytes = (size_t) pixels * channels;
+    size_t bytes = (size_t) wanted;
 
     uint8_t* data = tiny_alloc(bytes);
     if (!data) return TINYIMG_ERR_MEMORY;
@@ -184,7 +188,7 @@ int tiny_image_decode(
     const TinyCodec* codec = tiny_codec_find(format);
     if (!codec || !codec->decode) return TINYIMG_ERR_UNSUPPORTED_CODEC;
 
-    TinyDecodeOpts defaults = {0, 0, 0, 0, 1, 0};
+    TinyDecodeOpts defaults = {0, 0, 0, 0, 1, 0, 0};
     return codec->decode(image, buffer, buffer_size, opts ? opts : &defaults);
 }
 
@@ -220,7 +224,7 @@ int tiny_image_load_scaled(
         }
     }
 
-    TinyDecodeOpts opts = {0, 0, 0, 0, den, 0};
+    TinyDecodeOpts opts = {0, 0, 0, 0, den, 0, 0};
     return tiny_image_decode(image, buffer, buffer_size, &opts);
 }
 
@@ -229,7 +233,7 @@ int tiny_image_load_region(
     TinyImage* image, const uint8_t* buffer, size_t buffer_size, uint32_t x,
     uint32_t y, uint32_t width, uint32_t height
 ) {
-    TinyDecodeOpts opts = {x, y, width, height, 1, 0};
+    TinyDecodeOpts opts = {x, y, width, height, 1, 0, 0};
     return tiny_image_decode(image, buffer, buffer_size, &opts);
 }
 
@@ -244,7 +248,11 @@ int tiny_image_encode(
     const TinyCodec* codec = tiny_codec_find(format);
     if (!codec || !codec->encode) return TINYIMG_ERR_UNSUPPORTED_CODEC;
 
-    TinyEncodeOpts defaults = {image->quality ? image->quality : 82, 0, 0, 0};
+    tiny_work_add(TINYIMG_WORK_ENCODED, image->width * image->height);
+
+    TinyEncodeOpts defaults = {
+        image->quality ? image->quality : 82, 0, 0, 0, 0
+    };
     return codec->encode(image, opts ? opts : &defaults, writer);
 }
 
@@ -562,15 +570,15 @@ int tiny_image_crop_polygon(
 }
 
 /**
- * @brief Whether a pixel is within tolerance of a colour on every channel.
+ * @brief Whether a pixel is within tolerance of a color on every channel.
  *
  * @param pixel The pixel.
- * @param color The colour.
+ * @param color The color.
  * @param channels How many channels to compare.
  * @param tolerance How far each may differ.
  * @return int Non-zero when it matches.
  */
-static int colour_near(
+static int color_near(
     const uint8_t* pixel, const uint8_t* color, uint8_t channels,
     int32_t tolerance
 ) {
@@ -589,7 +597,7 @@ static int colour_near(
  * @param image The image.
  * @param index Which row or column.
  * @param vertical Non-zero for a column.
- * @param color The border colour.
+ * @param color The border color.
  * @param tolerance How far a channel may differ.
  * @return int Non-zero when every pixel matches.
  */
@@ -605,7 +613,7 @@ static int line_is_border(
         const uint8_t* p =
             image->data + ((size_t) y * image->width + x) * image->channels;
 
-        if (!colour_near(p, color, image->channels, tolerance)) return 0;
+        if (!color_near(p, color, image->channels, tolerance)) return 0;
     }
 
     return 1;
@@ -615,7 +623,7 @@ TINYIMG_EXPORT("tiny_image_trim")
 int tiny_image_trim(TinyImage* image, uint8_t tolerance) {
     if (!image || !image->data) return TINYIMG_ERR_NULL;
 
-    // the border colour is the top left corner, and every corner has to agree
+    // the border color is the top left corner, and every corner has to agree
     // with it: an image whose corners differ has no uniform border to trim and
     // is left alone rather than cropped to whatever the first corner happened
     // to be
@@ -631,7 +639,7 @@ int tiny_image_trim(TinyImage* image, uint8_t tolerance) {
     };
 
     for (uint32_t i = 0; i < 3u; i++) {
-        if (!colour_near(
+        if (!color_near(
                 others[i], corner, image->channels, (int32_t) tolerance
             )) {
             return TINYIMG_OK;
@@ -706,14 +714,14 @@ int tiny_image_remove_background(TinyImage* image, uint8_t tolerance) {
         0u, width - 1u, (height - 1u) * width, (uint32_t) pixels - 1u
     };
 
-    // a corner that does not match the seed colour is not background, so it
+    // a corner that does not match the seed color is not background, so it
     // is not a seed either: seeding all four unconditionally clears a corner
-    // whose colour the caller never asked to remove
+    // whose color the caller never asked to remove
     for (uint32_t i = 0; i < 4u; i++) {
         if (reach[corner[i]]) continue;
 
         const uint8_t* p = image->data + (size_t) corner[i] * image->channels;
-        if (!colour_near(p, seed, image->channels, (int32_t) tolerance)) {
+        if (!color_near(p, seed, image->channels, (int32_t) tolerance)) {
             continue;
         }
 
@@ -741,7 +749,7 @@ int tiny_image_remove_background(TinyImage* image, uint8_t tolerance) {
             if (reach[next]) continue;
 
             const uint8_t* p = image->data + (size_t) next * image->channels;
-            if (!colour_near(p, seed, image->channels, (int32_t) tolerance)) {
+            if (!color_near(p, seed, image->channels, (int32_t) tolerance)) {
                 continue;
             }
 
@@ -770,7 +778,7 @@ int tiny_image_remove_background(TinyImage* image, uint8_t tolerance) {
 
         // a pixel the fill did not reach but which borders one it did is on
         // the boundary, and its alpha is scaled by how far it is from the
-        // background colour: that is what feathers the cutout rather than
+        // background color: that is what feathers the cutout rather than
         // leaving a hard stair-stepped edge
         uint32_t x = (uint32_t) (i % width);
         uint32_t y = (uint32_t) (i / width);
@@ -856,7 +864,7 @@ int tiny_image_fit_with_padding_and_background(
     TinyImageFit fit_mode, const uint8_t* padding_color,
     const uint8_t* background_color
 ) {
-    // the two colours fill the same pixels, so the padding wins where a caller
+    // the two colors fill the same pixels, so the padding wins where a caller
     // has given both and the background is what is left when it has not
     const uint8_t* fill = padding_color ? padding_color : background_color;
 
@@ -866,7 +874,7 @@ int tiny_image_fit_with_padding_and_background(
     );
 }
 
-static int recolour(TinyImage* image, TinyPlanOpKind kind, float value) {
+static int recolor(TinyImage* image, TinyPlanOpKind kind, float value) {
     TinyPlan plan;
     int result = tiny_plan_init_image(&plan, image);
     if (result != TINYIMG_OK) return result;
@@ -892,33 +900,33 @@ static int recolour(TinyImage* image, TinyPlanOpKind kind, float value) {
 
 TINYIMG_EXPORT("tiny_image_invert")
 int tiny_image_invert(TinyImage* image) {
-    return recolour(image, TINYIMG_OP_INVERT, 0.0f);
+    return recolor(image, TINYIMG_OP_INVERT, 0.0f);
 }
 
 TINYIMG_EXPORT("tiny_image_brightness")
 int tiny_image_brightness(TinyImage* image, float factor) {
-    return recolour(image, TINYIMG_OP_BRIGHTNESS, factor);
+    return recolor(image, TINYIMG_OP_BRIGHTNESS, factor);
 }
 
 TINYIMG_EXPORT("tiny_image_contrast")
 int tiny_image_contrast(TinyImage* image, float factor) {
-    return recolour(image, TINYIMG_OP_CONTRAST, factor);
+    return recolor(image, TINYIMG_OP_CONTRAST, factor);
 }
 
 TINYIMG_EXPORT("tiny_image_saturation")
 int tiny_image_saturation(TinyImage* image, float factor) {
-    return recolour(image, TINYIMG_OP_SATURATION, factor);
+    return recolor(image, TINYIMG_OP_SATURATION, factor);
 }
 
 TINYIMG_EXPORT("tiny_image_hue")
 int tiny_image_hue(TinyImage* image, float angle) {
     if (angle < -360.0f || angle > 360.0f) return TINYIMG_ERR_RANGE;
-    return recolour(image, TINYIMG_OP_HUE, angle);
+    return recolor(image, TINYIMG_OP_HUE, angle);
 }
 
 TINYIMG_EXPORT("tiny_image_gamma_correction")
 int tiny_image_gamma_correction(TinyImage* image, float gamma) {
-    return recolour(image, TINYIMG_OP_GAMMA, gamma);
+    return recolor(image, TINYIMG_OP_GAMMA, gamma);
 }
 
 TINYIMG_EXPORT("tiny_image_blur")
@@ -1358,19 +1366,19 @@ int tiny_image_set_transparent(TinyImage* image, int enable_transparency) {
     // flattening onto white is what a browser does with an image dropped into
     // an opaque container
     size_t count = (size_t) image->width * image->height;
-    uint8_t colour = (uint8_t) (image->channels - 1);
+    uint8_t color = (uint8_t) (image->channels - 1);
 
     for (size_t i = 0; i < count; i++) {
         uint8_t* pixel = image->data + i * image->channels;
-        uint32_t alpha = pixel[colour];
+        uint32_t alpha = pixel[color];
 
-        for (uint8_t c = 0; c < colour; c++) {
+        for (uint8_t c = 0; c < color; c++) {
             uint32_t blended = pixel[c] * alpha + 255u * (255u - alpha);
             pixel[c] = (uint8_t) ((blended + 127u) / 255u);
         }
     }
 
-    return tiny_image_convert_channels(image, colour);
+    return tiny_image_convert_channels(image, color);
 }
 
 int tiny_image_convert(TinyImage* image, TinyImageFormat format) {
@@ -1450,18 +1458,18 @@ int tiny_image_average_color(const TinyImage* image, uint8_t* color) {
 /**
  * @brief Finds a palette by k-means over a subsample.
  *
- * The dominant colour and the palette are one algorithm: the palette is the
- * cluster centres and the dominant colour is the largest cluster's centre, so
- * asking for one colour and taking the first is exactly the right answer
+ * The dominant color and the palette are one algorithm: the palette is the
+ * cluster centers and the dominant color is the largest cluster's center, so
+ * asking for one color and taking the first is exactly the right answer
  * rather than a special case.
  *
- * A subsample rather than every pixel because the centres a photograph
+ * A subsample rather than every pixel because the centers a photograph
  * converges to do not move measurably past a few tens of thousands of samples,
  * and the cost is the sample count times the cluster count times the rounds.
  *
  * @param image The image to read.
  * @param count How many clusters.
- * @param palette Receives `count` colours, largest cluster first.
+ * @param palette Receives `count` colors, largest cluster first.
  * @return int TINYIMG_OK or a negative TinyImageError.
  */
 static int cluster_colors(
@@ -1478,11 +1486,11 @@ static int cluster_colors(
     TinyArenaMark mark;
     tiny_arena_mark(&mark);
 
-    float* centre = tiny_arena_alloc(count * 4u * sizeof(float), 4);
+    float* center = tiny_arena_alloc(count * 4u * sizeof(float), 4);
     float* sum = tiny_arena_alloc(count * 4u * sizeof(float), 4);
     uint32_t* members = tiny_arena_alloc(count * sizeof(uint32_t), 4);
 
-    if (!centre || !sum || !members) {
+    if (!center || !sum || !members) {
         tiny_arena_release(&mark);
         return TINYIMG_ERR_MEMORY;
     }
@@ -1494,7 +1502,7 @@ static int cluster_colors(
         const uint8_t* p = image->data + at * channels;
 
         for (uint8_t c = 0; c < channels; c++) {
-            centre[k * 4u + c] = (float) p[c];
+            center[k * 4u + c] = (float) p[c];
         }
     }
 
@@ -1513,7 +1521,7 @@ static int cluster_colors(
                 float distance = 0.0f;
 
                 for (uint8_t c = 0; c < channels; c++) {
-                    float d = (float) p[c] - centre[k * 4u + c];
+                    float d = (float) p[c] - center[k * 4u + c];
                     distance += d * d;
                 }
 
@@ -1533,7 +1541,7 @@ static int cluster_colors(
             if (members[k] == 0) continue;
 
             for (uint8_t c = 0; c < channels; c++) {
-                centre[k * 4u + c] = sum[k * 4u + c] / (float) members[k];
+                center[k * 4u + c] = sum[k * 4u + c] / (float) members[k];
             }
         }
     }
@@ -1548,16 +1556,16 @@ static int cluster_colors(
             members[j] = swap;
 
             for (uint8_t c = 0; c < 4u; c++) {
-                float hold = centre[i * 4u + c];
-                centre[i * 4u + c] = centre[j * 4u + c];
-                centre[j * 4u + c] = hold;
+                float hold = center[i * 4u + c];
+                center[i * 4u + c] = center[j * 4u + c];
+                center[j * 4u + c] = hold;
             }
         }
     }
 
     for (uint32_t k = 0; k < count; k++) {
         for (uint8_t c = 0; c < channels; c++) {
-            palette[k * channels + c] = tiny_clamp_u8f(centre[k * 4u + c]);
+            palette[k * channels + c] = tiny_clamp_u8f(center[k * 4u + c]);
         }
     }
 
@@ -1791,7 +1799,7 @@ static void detail_centroid(const TinyImage* image, float* x, float* y) {
 }
 
 /**
- * @brief The centre of the detected faces, weighted by confidence.
+ * @brief The center of the detected faces, weighted by confidence.
  *
  * @return int Non-zero when a face was found.
  */
@@ -1811,8 +1819,8 @@ static int face_centroid(const TinyImage* image, float* x, float* y) {
     for (uint32_t i = 0; i < count; i++) {
         // a group of many overlapping detections is more likely to be a face
         // than one that just cleared the threshold, so a group photograph
-        // centres on the faces it is surest about
-        double w = (double) boxes[i].neighbours;
+        // centers on the faces it is surest about
+        double w = (double) boxes[i].neighbors;
 
         total += w;
         sum_x += w * ((double) boxes[i].x + (double) boxes[i].width * 0.5);
@@ -1866,7 +1874,7 @@ int tiny_image_focus(
 /**
  * @brief Runs one region effect over every detected face.
  *
- * The two anonymisers differ only in which effect they append, so the
+ * The two anonymizers differ only in which effect they append, so the
  * detection, the clamping and the no-op-on-nothing rule are written once.
  *
  * @param image The image to change.

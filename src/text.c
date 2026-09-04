@@ -391,7 +391,7 @@ typedef struct {
  *
  * A glyph that needs more edges than fit is reported rather than truncated. A
  * dropped edge leaves an outline open, which fills as a wedge across the glyph
- * and looks like a rasteriser fault rather than a buffer that ran out.
+ * and looks like a rasterizer fault rather than a buffer that ran out.
  */
 typedef struct {
     Edge* edges;
@@ -803,7 +803,7 @@ static int glyph_edges(
 
 #pragma endregion
 
-#pragma region rasteriser
+#pragma region rasterizer
 
 /** Vertical subsamples per output row. */
 #define SUBSAMPLES 4
@@ -909,7 +909,7 @@ static void raster_row(
 }
 
 /**
- * @brief Rasterises an edge list into an 8-bit coverage mask.
+ * @brief Rasterizes an edge list into an 8-bit coverage mask.
  *
  * @param list The edges, in absolute pixel coordinates.
  * @param origin_x Left edge of the mask in those coordinates.
@@ -1799,7 +1799,7 @@ static int draw_glyph(
         return TINYIMG_OK;
     }
 
-    // a glyph the image cannot show is not rasterised at all, which is what
+    // a glyph the image cannot show is not rasterized at all, which is what
     // makes drawing a long string into a small image cost the visible part
     if (origin_x >= (float) image->width || origin_y >= (float) image->height ||
         origin_x + (float) width <= 0.0f || origin_y + (float) height <= 0.0f) {

@@ -29,7 +29,7 @@ static int32_t over255(int32_t value) {
  * Both arguments and the result are unpremultiplied, which is where these
  * functions are defined. Premultiplying first and blending after gives the
  * right answer only where alpha is full, so it looks correct on exactly the
- * case a test written with opaque colours can reach.
+ * case a test written with opaque colors can reach.
  *
  * @param mode Which mode.
  * @param dst The destination channel.
@@ -78,14 +78,14 @@ static int32_t blend_channel(TinyBlendMode mode, int32_t dst, int32_t src) {
 /**
  * @brief Composites one source pixel over one destination pixel, in place.
  *
- * Source-over, with the blend mode applied to the colour before the alpha
+ * Source-over, with the blend mode applied to the color before the alpha
  * weighting. Alpha is written when the destination has one, so a stack of
  * partly transparent layers ends up as transparent as it should be rather than
  * opaque wherever anything was drawn.
  *
  * @param dst The destination pixel.
  * @param channels How many channels it has.
- * @param src The source colour, `channels` long, unpremultiplied.
+ * @param src The source color, `channels` long, unpremultiplied.
  * @param alpha The source's alpha, 0 through 255, already scaled by any
  * opacity the caller asked for.
  * @param mode Which blend mode.
@@ -96,7 +96,7 @@ static void blend_pixel(
 ) {
     if (alpha <= 0) return;
 
-    uint8_t colours = channels == 4u ? 3u : channels == 2u ? 1u : channels;
+    uint8_t colors = channels == 4u ? 3u : channels == 2u ? 1u : channels;
     int has_alpha = channels == 2u || channels == 4u;
 
     if (mode == TINYIMG_BLEND_REPLACE) {
@@ -110,7 +110,7 @@ static void blend_pixel(
     // case that could make it so
     int32_t out_alpha = over255(alpha * 255 + backdrop * (255 - alpha));
 
-    for (uint8_t c = 0; c < colours; c++) {
+    for (uint8_t c = 0; c < colors; c++) {
         int32_t mixed =
             tiny_clampi(blend_channel(mode, dst[c], src[c]), 0, 255);
 
@@ -144,13 +144,13 @@ static int32_t source_alpha(
 }
 
 /**
- * @brief Widens or narrows a colour to an image's channel count.
+ * @brief Widens or narrows a color to an image's channel count.
  *
  * @param out Receives up to four channels.
- * @param color The caller's colour, as many channels as the image has.
+ * @param color The caller's color, as many channels as the image has.
  * @param channels How many the image has.
  */
-static void colour_for(uint8_t* out, const uint8_t* color, uint8_t channels) {
+static void color_for(uint8_t* out, const uint8_t* color, uint8_t channels) {
     for (uint8_t c = 0; c < channels; c++) out[c] = color[c];
 }
 
@@ -168,7 +168,7 @@ static void colour_for(uint8_t* out, const uint8_t* color, uint8_t channels) {
  * @param x0 Left end, inclusive; may be negative.
  * @param x1 Right end, inclusive; may be past the edge.
  * @param y The row; a row outside the image draws nothing.
- * @param color The colour, as many channels as the image has.
+ * @param color The color, as many channels as the image has.
  * @param blend Which mode.
  */
 static void span(
@@ -411,11 +411,11 @@ int tiny_image_draw_line(
 }
 
 /**
- * @brief How far an ellipse reaches either side of its centre on one row.
+ * @brief How far an ellipse reaches either side of its center on one row.
  *
  * @param rx Horizontal semi-axis.
  * @param ry Vertical semi-axis.
- * @param dy Rows from the centre.
+ * @param dy Rows from the center.
  * @return int32_t The half width, or -1 when the row is outside.
  */
 static int32_t ellipse_half_width(uint32_t rx, uint32_t ry, int32_t dy) {
@@ -433,11 +433,11 @@ static int32_t ellipse_half_width(uint32_t rx, uint32_t ry, int32_t dy) {
  * @brief Fills an ellipse as one span per row.
  *
  * @param image The image.
- * @param cx Centre.
- * @param cy Centre.
+ * @param cx Center.
+ * @param cy Center.
  * @param rx Horizontal semi-axis.
  * @param ry Vertical semi-axis.
- * @param color The colour.
+ * @param color The color.
  * @param blend Which mode.
  */
 static void ellipse_fill(
@@ -488,7 +488,7 @@ int tiny_image_draw_ellipse(
     if (radius_x == 0 || radius_y == 0) return TINYIMG_OK;
 
     // the outline is the inner boundary of the filled set: a pixel inside the
-    // ellipse with a 4-neighbour outside it. that set is 8-connected, which is
+    // ellipse with a 4-neighbor outside it. that set is 8-connected, which is
     // what makes a drawn outline closed against a 4-connected fill, and it
     // stays closed for any pair of radii; a midpoint walk per octant does not,
     // once the axes differ enough for one step to skip a row
@@ -500,8 +500,8 @@ int tiny_image_draw_ellipse(
         int32_t below = ellipse_half_width(radius_x, radius_y, dy + 1);
         int32_t inner = above < below ? above : below;
 
-        // a row whose neighbours are no narrower still has its two end pixels
-        // on the boundary, because their outward neighbour is outside
+        // a row whose neighbors are no narrower still has its two end pixels
+        // on the boundary, because their outward neighbor is outside
         if (inner >= dx) inner = dx - 1;
 
         span(
@@ -563,9 +563,9 @@ int tiny_image_polygon(
  * itself.
  *
  * The coordinates are continuous, not pixel indices: a row is filled when its
- * centre falls inside the path. The two callers differ on that and each has to
+ * center falls inside the path. The two callers differ on that and each has to
  * convert. `tiny_image_fill_polygon` takes vertices that NAME pixels, so it
- * adds a half to move them to the pixel's centre; a display list's geometry is
+ * adds a half to move them to the pixel's center; a display list's geometry is
  * already continuous and adds nothing. Adding the half in both places makes
  * every display shape one row and one column too large, which is invisible
  * until a rotated rectangle is compared against the upright one.
@@ -574,7 +574,7 @@ int tiny_image_polygon(
  * @param xs Vertex x coordinates, continuous.
  * @param ys Vertex y coordinates, continuous.
  * @param count How many vertices.
- * @param color The colour.
+ * @param color The color.
  * @param rule Which rule.
  * @param blend Which mode.
  * @return int TINYIMG_OK or a negative TinyImageError.
@@ -610,7 +610,7 @@ static int polygon_fill(
     }
 
     for (int32_t row = first_row; row <= last_row; row++) {
-        float centre = (float) row + 0.5f;
+        float center = (float) row + 0.5f;
         size_t found = 0;
 
         for (size_t i = 0; i < count; i++) {
@@ -620,9 +620,9 @@ static int polygon_fill(
 
             // a half-open test on each edge, so a vertex exactly on the
             // scanline is counted by one of its two edges and not both
-            if ((y0 <= centre && y1 > centre) ||
-                (y1 <= centre && y0 > centre)) {
-                float t = (centre - y0) / (y1 - y0);
+            if ((y0 <= center && y1 > center) ||
+                (y1 <= center && y0 > center)) {
+                float t = (center - y0) / (y1 - y0);
 
                 crossing[found] = xs[i] + t * (xs[next] - xs[i]);
                 winding[found] = y1 > y0 ? 1 : -1;
@@ -696,7 +696,7 @@ int tiny_image_fill_polygon_with(
         return TINYIMG_ERR_MEMORY;
     }
 
-    // a vertex names a pixel, and a pixel's centre is at its index plus a
+    // a vertex names a pixel, and a pixel's center is at its index plus a
     // half, which is where the scanline test is taken
     for (size_t i = 0; i < num_points; i++) {
         xs[i] = (float) x_points[i] + 0.5f;
@@ -784,7 +784,7 @@ int tiny_image_draw_image_ex(
         while (first_y > 0) first_y -= step_y;
     }
 
-    uint8_t colour[4];
+    uint8_t color[4];
 
     for (int32_t ty = first_y; ty < (int32_t) dest_image->height;
          ty += step_y) {
@@ -808,17 +808,17 @@ int tiny_image_draw_image_ex(
                     if (alpha <= 0) continue;
 
                     // the source's channel count need not match, so its
-                    // colour is widened or reduced to the destination's here
+                    // color is widened or reduced to the destination's here
                     // rather than in the blend
                     for (uint8_t c = 0; c < dest_image->channels; c++) {
-                        colour[c] = c < src_image->channels
-                                        ? src[c]
-                                        : src[src_image->channels - 1u];
+                        color[c] = c < src_image->channels
+                                       ? src[c]
+                                       : src[src_image->channels - 1u];
                     }
 
                     blend_pixel(
                         pixel_at(dest_image, (uint32_t) col, (uint32_t) row),
-                        dest_image->channels, colour, alpha, blend
+                        dest_image->channels, color, alpha, blend
                     );
                 }
             }
@@ -985,7 +985,7 @@ int tiny_image_gradient_fade(
     float dx = tiny_cosf(radians);
     float dy = tiny_sinf(radians);
 
-    // the projection is normalised by the image's extent along the direction,
+    // the projection is normalized by the image's extent along the direction,
     // so start and end mean the same fraction whatever the angle. one less
     // than the extent, because the last pixel's index is one less than the
     // count: dividing by the count leaves an end of 1.0 four levels short of
@@ -1058,12 +1058,12 @@ int tiny_image_expand(
     out.quality = image->quality;
 
     if (pixel) {
-        uint8_t colour[4];
-        colour_for(colour, pixel, image->channels);
+        uint8_t color[4];
+        color_for(color, pixel, image->channels);
 
         for (uint32_t y = 0; y < out.height; y++) {
             span(
-                &out, 0, (int32_t) out.width - 1, (int32_t) y, colour,
+                &out, 0, (int32_t) out.width - 1, (int32_t) y, color,
                 TINYIMG_BLEND_REPLACE
             );
         }
@@ -1091,10 +1091,10 @@ int tiny_draw_coverage(
 ) {
     if (!image || !image->data || !mask || !color) return TINYIMG_ERR_NULL;
 
-    uint8_t colour[4];
-    colour_for(colour, color, image->channels);
+    uint8_t expanded[4];
+    color_for(expanded, color, image->channels);
 
-    int32_t own = source_alpha(colour, image->channels, 255);
+    int32_t own = source_alpha(expanded, image->channels, 255);
     if (own <= 0) return TINYIMG_OK;
 
     for (uint32_t row = 0; row < height; row++) {
@@ -1111,7 +1111,7 @@ int tiny_draw_coverage(
 
             blend_pixel(
                 pixel_at(image, (uint32_t) ix, (uint32_t) iy), image->channels,
-                colour, own * line[column] / 255, blend
+                expanded, own * line[column] / 255, blend
             );
         }
     }
@@ -1252,7 +1252,7 @@ int tiny_display_blend(TinyDisplayList* list, TinyBlendMode blend) {
  *
  * @param list The list.
  * @param kind Which shape.
- * @param color Its colour.
+ * @param color Its color.
  * @return TinyShape* The shape, or NULL when the list is full.
  */
 static TinyShape* shape_add(
@@ -1553,9 +1553,9 @@ static int shape_render(
     const TinyDisplayList* list, const TinyShape* shape, TinyImage* image
 ) {
     const float* m = shape->transform;
-    uint8_t colour[4];
+    uint8_t color[4];
 
-    colour_for(colour, shape->color, image->channels);
+    color_for(color, shape->color, image->channels);
 
     // a transform with no rotation or shear maps a rectangle to a rectangle
     // and an ellipse to an ellipse, so the primitives take it directly; a
@@ -1598,8 +1598,7 @@ static int shape_render(
                 );
 
                 return polygon_fill(
-                    image, xs, ys, 4u, colour, TINYIMG_FILL_NONZERO,
-                    shape->blend
+                    image, xs, ys, 4u, color, TINYIMG_FILL_NONZERO, shape->blend
                 );
             }
 
@@ -1615,14 +1614,14 @@ static int shape_render(
 
                 return tiny_image_fill_rounded_rectangle(
                     image, left, top, width, height,
-                    (uint32_t) (shape->geometry[4] * scale + 0.5f), colour
+                    (uint32_t) (shape->geometry[4] * scale + 0.5f), color
                 );
             }
 
             for (uint32_t row = 0; row < height; row++) {
                 span(
                     image, left, left + (int32_t) width - 1,
-                    top + (int32_t) row, colour, shape->blend
+                    top + (int32_t) row, color, shape->blend
                 );
             }
 
@@ -1639,7 +1638,7 @@ static int shape_render(
                     image, (int32_t) cx, (int32_t) cy,
                     (uint32_t) (shape->geometry[2] * tiny_fabsf(m[0]) + 0.5f),
                     (uint32_t) (shape->geometry[3] * tiny_fabsf(m[3]) + 0.5f),
-                    colour, shape->blend
+                    color, shape->blend
                 );
 
                 return TINYIMG_OK;
@@ -1668,7 +1667,7 @@ static int shape_render(
             }
 
             return polygon_fill(
-                image, xs, ys, 32u, colour, TINYIMG_FILL_NONZERO, shape->blend
+                image, xs, ys, 32u, color, TINYIMG_FILL_NONZERO, shape->blend
             );
         }
         case TINYIMG_SHAPE_LINE: {
@@ -1684,7 +1683,7 @@ static int shape_render(
 
             return tiny_image_draw_line(
                 image, (int32_t) x0, (int32_t) y0, (int32_t) x1, (int32_t) y1,
-                (uint32_t) (shape->geometry[4] * scale + 0.5f), colour
+                (uint32_t) (shape->geometry[4] * scale + 0.5f), color
             );
         }
         case TINYIMG_SHAPE_POLYGON: {
@@ -1713,7 +1712,7 @@ static int shape_render(
             }
 
             int result = polygon_fill(
-                image, xs, ys, shape->point_count, colour, shape->rule,
+                image, xs, ys, shape->point_count, color, shape->rule,
                 shape->blend
             );
 

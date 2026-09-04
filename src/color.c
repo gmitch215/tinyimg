@@ -452,14 +452,14 @@ float* tiny_gradient_cmyk(
 /**
  * @brief Where one entry of a multi-gradient falls.
  *
- * The five multi-gradients differ only in how one leg's colours are mixed, so
+ * The five multi-gradients differ only in how one leg's colors are mixed, so
  * the walk across the legs is written once.
  *
  * The whole gradient is one parameter from zero to one and each leg owns a
  * slice of it, rather than each leg owning a whole number of steps. That is
  * what keeps the joins seamless at any distribution: handing out whole steps
  * per leg has to round, and a leg that rounds down ends one step short of its
- * own end colour, which shows as a step change at the join.
+ * own end color, which shows as a step change at the join.
  *
  * @param num_colors How many stops.
  * @param steps The total steps.
@@ -920,7 +920,7 @@ int tiny_icc_parse(TinyIccProfile* profile, const uint8_t* data, size_t size) {
     uint32_t length;
 
     // a profile whose transform is a lookup table is checked for before the
-    // matrix tags, because some carry both and the table is the one a colour
+    // matrix tags, because some carry both and the table is the one a color
     // managed reader would use; approximating it with the matrix would be a
     // wrong answer that looks like a right one
     if (icc_find(data, size, "A2B0", &at, &length) ||

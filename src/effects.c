@@ -8,8 +8,8 @@
 
 #define PI 3.14159265358979f
 
-/** How many colour channels an image has, which is all but the alpha. */
-static uint8_t colour_channels(const TinyImage* image) {
+/** How many color channels an image has, which is all but the alpha. */
+static uint8_t color_channels(const TinyImage* image) {
     return image->channels == 4u   ? 3u
            : image->channels == 2u ? 1u
                                    : image->channels;
@@ -98,7 +98,7 @@ static int clip_rect(
 #pragma region convolution
 
 /**
- * @brief Runs a 3x3 kernel over the colour channels.
+ * @brief Runs a 3x3 kernel over the color channels.
  *
  * @param image The image, replaced in place.
  * @param kernel Nine weights, row major.
@@ -124,13 +124,13 @@ static int convolve3(
         if (divisor == 0) divisor = 1;
     }
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
 
     for (uint32_t y = 0; y < image->height; y++) {
         for (uint32_t x = 0; x < image->width; x++) {
             uint8_t* out = pixel_at(image, x, y);
 
-            for (uint8_t c = 0; c < colours; c++) {
+            for (uint8_t c = 0; c < colors; c++) {
                 int32_t sum = 0;
                 int32_t sum2 = 0;
 
@@ -189,7 +189,7 @@ static int unsharp(
         return result;
     }
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
     size_t pixels = (size_t) image->width * image->height;
     int32_t limit = (int32_t) threshold;
 
@@ -197,7 +197,7 @@ static int unsharp(
         uint8_t* out = image->data + i * image->channels;
         const uint8_t* soft = blurred.data + i * blurred.channels;
 
-        for (uint8_t c = 0; c < colours; c++) {
+        for (uint8_t c = 0; c < colors; c++) {
             int32_t diff = (int32_t) out[c] - (int32_t) soft[c];
             if (diff > -limit && diff < limit) continue;
 
@@ -252,19 +252,19 @@ static int pixelate(TinyImage* image, uint32_t size, const uint32_t* rect) {
     return TINYIMG_OK;
 }
 
-/** The median of a 3x3 neighbourhood, per channel. */
+/** The median of a 3x3 neighborhood, per channel. */
 static int median3(TinyImage* image) {
     TinyImage source;
     int result = image_clone(image, &source);
     if (result != TINYIMG_OK) return result;
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
 
     for (uint32_t y = 0; y < image->height; y++) {
         for (uint32_t x = 0; x < image->width; x++) {
             uint8_t* out = pixel_at(image, x, y);
 
-            for (uint8_t c = 0; c < colours; c++) {
+            for (uint8_t c = 0; c < colors; c++) {
                 uint8_t window[9];
                 uint32_t at = 0;
 
@@ -300,7 +300,7 @@ static int median3(TinyImage* image) {
 }
 
 /**
- * @brief Replaces each pixel with the extreme of its neighbourhood.
+ * @brief Replaces each pixel with the extreme of its neighborhood.
  *
  * @param image The image, replaced in place.
  * @param radius Pixels either side.
@@ -314,7 +314,7 @@ static int morphology(TinyImage* image, uint32_t radius, int maximum) {
     int result = image_clone(image, &source);
     if (result != TINYIMG_OK) return result;
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
     int32_t r = (int32_t) radius;
 
     // separable, because the extreme over a square is the extreme of the
@@ -324,7 +324,7 @@ static int morphology(TinyImage* image, uint32_t radius, int maximum) {
             for (uint32_t x = 0; x < image->width; x++) {
                 uint8_t* out = pixel_at(image, x, y);
 
-                for (uint8_t c = 0; c < colours; c++) {
+                for (uint8_t c = 0; c < colors; c++) {
                     int32_t best = maximum ? 0 : 255;
 
                     for (int32_t k = -r; k <= r; k++) {
@@ -373,14 +373,14 @@ static int outline(TinyImage* image, uint32_t radius) {
         return result;
     }
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
     size_t pixels = (size_t) image->width * image->height;
 
     for (size_t i = 0; i < pixels; i++) {
         uint8_t* out = image->data + i * image->channels;
         const uint8_t* low = eroded.data + i * eroded.channels;
 
-        for (uint8_t c = 0; c < colours; c++) {
+        for (uint8_t c = 0; c < colors; c++) {
             out[c] = (uint8_t) (out[c] - low[c]);
         }
     }
@@ -421,16 +421,16 @@ static int directional(
     if (steps < 1u) steps = 1u;
     if (steps > 128u) steps = 128u;
 
-    float centre_x = (float) image->width * 0.5f;
-    float centre_y = (float) image->height * 0.5f;
+    float center_x = (float) image->width * 0.5f;
+    float center_y = (float) image->height * 0.5f;
     float radians = angle * PI / 180.0f;
     float step_x = tiny_cosf(radians);
     float step_y = tiny_sinf(radians);
 
     for (uint32_t y = 0; y < image->height; y++) {
         for (uint32_t x = 0; x < image->width; x++) {
-            float dx = (float) x - centre_x;
-            float dy = (float) y - centre_y;
+            float dx = (float) x - center_x;
+            float dy = (float) y - center_y;
             uint32_t total[4] = {0, 0, 0, 0};
 
             for (uint32_t k = 0; k <= steps; k++) {
@@ -448,15 +448,15 @@ static int directional(
                     float c = tiny_cosf(turn);
                     float s = tiny_sinf(turn);
 
-                    sx = centre_x + dx * c - dy * s;
-                    sy = centre_y + dx * s + dy * c;
+                    sx = center_x + dx * c - dy * s;
+                    sy = center_y + dx * s + dy * c;
                 }
                 else {
-                    // the scale spans one either side of unity, so the centre
+                    // the scale spans one either side of unity, so the center
                     // pixel contributes once rather than every step
                     float scale = 1.0f + (t - 0.5f) * strength * 0.01f;
-                    sx = centre_x + dx * scale;
-                    sy = centre_y + dy * scale;
+                    sx = center_x + dx * scale;
+                    sy = center_y + dy * scale;
                 }
 
                 uint8_t sampled[4];
@@ -501,13 +501,13 @@ static int tilt_shift(TinyImage* image, float sigma, float band) {
 
     if (band <= 0.0f) band = 0.25f;
 
-    float centre = (float) image->height * 0.5f;
+    float center = (float) image->height * 0.5f;
     float sharp = (float) image->height * band * 0.5f;
-    float falloff = centre - sharp;
+    float falloff = center - sharp;
     if (falloff <= 0.0f) falloff = 1.0f;
 
     for (uint32_t y = 0; y < image->height; y++) {
-        float distance = tiny_fabsf((float) y + 0.5f - centre);
+        float distance = tiny_fabsf((float) y + 0.5f - center);
         float t = tiny_clampf((distance - sharp) / falloff, 0.0f, 1.0f);
         uint32_t weight = (uint32_t) (t * 256.0f + 0.5f);
 
@@ -571,15 +571,15 @@ static int chromatic(TinyImage* image, float amount) {
     int result = image_clone(image, &source);
     if (result != TINYIMG_OK) return result;
 
-    float centre_x = (float) image->width * 0.5f;
-    float centre_y = (float) image->height * 0.5f;
-    float span = tiny_sqrtf(centre_x * centre_x + centre_y * centre_y);
+    float center_x = (float) image->width * 0.5f;
+    float center_y = (float) image->height * 0.5f;
+    float span = tiny_sqrtf(center_x * center_x + center_y * center_y);
     if (span <= 0.0f) span = 1.0f;
 
     for (uint32_t y = 0; y < image->height; y++) {
         for (uint32_t x = 0; x < image->width; x++) {
-            float dx = (float) x - centre_x;
-            float dy = (float) y - centre_y;
+            float dx = (float) x - center_x;
+            float dy = (float) y - center_y;
             float scale = amount / span;
             uint8_t* out = pixel_at(image, x, y);
             uint8_t red[4];
@@ -618,7 +618,7 @@ static uint32_t bayer8(uint32_t x, uint32_t y) {
 }
 
 /**
- * @brief Quantises with a Bayer threshold, which trades banding for texture.
+ * @brief Quantizes with a Bayer threshold, which trades banding for texture.
  *
  * @param image The image, replaced in place.
  * @param levels How many output levels per channel.
@@ -628,7 +628,7 @@ static int dither(TinyImage* image, uint32_t levels) {
     if (levels < 2u) levels = 2u;
     if (levels >= 256u) return TINYIMG_OK;
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
     float step = 255.0f / (float) (levels - 1u);
 
     for (uint32_t y = 0; y < image->height; y++) {
@@ -636,7 +636,7 @@ static int dither(TinyImage* image, uint32_t levels) {
             uint8_t* p = pixel_at(image, x, y);
             float bias = ((float) bayer8(x & 7u, y & 7u) + 0.5f) / 64.0f - 0.5f;
 
-            for (uint8_t c = 0; c < colours; c++) {
+            for (uint8_t c = 0; c < colors; c++) {
                 float value = (float) p[c] + bias * step;
                 float index = tiny_roundf(value / step);
 
@@ -662,7 +662,7 @@ static int halftone(TinyImage* image, uint32_t cell) {
     int result = image_clone(image, &source);
     if (result != TINYIMG_OK) return result;
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
     float half = (float) cell * 0.5f;
 
     for (uint32_t cy = 0; cy < image->height; cy += cell) {
@@ -675,7 +675,7 @@ static int halftone(TinyImage* image, uint32_t cell) {
             for (uint32_t y = cy; y < y1; y++) {
                 for (uint32_t x = cx; x < x1; x++) {
                     const uint8_t* p = pixel_at(&source, x, y);
-                    for (uint8_t c = 0; c < colours; c++) total[c] += p[c];
+                    for (uint8_t c = 0; c < colors; c++) total[c] += p[c];
                 }
             }
 
@@ -686,7 +686,7 @@ static int halftone(TinyImage* image, uint32_t cell) {
                     float dy = (float) (y - cy) + 0.5f - half;
                     float distance = tiny_sqrtf(dx * dx + dy * dy);
 
-                    for (uint8_t c = 0; c < colours; c++) {
+                    for (uint8_t c = 0; c < colors; c++) {
                         float mean = (float) total[c] / (float) count;
                         // the dot's area is the tone, so its radius is the
                         // root: a linear radius would darken the midtones
@@ -708,7 +708,7 @@ static int halftone(TinyImage* image, uint32_t cell) {
 static int scanlines(TinyImage* image, uint32_t period, float strength) {
     if (period < 2u) return TINYIMG_OK;
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
     uint32_t keep =
         (uint32_t) (tiny_clampf(1.0f - strength, 0.0f, 1.0f) * 256.0f + 0.5f);
 
@@ -717,7 +717,7 @@ static int scanlines(TinyImage* image, uint32_t period, float strength) {
 
         for (uint32_t x = 0; x < image->width; x++) {
             uint8_t* p = pixel_at(image, x, y);
-            for (uint8_t c = 0; c < colours; c++) {
+            for (uint8_t c = 0; c < colors; c++) {
                 p[c] = (uint8_t) ((p[c] * keep + 128u) >> 8);
             }
         }
@@ -728,7 +728,7 @@ static int scanlines(TinyImage* image, uint32_t period, float strength) {
 
 #pragma endregion
 
-#pragma region colour
+#pragma region color
 
 /** Rec. 709 luminance weights, the same ones the planner's matrices use. */
 static const float LUMA[3] = {0.2126f, 0.7152f, 0.0722f};
@@ -747,7 +747,7 @@ static void matrix_identity(float* m) {
     m[10] = 1.0f;
 }
 
-/** Runs one colour matrix over an image as its own plan. */
+/** Runs one color matrix over an image as its own plan. */
 static int run_matrix(TinyImage* image, const float* m) {
     TinyPlan plan;
     int result = tiny_plan_init_image(&plan, image);
@@ -773,7 +773,7 @@ static int run_curve(
     return tiny_plan_replace(image, &plan);
 }
 
-/** Runs one neighbourhood effect over an image as its own plan. */
+/** Runs one neighborhood effect over an image as its own plan. */
 static int run_effect(TinyImage* image, TinyEffectKind kind, const float* p) {
     TinyPlan plan;
     int result = tiny_plan_init_image(&plan, image);
@@ -799,17 +799,17 @@ int tiny_image_apply_luts(
     if (!image || !image->data) return TINYIMG_ERR_NULL;
 
     const uint8_t* table[3] = {red, green, blue};
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
     size_t pixels = (size_t) image->width * image->height;
 
     // a caller's own table cannot be carried in an operation, so this is the
-    // one colour path that runs eagerly rather than through the planner. it is
+    // one color path that runs eagerly rather than through the planner. it is
     // the escape hatch under the named adjustments, which do collapse
     for (size_t i = 0; i < pixels; i++) {
         uint8_t* p = image->data + i * image->channels;
 
-        for (uint8_t c = 0; c < colours; c++) {
-            const uint8_t* lut = colours < 3u ? table[1] : table[c];
+        for (uint8_t c = 0; c < colors; c++) {
+            const uint8_t* lut = colors < 3u ? table[1] : table[c];
             if (lut) p[c] = lut[p[c]];
         }
     }
@@ -915,7 +915,7 @@ int tiny_image_tint(TinyImage* image, const uint8_t* color, float strength) {
     float m[12];
     matrix_identity(m);
 
-    // the colour's own luminance is subtracted from the offset, so the
+    // the color's own luminance is subtracted from the offset, so the
     // weighted sum of the three offsets is exactly zero and the cast carries
     // no brightness change with it
     float neutral = luma_of(color);
@@ -1064,7 +1064,7 @@ int tiny_image_vibrance(TinyImage* image, float amount) {
     // own pass. that is the whole difference from a saturation change
     for (size_t i = 0; i < pixels; i++) {
         uint8_t* p = image->data + i * image->channels;
-        float grey = luma_of(p);
+        float gray = luma_of(p);
 
         uint8_t low = p[0] < p[1] ? (p[0] < p[2] ? p[0] : p[2])
                                   : (p[1] < p[2] ? p[1] : p[2]);
@@ -1076,7 +1076,7 @@ int tiny_image_vibrance(TinyImage* image, float amount) {
         float factor = 1.0f + amount * (1.0f - saturation);
 
         for (uint8_t c = 0; c < 3u; c++) {
-            p[c] = tiny_clamp_u8f(grey + ((float) p[c] - grey) * factor);
+            p[c] = tiny_clamp_u8f(gray + ((float) p[c] - gray) * factor);
         }
     }
 
@@ -1164,7 +1164,7 @@ int tiny_image_channel_gain(
 }
 
 /**
- * @brief The projection a given colour blindness performs.
+ * @brief The projection a given color blindness performs.
  *
  * The Brettel, Vienot and Mollon matrices in sRGB, which is what browser
  * accessibility tooling applies. Achromatopsia is the luminance projection.
@@ -1222,7 +1222,7 @@ int tiny_image_colorblind_assist(TinyImage* image, TinyColorblindKind kind) {
     if (result != TINYIMG_OK) return result;
 
     // the error the projection throws away, added back along the channels the
-    // form can still tell apart. the result is not the original colours and is
+    // form can still tell apart. the result is not the original colors and is
     // not meant to be: it is an image whose distinctions survive the viewer's
     // own projection
     static const float SPREAD[9] = {0.0f, 0.0f, 0.0f, 0.7f, 1.0f,
@@ -1375,13 +1375,13 @@ int tiny_image_apply_sepia(TinyImage* image) {
 }
 
 /**
- * @brief Mixes a rectangle toward a colour.
+ * @brief Mixes a rectangle toward a color.
  *
- * The one implementation under darken, lighten and the colour overlays: each
- * is a weighted move toward a fixed colour, and they differ only in which
- * colour and how the weight is named. A rectangle covering the whole image
+ * The one implementation under darken, lighten and the color overlays: each
+ * is a weighted move toward a fixed color, and they differ only in which
+ * color and how the weight is named. A rectangle covering the whole image
  * goes through the planner as a matrix, so it composes with the adjustments
- * around it; a smaller one cannot, because the planner's colour class is for
+ * around it; a smaller one cannot, because the planner's color class is for
  * operations that read one pixel wherever it is.
  *
  * @param image The image to change.
@@ -1413,15 +1413,15 @@ static int mix_toward(
         return run_matrix(image, m);
     }
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
     uint32_t scale = (uint32_t) (weight * 256.0f + 0.5f);
 
     for (uint32_t row = rect[1]; row < rect[1] + rect[3]; row++) {
         for (uint32_t col = rect[0]; col < rect[0] + rect[2]; col++) {
             uint8_t* p = pixel_at(image, col, row);
 
-            for (uint8_t c = 0; c < colours; c++) {
-                uint32_t target = colours < 3u ? color[1] : color[c];
+            for (uint8_t c = 0; c < colors; c++) {
+                uint32_t target = colors < 3u ? color[1] : color[c];
 
                 p[c] = (uint8_t) (((256u - scale) * p[c] + scale * target +
                                    128u) >>
@@ -1491,17 +1491,17 @@ int tiny_image_vignette(
         return TINYIMG_ERR_RANGE;
     }
 
-    uint8_t colours = colour_channels(image);
-    float centre_x = (float) image->width * 0.5f;
-    float centre_y = (float) image->height * 0.5f;
-    float span = tiny_sqrtf(centre_x * centre_x + centre_y * centre_y);
+    uint8_t colors = color_channels(image);
+    float center_x = (float) image->width * 0.5f;
+    float center_y = (float) image->height * 0.5f;
+    float span = tiny_sqrtf(center_x * center_x + center_y * center_y);
 
     if (radius >= span) return TINYIMG_OK;
 
     for (uint32_t y = 0; y < image->height; y++) {
         for (uint32_t x = 0; x < image->width; x++) {
-            float dx = (float) x + 0.5f - centre_x;
-            float dy = (float) y + 0.5f - centre_y;
+            float dx = (float) x + 0.5f - center_x;
+            float dy = (float) y + 0.5f - center_y;
             float distance = tiny_sqrtf(dx * dx + dy * dy);
 
             if (distance <= radius) continue;
@@ -1513,7 +1513,7 @@ int tiny_image_vignette(
             float weight = strength * t * t;
             uint8_t* p = pixel_at(image, x, y);
 
-            for (uint8_t c = 0; c < colours; c++) {
+            for (uint8_t c = 0; c < colors; c++) {
                 float target = color ? (float) color[c] : 0.0f;
 
                 p[c] = tiny_clamp_u8f(
@@ -1737,14 +1737,14 @@ int tiny_image_glow(TinyImage* image, float sigma, float strength) {
         return result;
     }
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
     size_t pixels = (size_t) image->width * image->height;
 
     for (size_t i = 0; i < pixels; i++) {
         uint8_t* p = image->data + i * image->channels;
         const uint8_t* halo = soft.data + i * soft.channels;
 
-        for (uint8_t c = 0; c < colours; c++) {
+        for (uint8_t c = 0; c < colors; c++) {
             // screened rather than added, so a bright area gains less than a
             // dark one and nothing clips to a flat white plateau
             float base = (float) p[c] / 255.0f;
@@ -1796,7 +1796,7 @@ int tiny_image_drop_shadow(
         tone[at] = 255u;
     }
 
-    // the silhouette is the alpha channel with the colour replaced, moved by
+    // the silhouette is the alpha channel with the color replaced, moved by
     // the offset, then softened
     size_t pixels = (size_t) shadow.width * shadow.height;
 
@@ -1878,13 +1878,13 @@ int tiny_image_noise(TinyImage* image, float amount, int monochrome) {
     if (!image || !image->data) return TINYIMG_ERR_NULL;
     if (amount < 0.0f) return TINYIMG_ERR_RANGE;
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
 
     for (uint32_t y = 0; y < image->height; y++) {
         for (uint32_t x = 0; x < image->width; x++) {
             uint8_t* p = pixel_at(image, x, y);
 
-            for (uint8_t c = 0; c < colours; c++) {
+            for (uint8_t c = 0; c < colors; c++) {
                 float value = noise_at(x, y, monochrome ? 0u : c);
                 p[c] = tiny_clamp_u8f((float) p[c] + amount * value);
             }
@@ -1899,14 +1899,14 @@ int tiny_image_film_grain(TinyImage* image, float amount) {
     if (!image || !image->data) return TINYIMG_ERR_NULL;
     if (amount < 0.0f) return TINYIMG_ERR_RANGE;
 
-    uint8_t colours = colour_channels(image);
+    uint8_t colors = color_channels(image);
 
     for (uint32_t y = 0; y < image->height; y++) {
         for (uint32_t x = 0; x < image->width; x++) {
             uint8_t* p = pixel_at(image, x, y);
             float value = noise_at(x, y, 0u);
 
-            for (uint8_t c = 0; c < colours; c++) {
+            for (uint8_t c = 0; c < colors; c++) {
                 // weighted toward the midtones, which is where film's grain
                 // actually is: a fully exposed or unexposed grain has no
                 // variance left to show
@@ -2005,8 +2005,8 @@ TINYIMG_EXPORT("tiny_image_auto_levels")
 int tiny_image_auto_levels(TinyImage* image) {
     if (!image || !image->data) return TINYIMG_ERR_NULL;
 
-    uint8_t colours = colour_channels(image);
-    if (colours < 3u) return tiny_image_auto_contrast(image);
+    uint8_t colors = color_channels(image);
+    if (colors < 3u) return tiny_image_auto_contrast(image);
 
     TinyPlan plan;
     int result = tiny_plan_init_image(&plan, image);
@@ -2014,7 +2014,7 @@ int tiny_image_auto_levels(TinyImage* image) {
 
     uint32_t total = image->width * image->height;
 
-    // each channel stretched on its own, which changes the colour balance as
+    // each channel stretched on its own, which changes the color balance as
     // well as the contrast; that is the difference from auto contrast, which
     // stretches the luminance and leaves the balance alone
     for (uint8_t c = 0; c < 3u; c++) {
@@ -2074,7 +2074,7 @@ int tiny_image_auto_gamma(TinyImage* image) {
 TINYIMG_EXPORT("tiny_image_auto_color")
 int tiny_image_auto_color(TinyImage* image) {
     if (!image || !image->data) return TINYIMG_ERR_NULL;
-    if (colour_channels(image) < 3u) return TINYIMG_OK;
+    if (color_channels(image) < 3u) return TINYIMG_OK;
 
     uint32_t total = image->width * image->height;
     float mean[3];
@@ -2089,7 +2089,7 @@ int tiny_image_auto_color(TinyImage* image) {
         if (mean[c] < 1.0f) return TINYIMG_OK;
     }
 
-    // grey world: the scene's average is assumed neutral, so each channel is
+    // gray world: the scene's average is assumed neutral, so each channel is
     // scaled to the average of the three averages
     float target = (mean[0] + mean[1] + mean[2]) / 3.0f;
 
@@ -2146,7 +2146,7 @@ TINYIMG_EXPORT("tiny_image_dehaze")
 int tiny_image_dehaze(TinyImage* image, float strength) {
     if (!image || !image->data) return TINYIMG_ERR_NULL;
     if (strength < 0.0f || strength > 1.0f) return TINYIMG_ERR_RANGE;
-    if (colour_channels(image) < 3u) return TINYIMG_OK;
+    if (color_channels(image) < 3u) return TINYIMG_OK;
 
     // the dark channel prior: in a haze-free outdoor image most small patches
     // hold at least one channel near zero, so where the darkest channel over a
@@ -2264,7 +2264,7 @@ static int warp_run(
 
     if (!background && channels != 2u && channels != 4u) {
         // an uncovered pixel has to be something, and transparent is the only
-        // answer that is not a colour the caller did not choose
+        // answer that is not a color the caller did not choose
         int result = tiny_image_to_rgba(image);
         if (result != TINYIMG_OK) return result;
 
@@ -2562,8 +2562,8 @@ int tiny_image_perspective(
 
 /** Context the radial warps share. */
 typedef struct {
-    float centre_x;
-    float centre_y;
+    float center_x;
+    float center_y;
     float span;
     float amount;
 } Radial;
@@ -2572,34 +2572,34 @@ static void map_barrel(
     const void* context, float x, float y, float* out_x, float* out_y
 ) {
     const Radial* r = context;
-    float dx = (x - r->centre_x) / r->span;
-    float dy = (y - r->centre_y) / r->span;
+    float dx = (x - r->center_x) / r->span;
+    float dy = (y - r->center_y) / r->span;
     float radius = dx * dx + dy * dy;
     float scale = 1.0f + r->amount * radius;
 
-    *out_x = r->centre_x + dx * r->span * scale;
-    *out_y = r->centre_y + dy * r->span * scale;
+    *out_x = r->center_x + dx * r->span * scale;
+    *out_y = r->center_y + dy * r->span * scale;
 }
 
 static void map_swirl(
     const void* context, float x, float y, float* out_x, float* out_y
 ) {
     const Radial* r = context;
-    float dx = x - r->centre_x;
-    float dy = y - r->centre_y;
+    float dx = x - r->center_x;
+    float dy = y - r->center_y;
     float distance = tiny_sqrtf(dx * dx + dy * dy);
     float t = 1.0f - distance / r->span;
 
     if (t < 0.0f) t = 0.0f;
 
-    // most at the centre and nothing at the rim, so the edge of the image is
+    // most at the center and nothing at the rim, so the edge of the image is
     // where it was and the twist has no seam
     float angle = r->amount * t * t;
     float c = tiny_cosf(angle);
     float s = tiny_sinf(angle);
 
-    *out_x = r->centre_x + dx * c - dy * s;
-    *out_y = r->centre_y + dx * s + dy * c;
+    *out_x = r->center_x + dx * c - dy * s;
+    *out_y = r->center_y + dx * s + dy * c;
 }
 
 static void map_polar(
@@ -2609,28 +2609,28 @@ static void map_polar(
 
     if (r->amount < 0.0f) {
         // a disc unrolled: the output's x is the angle and its y the radius
-        float angle = x / (r->centre_x * 2.0f) * 2.0f * PI - PI;
-        float radius = y / (r->centre_y * 2.0f) * r->span;
+        float angle = x / (r->center_x * 2.0f) * 2.0f * PI - PI;
+        float radius = y / (r->center_y * 2.0f) * r->span;
 
-        *out_x = r->centre_x + radius * tiny_sinf(angle);
-        *out_y = r->centre_y - radius * tiny_cosf(angle);
+        *out_x = r->center_x + radius * tiny_sinf(angle);
+        *out_y = r->center_y - radius * tiny_cosf(angle);
         return;
     }
 
-    float dx = x - r->centre_x;
-    float dy = y - r->centre_y;
+    float dx = x - r->center_x;
+    float dy = y - r->center_y;
     float distance = tiny_sqrtf(dx * dx + dy * dy);
     float angle = tiny_atan2f(dx, -dy);
 
-    *out_x = (angle + PI) / (2.0f * PI) * r->centre_x * 2.0f;
-    *out_y = distance / r->span * r->centre_y * 2.0f;
+    *out_x = (angle + PI) / (2.0f * PI) * r->center_x * 2.0f;
+    *out_y = distance / r->span * r->center_y * 2.0f;
 }
 
-/** Fills in the centre and span every radial warp works from. */
+/** Fills in the center and span every radial warp works from. */
 static void radial_of(Radial* r, const TinyImage* image, float amount) {
-    r->centre_x = (float) image->width * 0.5f;
-    r->centre_y = (float) image->height * 0.5f;
-    r->span = tiny_sqrtf(r->centre_x * r->centre_x + r->centre_y * r->centre_y);
+    r->center_x = (float) image->width * 0.5f;
+    r->center_y = (float) image->height * 0.5f;
+    r->span = tiny_sqrtf(r->center_x * r->center_x + r->center_y * r->center_y);
     r->amount = amount;
 }
 
@@ -2668,7 +2668,7 @@ int tiny_image_polar(TinyImage* image, int inverse) {
 
 /** Context the arc warp works from. */
 typedef struct {
-    float centre_x;
+    float center_x;
     float height;
     float amount;
 } Arc;
@@ -2677,7 +2677,7 @@ static void map_arc(
     const void* context, float x, float y, float* out_x, float* out_y
 ) {
     const Arc* a = context;
-    float t = (x - a->centre_x) / a->centre_x;
+    float t = (x - a->center_x) / a->center_x;
 
     // the row a pixel came from is lifted by a parabola in the horizontal
     // position, which is the arc to within the fraction of a pixel a caller
@@ -2694,7 +2694,7 @@ int tiny_image_arc(TinyImage* image, float degrees, const uint8_t* background) {
     if (degrees == 0.0f) return TINYIMG_OK;
 
     Arc a;
-    a.centre_x = (float) image->width * 0.5f;
+    a.center_x = (float) image->width * 0.5f;
     a.height = (float) image->height;
     a.amount = degrees / 180.0f;
 
@@ -2769,8 +2769,8 @@ int tiny_effect_apply(TinyImage* image, const TinyPlanOp* op) {
     static const int32_t SOBEL_Y[9] = {-1, -2, -1, 0, 0, 0, 1, 2, 1};
     // zero sum, so a flat area comes out as the offset alone and `strength`
     // means what its documentation says. the commonly quoted emboss kernel has
-    // a 1 in the centre and sums to one, which leaves a flat area at its own
-    // value plus the offset and so clips everything above mid grey
+    // a 1 in the center and sums to one, which leaves a flat area at its own
+    // value plus the offset and so clips everything above mid gray
     static const int32_t EMBOSS[9] = {-2, -1, 0, -1, 0, 1, 0, 1, 2};
 
     switch (op->effect.kind) {
