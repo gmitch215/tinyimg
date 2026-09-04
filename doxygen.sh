@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-git config --local user.email "action@github.com"
-git config --local user.name "GitHub Action"
+# -c rather than 'git config --local': the local form writes into .git/config and stays there, so a
+# run on a workstation leaves every later commit in that clone attributed to GitHub Action. This
+# script did exactly that here and 39 commits carry the wrong author because of it.
+commit_as=(-c "user.email=action@github.com" -c "user.name=GitHub Action")
 
 tmpdir="$(mktemp -d)"
 cp -R build/docs/html/. "$tmpdir/"
@@ -26,6 +28,6 @@ if git diff --cached --quiet; then
 	exit 0
 fi
 
-git commit -m "Update PHPDoc ($1)"
+git "${commit_as[@]}" commit -m "Update Doxygen ($1)"
 # the branch was built on origin/gh-pages, so this fast-forwards and never needs -f
 git push origin gh-pages
