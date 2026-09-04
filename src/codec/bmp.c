@@ -481,11 +481,11 @@ static int bmp_encode(
     if (image->width == 0 || image->height == 0) return TINYIMG_ERR_RANGE;
 
     int has_alpha = image->channels == 2 || image->channels == 4;
-    int greyscale = image->channels == 1;
+    int grayscale = image->channels == 1;
 
-    uint16_t bpp = has_alpha ? 32 : (greyscale ? 8 : 24);
+    uint16_t bpp = has_alpha ? 32 : (grayscale ? 8 : 24);
     uint32_t header_size = has_alpha ? BMP_V4_HEADER : BMP_INFO_HEADER;
-    uint32_t palette_bytes = greyscale ? 1024u : 0u;
+    uint32_t palette_bytes = grayscale ? 1024u : 0u;
     uint32_t stride = (((uint32_t) bpp * image->width + 31u) / 32u) * 4u;
 
     uint32_t offset = BMP_FILE_HEADER + header_size + palette_bytes;
@@ -510,7 +510,7 @@ static int bmp_encode(
     tiny_writer_le32(writer, (uint32_t) pixels);
     tiny_writer_le32(writer, 0);
     tiny_writer_le32(writer, 0);
-    tiny_writer_le32(writer, greyscale ? 256u : 0u);
+    tiny_writer_le32(writer, grayscale ? 256u : 0u);
     tiny_writer_le32(writer, 0);
 
     if (has_alpha) {
@@ -525,7 +525,7 @@ static int bmp_encode(
         tiny_writer_le32(writer, 0);
     }
 
-    if (greyscale) {
+    if (grayscale) {
         for (uint32_t i = 0; i < 256; i++) {
             uint8_t entry[4] = {(uint8_t) i, (uint8_t) i, (uint8_t) i, 0};
             tiny_writer_write(writer, entry, sizeof(entry));
@@ -543,7 +543,7 @@ static int bmp_encode(
         for (uint32_t x = 0; x < image->width; x++) {
             const uint8_t* pixel = row + (size_t) x * image->channels;
 
-            if (greyscale) {
+            if (grayscale) {
                 tiny_writer_u8(writer, pixel[0]);
                 continue;
             }
