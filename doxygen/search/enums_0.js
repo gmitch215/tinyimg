@@ -1,0 +1,27 @@
+var searchData=
+[
+  ['tinyblendmode_0',['TinyBlendMode',['../d5/db2/image_8h.html#a9c6d4a03691a288d69cf1b6f8459ada1',1,'image.h']]],
+  ['tinyblobkind_1',['TinyBlobKind',['../dc/d18/memory_8h.html#a410dc62b546b7190f9708dbcd133fbdd',1,'memory.h']]],
+  ['tinycolorblindkind_2',['TinyColorblindKind',['../d5/db2/image_8h.html#a6ca4f10c9ff86b89b730a7e62dcb4403',1,'image.h']]],
+  ['tinycurvekind_3',['TinyCurveKind',['../d9/d4e/plan_8h.html#af6bbf2c33ad4ab47f9e29648a962c03a',1,'plan.h']]],
+  ['tinydeflatelevel_4',['TinyDeflateLevel',['../d8/dee/deflate_8h.html#a13863bacc9485fb9bacf96371b70fb90',1,'deflate.h']]],
+  ['tinydrawmode_5',['TinyDrawMode',['../d5/db2/image_8h.html#adfb1b33e52f759fb4389bb53cc62a59d',1,'image.h']]],
+  ['tinyeffectkind_6',['TinyEffectKind',['../d9/d4e/plan_8h.html#ab679bd252551263a819cfde78d963cd3',1,'plan.h']]],
+  ['tinyeffort_7',['TinyEffort',['../d5/db2/image_8h.html#a8f3b99eeaa1cd08f18cd2f9e9a898a61',1,'image.h']]],
+  ['tinyfillrule_8',['TinyFillRule',['../d5/db2/image_8h.html#a56e02aa6587965023d7354983c3e9fc2',1,'image.h']]],
+  ['tinyfontkind_9',['TinyFontKind',['../d9/dcc/text_8h.html#aa1199c1e119040b3c4047904c23858af',1,'text.h']]],
+  ['tinyimageerror_10',['TinyImageError',['../d6/d18/tinyimg_8h.html#a2dc7ed040dee60bd0964470b39225668',1,'tinyimg.h']]],
+  ['tinyimagefeature_11',['TinyImageFeature',['../d6/d18/tinyimg_8h.html#a86d14f3e68ce87857aa448e48ae00138',1,'tinyimg.h']]],
+  ['tinyimagefit_12',['TinyImageFit',['../d5/db2/image_8h.html#aa83810f6b654cd027fdc77e88e5ced8a',1,'image.h']]],
+  ['tinyimageformat_13',['TinyImageFormat',['../d5/db2/image_8h.html#a0cfa60bdfdbf3bc49b738a9f19accb8b',1,'image.h']]],
+  ['tinyimagegravity_14',['TinyImageGravity',['../d5/db2/image_8h.html#acbf5b2d1f2c827abfc3b95ab8282e79b',1,'image.h']]],
+  ['tinyimagepixeltype_15',['TinyImagePixelType',['../d5/db2/image_8h.html#a44d8522cd13eb9fc0164724cd47d65ec',1,'image.h']]],
+  ['tinyimagepreset_16',['TinyImagePreset',['../d5/db2/image_8h.html#aa3dc1cf03bcc7bb91979eda2dd7e48a9',1,'image.h']]],
+  ['tinyplanfield_17',['TinyPlanField',['../d9/d4e/plan_8h.html#abfb24bb74084d275d821d2b6048596f6',1,'plan.h']]],
+  ['tinyplankernel_18',['TinyPlanKernel',['../d9/d4e/plan_8h.html#a41ce42f913bd0f7e17e31e694f2f4590',1,'plan.h']]],
+  ['tinyplanopclass_19',['TinyPlanOpClass',['../d9/d4e/plan_8h.html#a5371a7ad00cd01f188f53e9d38a39385',1,'plan.h']]],
+  ['tinyplanopkind_20',['TinyPlanOpKind',['../d9/d4e/plan_8h.html#a8c895994a8e8aee1f0d9650b1e65e827',1,'plan.h']]],
+  ['tinyresamplefilter_21',['TinyResampleFilter',['../d9/d4e/plan_8h.html#aa310fe6104e33c23c38848721d1ee76c',1,'plan.h']]],
+  ['tinyshapekind_22',['TinyShapeKind',['../d5/db2/image_8h.html#a73a8fadb42d10a2c56c9c7795cd04aec',1,'image.h']]],
+  ['tinytextalign_23',['TinyTextAlign',['../d9/dcc/text_8h.html#a50e830303855b71f38ed9465edaa49c4',1,'text.h']]]
+];
