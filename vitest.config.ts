@@ -39,6 +39,32 @@ const codec = {
 	]
 };
 
+/**
+ * A third worker running the shipped wrapper rather than the raw exports.
+ *
+ * It imports `dist/`, not `src/ts/`, and that is the point: the other two prove the C works inside
+ * workerd, and this proves the package a caller installs does. Miniflare takes an explicit module
+ * list and does not transpile, so the compiled output is also the only thing it could load.
+ *
+ * `bun run test:workers` builds `dist/` first for this reason.
+ */
+const wrapper = {
+	name: 'tinyimg-wrapper',
+	compatibilityDate: '2026-08-22',
+	modulesRoot: root,
+	modules: [
+		{
+			type: 'ESModule' as const,
+			path: join(root, 'tests/workers/fixtures/wrapper-worker.mjs')
+		},
+		...['index', 'image', 'transform', 'types', 'wasm'].map((name) => ({
+			type: 'ESModule' as const,
+			path: join(root, `dist/${name}.js`)
+		})),
+		{ type: 'CompiledWasm' as const, path: join(root, 'bin/tinyimg.wasm') }
+	]
+};
+
 export default defineConfig({
 	test: {
 		coverage: {
@@ -66,8 +92,12 @@ export default defineConfig({
 					cloudflareTest({
 						miniflare: {
 							compatibilityDate: '2026-08-22',
-							serviceBindings: { PROBE: 'tinyimg-probe', CODEC: 'tinyimg-codec' },
-							workers: [probe, codec]
+							serviceBindings: {
+								PROBE: 'tinyimg-probe',
+								CODEC: 'tinyimg-codec',
+								WRAPPER: 'tinyimg-wrapper'
+							},
+							workers: [probe, codec, wrapper]
 						}
 					})
 				],
