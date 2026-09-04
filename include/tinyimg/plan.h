@@ -304,6 +304,8 @@ typedef struct {
             float focus_y;
             /** Non-zero when `focus_x` and `focus_y` have been resolved. */
             uint8_t focused;
+            /** Weights the fit's scale samples through. */
+            TinyResampleFilter filter;
         } fit; /**< Operands of TINYIMG_OP_FIT. */
 
         struct {
@@ -711,6 +713,30 @@ int tiny_plan_resize_with(
 int tiny_plan_fit(
     TinyPlan* plan, uint32_t width, uint32_t height, TinyImageFit mode,
     TinyImageGravity gravity
+);
+
+/**
+ * @brief Appends a fit that samples through a named filter.
+ *
+ * tiny_plan_fit leaves the filter to the planner, which is the right default
+ * and what almost every caller wants. This exists because a caller who names a
+ * filter for a resize has no way to name one for a fit, and an option that is
+ * accepted and then ignored is worse than one that does not exist.
+ *
+ * @param plan The plan.
+ * @param width Target width.
+ * @param height Target height.
+ * @param mode How the aspect mismatch is absorbed and how the scale is
+ * clamped; see TinyImageFit.
+ * @param gravity Which part of the image a crop keeps, or where a pad puts it.
+ * @param filter The weights to sample through. TINYIMG_FILTER_AUTO is what
+ * tiny_plan_fit passes.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL, TINYIMG_ERR_RANGE, or
+ * TINYIMG_ERR_PLAN.
+ */
+int tiny_plan_fit_with(
+    TinyPlan* plan, uint32_t width, uint32_t height, TinyImageFit mode,
+    TinyImageGravity gravity, TinyResampleFilter filter
 );
 
 /**
