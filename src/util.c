@@ -168,6 +168,44 @@ float tiny_cosf(float x) {
     }
 }
 
+/**
+ * @brief Arctangent on the unit interval.
+ *
+ * A minimax polynomial in odd powers, which is what keeps it exact at zero and
+ * odd-symmetric without a sign correction.
+ *
+ * @param x Between -1 and 1.
+ * @return float Radians.
+ */
+static float atan_poly(float x) {
+    float x2 = x * x;
+
+    return x * (0.99997726f +
+                x2 * (-0.33262347f +
+                      x2 * (0.19354346f +
+                            x2 * (-0.11643287f +
+                                  x2 * (0.05265332f - x2 * 0.01172120f)))));
+}
+
+float tiny_atan2f(float y, float x) {
+    static const float PI = 3.14159265358979f;
+    static const float HALF_PI = 1.57079632679490f;
+
+    if (x == 0.0f && y == 0.0f) return 0.0f;
+
+    float ax = x < 0.0f ? -x : x;
+    float ay = y < 0.0f ? -y : y;
+
+    // the polynomial is only good on the unit interval, so the smaller
+    // component is always the numerator and the octant is corrected after
+    float angle = ax >= ay ? atan_poly(ay / ax) : HALF_PI - atan_poly(ax / ay);
+
+    if (x < 0.0f) angle = PI - angle;
+    if (y < 0.0f) angle = -angle;
+
+    return angle;
+}
+
 #pragma endregion
 
 #pragma region lookup tables
@@ -191,6 +229,26 @@ void tiny_lut_gamma(uint8_t* lut, float gamma) {
     for (uint32_t i = 0; i < 256; i++) {
         float normalized = (float) i * (1.0f / 255.0f);
         lut[i] = tiny_clamp_u8f(tiny_powf(normalized, gamma) * 255.0f);
+    }
+}
+
+void tiny_lut_srgb(uint8_t* lut, int encode) {
+    if (!lut) return;
+
+    for (uint32_t i = 0; i < 256; i++) {
+        float v = (float) i * (1.0f / 255.0f);
+        float out;
+
+        if (encode) {
+            out = v <= 0.0031308f ? v * 12.92f
+                                  : 1.055f * tiny_powf(v, 1.0f / 2.4f) - 0.055f;
+        }
+        else {
+            out = v <= 0.04045f ? v / 12.92f
+                                : tiny_powf((v + 0.055f) / 1.055f, 2.4f);
+        }
+
+        lut[i] = tiny_clamp_u8f(out * 255.0f);
     }
 }
 
