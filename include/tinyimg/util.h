@@ -142,6 +142,15 @@ float tiny_sinf(float x);
 float tiny_cosf(float x);
 
 /**
+ * @brief Angle of the vector (x, y) from the positive x axis.
+ *
+ * @param y The vertical component.
+ * @param x The horizontal component.
+ * @return float Radians in (-pi, pi]. Both components zero gives zero.
+ */
+float tiny_atan2f(float y, float x);
+
+/**
  * @brief Clamps a signed integer into the 0-255 range of one 8 bit channel.
  *
  * @param v The value.
@@ -230,6 +239,19 @@ void tiny_lut_identity(uint8_t* lut);
  * identity.
  */
 void tiny_lut_gamma(uint8_t* lut, float gamma);
+
+/**
+ * @brief Fills a 256 entry table with the sRGB transfer function.
+ *
+ * The piecewise curve from IEC 61966-2-1, linear near black and a power of
+ * 1/2.4 above it, rather than the plain 2.2 power it is often quoted as. The
+ * two differ by up to three levels in the shadows, which is where an ICC
+ * conversion is measured.
+ *
+ * @param lut Table to fill.
+ * @param encode Non-zero for linear light to sRGB, zero for the inverse.
+ */
+void tiny_lut_srgb(uint8_t* lut, int encode);
 
 /**
  * @brief Composes two 256 entry tables into one.
@@ -338,7 +360,7 @@ int tiny_strcopy(char* dest, const char* src, size_t capacity);
  * nodes are found by scanning rather than through a heap. At the 536 symbols
  * the larger caller reaches that is about 143k comparisons, against a heap's
  * 5k, and it is a third of the code; past a few thousand symbols the trade
- * stops being worth it, which is one reason WebP's colour cache is capped where
+ * stops being worth it, which is one reason WebP's color cache is capped where
  * it is.
  *
  * @param frequencies How often each symbol occurs, `count` entries.
