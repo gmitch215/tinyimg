@@ -96,6 +96,7 @@ int tiny_decode_resolve(
     uint32_t h = height;
     uint8_t den = 1;
     uint8_t channels = 0;
+    uint8_t effort = 0;
 
     if (opts) {
         x = opts->x;
@@ -104,6 +105,7 @@ int tiny_decode_resolve(
         h = opts->height ? opts->height : height;
         den = opts->scale_den;
         channels = opts->channels;
+        effort = opts->effort;
     }
 
     if (x >= width || y >= height) return TINYIMG_ERR_BOUNDS;
@@ -127,6 +129,7 @@ int tiny_decode_resolve(
     out->height = h;
     out->scale_den = den;
     out->channels = channels;
+    out->effort = effort;
 
     *out_width = resolved_width;
     *out_height = resolved_height;
