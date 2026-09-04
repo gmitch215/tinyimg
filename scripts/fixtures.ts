@@ -1,5 +1,5 @@
 /**
- * Normalises the source fixtures and generates the reference set the differential tests read.
+ * Normalizes the source fixtures and generates the reference set the differential tests read.
  *
  * ```sh
  * bun scripts/fixtures.ts                 # everything
@@ -12,7 +12,7 @@
  * anything if their references are reproducible from a committed command. Its output is committed, so
  * CI needs none of the image tooling; re-run it when a fixture is replaced or a format is added.
  *
- * Needs `magick`, `cwebp`, `avifenc` and `cjpeg` on PATH.
+ * Needs `magick`, `cwebp`, `webpmux`, `avifenc` and `exiftool` on PATH.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -29,6 +29,8 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { packCascade } from './cascade.ts';
+import { buildBdf, buildPsf1, buildPsf2, cffStub, subsetFont } from './fonts.ts';
 import { buildProfile, SPACES } from './icc.ts';
 
 const ROOT = join(import.meta.dirname, '..');
@@ -43,6 +45,19 @@ const BLOBS = join(ROOT, 'blobs');
  * buffer inside the 64 MB linear-memory cap. Three of the sources arrived well over that.
  */
 const MAX_LONG_SIDE = 3000;
+
+/**
+ * Fixtures {@link normalize} leaves alone, and the extent each one is pinned to.
+ *
+ * `digicam.jpg` exists to be the largest source the library actually supports, so shrinking it to
+ * {@link MAX_LONG_SIDE} would remove the only thing it tests. 3600x2700 is 9.72 Mpx, which is 29.2
+ * MB of RGB against the 32 MiB TINYIMG_MAX_IMAGE_BYTES cap and peaks at 50.2 of the 64 MiB heap on
+ * a full decode. The next step up, 3840x2880, reaches 98.9% of the cap and would fail on any
+ * re-encode that chose a different subsampling.
+ */
+const PINNED: Record<string, [number, number]> = {
+	'digicam.jpg': [3600, 2700]
+};
 
 /** The canonical small image every codec decode is compared against. */
 const BASE = { source: 'sf-24.jpg', width: 320, height: 180 };
@@ -63,7 +78,7 @@ function run(command: string, args: string[]) {
  * The writer stamps `tIME` plus three `date:*` text chunks into every PNG, which made 20 of the 79
  * derived files differ byte-for-byte on an identical re-run; committed output that churns like that
  * grows history on every regeneration. `-strip` would also do it and would take the iCCP chunk the
- * colour fixtures exist for, so the exclusion is named rather than blanket. Inserted before the output
+ * color fixtures exist for, so the exclusion is named rather than blanket. Inserted before the output
  * spec, which has to stay last.
  */
 function magick(args: string[]) {
@@ -89,12 +104,23 @@ function requireTools(...names: string[]) {
 
 function sources(): string[] {
 	return readdirSync(FIXTURES)
-		.filter((name) => /\.(jpg|jpeg|png|webp)$/i.test(name))
+		.filter((name) => /\.(jpg|jpeg|png|webp|gif|tiff)$/i.test(name))
 		.sort();
 }
 
+/**
+ * A source path pinned to its first frame.
+ *
+ * An animation is many images to ImageMagick, so every read of one has to say which. Without this
+ * `identify -format '%w %h'` prints the format once per frame and `-resize` writes an animation
+ * where a still reference was wanted.
+ */
+function frameZero(path: string): string {
+	return /\.gif$/i.test(path) ? `${path}[0]` : path;
+}
+
 function dimensions(path: string): { width: number; height: number } {
-	const out = execFileSync('magick', ['identify', '-format', '%w %h', path], {
+	const out = execFileSync('magick', ['identify', '-format', '%w %h', frameZero(path)], {
 		encoding: 'utf8'
 	});
 	const [width, height] = out.trim().split(' ').map(Number);
@@ -116,6 +142,29 @@ function normalize() {
 	for (const name of sources()) {
 		const path = join(FIXTURES, name);
 		const before = dimensions(path);
+		const pinned = PINNED[name];
+
+		if (pinned) {
+			if (before.width === pinned[0] && before.height === pinned[1]) {
+				console.log(`  ${name}: ${before.width}x${before.height}, pinned`);
+				continue;
+			}
+
+			magick([
+				path,
+				'-resize',
+				`${pinned[0]}x${pinned[1]}!`,
+				'-quality',
+				'92',
+				'-strip',
+				path
+			]);
+			console.log(
+				`  ${name}: ${before.width}x${before.height} -> ${pinned[0]}x${pinned[1]}, pinned`
+			);
+			continue;
+		}
+
 		if (Math.max(before.width, before.height) <= MAX_LONG_SIDE) {
 			console.log(`  ${name}: ${before.width}x${before.height}, unchanged`);
 			continue;
@@ -151,7 +200,7 @@ function derivedPath(...parts: string[]): string {
 	return path;
 }
 
-/** The reference PNG, plus its alpha and greyscale companions. */
+/** The reference PNG, plus its alpha and grayscale companions. */
 function baseImages() {
 	const source = join(FIXTURES, BASE.source);
 	const size = `${BASE.width}x${BASE.height}!`;
@@ -215,6 +264,53 @@ function codecMatrix() {
 	// gif
 	magick([base, `GIF:${derivedPath('base.gif')}`]);
 	magick([base, '-interlace', 'GIF', `GIF:${derivedPath('base-interlaced.gif')}`]);
+	magick([base, '-monochrome', `GIF:${derivedPath('base-mono.gif')}`]);
+
+	// a palette with an entry spent on transparency, which is the only way the
+	// format carries alpha
+	magick([alpha, '-colors', '128', `GIF:${derivedPath('base-transparent.gif')}`]);
+
+	/*
+	 * Three frames, so probe has a frame count to report for a codec that reads
+	 * only the first. Rolling the picture sideways gives each frame different
+	 * content without a second source, which matters because a frame identical
+	 * to the one before it is a frame an optimizer may drop.
+	 */
+	magick([
+		base,
+		'-resize',
+		'160x90!',
+		'(',
+		'+clone',
+		'-roll',
+		'+12+0',
+		')',
+		'(',
+		'+clone',
+		'-roll',
+		'+12+0',
+		')',
+		'-set',
+		'delay',
+		'10',
+		'-loop',
+		'0',
+		`GIF:${derivedPath('base-animation.gif')}`
+	]);
+
+	/*
+	 * A frame smaller than the logical screen and offset inside it, which is the
+	 * case where the two plausible answers for "how big is this image" differ. A
+	 * viewer shows the screen, so that is what the decode has to produce.
+	 */
+	magick([
+		base,
+		'-resize',
+		'120x90!',
+		'-repage',
+		'160x120+40+30',
+		`GIF:${derivedPath('base-offset.gif')}`
+	]);
 
 	// tiff, one file per compression we read
 	for (const [name, compress] of [
@@ -226,11 +322,60 @@ function codecMatrix() {
 		magick([base, '-compress', compress, `TIFF:${derivedPath(`base-${name}.tif`)}`]);
 	}
 
+	/*
+	 * The rest of the TIFF variants, one per thing the reader has to handle that
+	 * a compression alone does not reach: a single channel, four channels, a
+	 * color map, the horizontal predictor, a strip height that is not the whole
+	 * image, and the other byte order.
+	 */
+	magick([
+		base,
+		'-colorspace',
+		'Gray',
+		'-compress',
+		'Zip',
+		`TIFF:${derivedPath('base-gray.tif')}`
+	]);
+	magick([
+		alpha,
+		'-compress',
+		'Zip',
+		'-define',
+		'tiff:predictor=2',
+		`TIFF:${derivedPath('base-alpha.tif')}`
+	]);
+	magick([
+		base,
+		'-compress',
+		'Zip',
+		'-define',
+		'tiff:predictor=2',
+		`TIFF:${derivedPath('base-predictor.tif')}`
+	]);
+	magick([base, '-colors', '256', '-compress', 'LZW', `TIFF:${derivedPath('base-palette.tif')}`]);
+	magick([
+		base,
+		'-compress',
+		'LZW',
+		'-define',
+		'tiff:rows-per-strip=7',
+		`TIFF:${derivedPath('base-strips.tif')}`
+	]);
+	magick([
+		base,
+		'-compress',
+		'LZW',
+		'-define',
+		'tiff:endian=msb',
+		`TIFF:${derivedPath('base-msb.tif')}`
+	]);
+
 	// jpeg, one file per chroma subsampling plus the awkward variants
 	for (const [name, sampling] of [
 		['444', '4:4:4'],
 		['422', '4:2:2'],
-		['420', '4:2:0']
+		['420', '4:2:0'],
+		['411', '4:1:1']
 	] as const) {
 		magick([
 			base,
@@ -251,6 +396,45 @@ function codecMatrix() {
 		'-strip',
 		`JPEG:${derivedPath('base-progressive.jpg')}`
 	]);
+
+	// restart markers every four MCU rows, which a decoder has to resynchronize
+	// on rather than read through
+	magick([
+		base,
+		'-sampling-factor',
+		'4:2:0',
+		'-quality',
+		'92',
+		'-define',
+		'jpeg:restart-interval=4',
+		`JPEG:${derivedPath('base-restart.jpg')}`
+	]);
+
+	/*
+	 * Every source fixture was stripped when it was normalized, so the only way
+	 * to have EXIF to read is to write some. The tags are fixed rather than taken
+	 * from the clock, since a fixture whose bytes change by the day is not a
+	 * fixture.
+	 */
+	for (const [name, orientation] of [
+		['base-exif.jpg', 1],
+		['base-exif-rotated.jpg', 6]
+	] as const) {
+		const path = derivedPath(name);
+
+		magick([base, '-sampling-factor', '4:4:4', '-quality', '92', `JPEG:${path}`]);
+		run('exiftool', [
+			'-overwrite_original',
+			'-q',
+			'-Make=tinyimg',
+			'-Model=fixture generator',
+			'-Software=tinyimg fixtures.ts',
+			'-Artist=Gregory Mitchell',
+			'-DateTimeOriginal=2026:09:02 12:00:00',
+			`-Orientation#=${orientation}`,
+			path
+		]);
+	}
 	magick([
 		base,
 		'-colorspace',
@@ -273,10 +457,97 @@ function codecMatrix() {
 	// webp
 	run('cwebp', ['-quiet', '-q', '80', base, '-o', derivedPath('base-lossy.webp')]);
 	run('cwebp', ['-quiet', '-lossless', base, '-o', derivedPath('base-lossless.webp')]);
-	run('cwebp', ['-quiet', '-lossless', alpha, '-o', derivedPath('base-alpha.webp')]);
 
-	// avif, read by probe only
+	/*
+	 * `-exact` or the color of a fully transparent pixel is rewritten, and
+	 * `magick compare` cannot see that because it composites before it measures.
+	 * Without it this file looks equal to its source and is not, which breaks the
+	 * assertion that a lossless decode is byte identical to the PNG of the same
+	 * picture.
+	 */
+	run('cwebp', ['-quiet', '-lossless', '-exact', alpha, '-o', derivedPath('base-alpha.webp')]);
+
+	/*
+	 * One file per branch of the lossy decoder that a plain encode does not
+	 * reach: the normal loop filter at a strength that engages it, the simple
+	 * filter, a filter sharpness that changes its inner limit, a single
+	 * segment, and the three ways alpha can arrive.
+	 */
+	for (const [name, flags] of [
+		['base-lossy-alpha', []],
+		['base-strong', ['-f', '40', '-strong']],
+		['base-simple', ['-nostrong']],
+		['base-sharp', ['-sharpness', '4']],
+		['base-onesegment', ['-segments', '1']],
+		['base-filtered-alpha', ['-alpha_filter', 'best']],
+		['base-raw-alpha', ['-alpha_method', '0']]
+	] as const) {
+		const source = name.includes('alpha') ? alpha : base;
+
+		run('cwebp', ['-quiet', '-q', '80', ...flags, source, '-o', derivedPath(`${name}.webp`)]);
+	}
+
+	/*
+	 * Two frames in an extended container, the second a row shorter than the
+	 * canvas. Reading the first frame's own extents rather than the canvas is the
+	 * mistake this exists to catch, and a second frame that matches the canvas
+	 * could not catch it.
+	 *
+	 * Only the second frame carries alpha, so the container declares it and the
+	 * first frame does not have it. A decoder that takes the flag from the
+	 * container has to synthesize an opaque channel for that frame rather than
+	 * looking for a chunk that is not there.
+	 */
+	const shorter = derivedPath('base-short.png');
+
+	magick([alpha, '-crop', '320x179+0+0', '+repage', `PNG32:${shorter}`]);
+	run('cwebp', ['-quiet', '-q', '80', shorter, '-o', `${shorter}.webp`]);
+	run('webpmux', [
+		'-frame',
+		derivedPath('base-lossy.webp'),
+		'+100',
+		'-frame',
+		`${shorter}.webp`,
+		'+100',
+		'-loop',
+		'0',
+		'-o',
+		derivedPath('base-animation.webp')
+	]);
+
+	// the two intermediates exist only to be muxed together
+	rmSync(shorter);
+	rmSync(`${shorter}.webp`);
+
+	// avif, read by probe only. the second carries an irot the probe reports and
+	// deliberately does not apply
 	run('avifenc', ['-q', '60', '--speed', '8', base, derivedPath('base.avif')]);
+	run('avifenc', ['-q', '60', '--speed', '8', alpha, derivedPath('base-alpha.avif')]);
+	run('avifenc', [
+		'-q',
+		'60',
+		'--speed',
+		'8',
+		'--irot',
+		'1',
+		base,
+		derivedPath('base-rotated.avif')
+	]);
+}
+
+/**
+ * Where the full-resolution crop is taken from.
+ *
+ * A third of the way in, so it lands on content rather than a corner, pulled back far enough that
+ * {@link CROP_SIDE} still fits. `dartmouth.jpg` is 250x187 and is the first fixture small enough for
+ * the plain third to overrun the bottom edge, which produced a 128x125 reference against a manifest
+ * promising 128x128.
+ */
+function cropOrigin(width: number, height: number): { x: number; y: number } {
+	return {
+		x: Math.max(0, Math.min(Math.floor(width / 3), width - CROP_SIDE)),
+		y: Math.max(0, Math.min(Math.floor(height / 3), height - CROP_SIDE))
+	};
 }
 
 /** Per-source references: one scaled, one full-resolution crop. */
@@ -287,7 +558,7 @@ function perFixtureReferences() {
 		const { width, height } = dimensions(path);
 
 		magick([
-			path,
+			frameZero(path),
 			'-resize',
 			`${REF_LONG}x${REF_LONG}>`,
 			'-colorspace',
@@ -296,11 +567,9 @@ function perFixtureReferences() {
 			`PNG24:${derivedPath('ref', `${stem}.${REF_LONG}.png`)}`
 		]);
 
-		// a fixed offset a third of the way in, so the crop lands on content rather than a corner
-		const x = Math.floor(width / 3);
-		const y = Math.floor(height / 3);
+		const { x, y } = cropOrigin(width, height);
 		magick([
-			path,
+			frameZero(path),
 			'-crop',
 			`${CROP_SIDE}x${CROP_SIDE}+${x}+${y}`,
 			'+repage',
@@ -320,11 +589,12 @@ function perFixtureReferences() {
 				crops: Object.fromEntries(
 					sources().map((name) => {
 						const { width, height } = dimensions(join(FIXTURES, name));
+						const { x, y } = cropOrigin(width, height);
 						return [
 							name,
 							{
-								x: Math.floor(width / 3),
-								y: Math.floor(height / 3),
+								x,
+								y,
 								width: CROP_SIDE,
 								height: CROP_SIDE,
 								sourceWidth: width,
@@ -354,6 +624,24 @@ function edgeCases() {
 		'92',
 		'-strip',
 		`JPEG:${derivedPath('tiny-odd.jpg')}`
+	]);
+
+	// the same odd extents through WebP, where a bundled lossless row is narrower
+	// than the picture and the last macroblock column is partly padding
+	run('cwebp', [
+		'-quiet',
+		'-q',
+		'80',
+		derivedPath('tiny-odd.png'),
+		'-o',
+		derivedPath('tiny-odd-lossy.webp')
+	]);
+	run('cwebp', [
+		'-quiet',
+		'-lossless',
+		derivedPath('tiny-odd.png'),
+		'-o',
+		derivedPath('tiny-odd-lossless.webp')
 	]);
 
 	// 20 Mpx, over any sane pixel budget, but a gradient so the file stays small
@@ -463,16 +751,285 @@ function colorProfiles() {
 	}
 }
 
-function derived() {
-	requireTools('magick', 'cwebp', 'avifenc');
-	console.log('generating tests/fixtures/derived');
+/**
+ * ImageMagick's own answer for the adjustments where the two operations are the same one.
+ *
+ * Only where they genuinely are. `-gamma` and `-evaluate multiply` are the same functions we
+ * apply, and `-function polynomial` is the same affine our contrast is, so those three are
+ * like-for-like and a disagreement is a fault. `-blur` is a true gaussian against our three box
+ * passes, which is an approximation with a floor rather than an equality.
+ *
+ * Saturation is deliberately absent. `-modulate` operates in HSL and is a different operation, and
+ * `-color-matrix` given our own matrix would compare our arithmetic against itself. Neither is a
+ * measurement, so there is no reference for it and the ctest asserts the matrix directly instead.
+ */
+function filterReferences() {
+	const base = derivedPath('base.png');
 
+	// gamma 2.2: magick's -gamma applies the reciprocal exponent, so this is 1/2.2
+	magick([base, '-gamma', String(1 / 2.2), `PNG24:${derivedPath('ref', 'base-gamma.png')}`]);
+
+	magick([
+		base,
+		'-evaluate',
+		'multiply',
+		'1.25',
+		`PNG24:${derivedPath('ref', 'base-brightness.png')}`
+	]);
+
+	// contrast 1.4 about mid gray is 1.4u - 0.2 on a normalized channel
+	magick([
+		base,
+		'-function',
+		'polynomial',
+		'1.4,-0.2',
+		`PNG24:${derivedPath('ref', 'base-contrast.png')}`
+	]);
+
+	magick([base, '-blur', '0x4', `PNG24:${derivedPath('ref', 'base-blur.png')}`]);
+
+	magick([
+		base,
+		'-filter',
+		'Catrom',
+		'-resize',
+		'640x360!',
+		`PNG24:${derivedPath('ref', 'base-catrom.png')}`
+	]);
+
+	magick([
+		base,
+		'-filter',
+		'Box',
+		'-resize',
+		'80x45!',
+		`PNG24:${derivedPath('ref', 'base-box.png')}`
+	]);
+}
+
+/**
+ * Glyphs the text differential compares, one per outline shape worth distinguishing.
+ *
+ * Straight stems, a closed curve, a curve with a counter and a crossbar, diagonals, a descender and
+ * an S-curve. `x` is the baseline probe: it sits entirely between the baseline and the x-height, so
+ * a vertical placement error moves all of its ink.
+ */
+const TEXT_GLYPHS = ['H', 'o', 'e', 'W', 'g', 'S', 'x'];
+
+/**
+ * Em size the per-glyph comparison runs at.
+ *
+ * Large on purpose. ImageMagick renders through FreeType with hinting, which moves stems onto pixel
+ * boundaries and rounds advance widths to whole pixels; tinyimg renders the outline where the
+ * outline is. The shape difference that causes is a fixed number of pixels, so it shrinks against
+ * the glyph as the glyph grows: one `H` agrees at 29 dB at 32 pixels and 41 at 256.
+ */
+const TEXT_SIZE = 256;
+
+/** Box each glyph is rendered into, and where its baseline sits in that box. */
+const TEXT_BOX = { width: 320, height: 384, baseline: 300 };
+
+/** What the string comparison is set at, which is a size a caller would actually use. */
+const TEXT_STRING = { text: 'Hamburgefons', size: 32, width: 288, height: 64, baseline: 46 };
+
+/**
+ * ImageMagick's own render of the committed subset, for the text differential.
+ *
+ * Grayscale on black, so the coverage is the pixel value and nothing has to be un-composited before
+ * the two can be compared.
+ */
+function textReferences() {
+	const font = derivedPath('fonts', 'dejavu-latin.ttf');
+
+	for (const glyph of TEXT_GLYPHS) {
+		magick([
+			'-size',
+			`${TEXT_BOX.width}x${TEXT_BOX.height}`,
+			'xc:black',
+			'-font',
+			font,
+			'-pointsize',
+			String(TEXT_SIZE),
+			'-fill',
+			'white',
+			'-annotate',
+			`+6+${TEXT_BOX.baseline}`,
+			glyph,
+			`PNG:${derivedPath('ref', `text-${glyph.charCodeAt(0).toString(16)}.png`)}`
+		]);
+	}
+
+	magick([
+		'-size',
+		`${TEXT_STRING.width}x${TEXT_STRING.height}`,
+		'xc:black',
+		'-font',
+		font,
+		'-pointsize',
+		String(TEXT_STRING.size),
+		'-fill',
+		'white',
+		'-annotate',
+		`+6+${TEXT_STRING.baseline}`,
+		TEXT_STRING.text,
+		`PNG:${derivedPath('ref', 'text-string.png')}`
+	]);
+}
+
+/** Codepoints the committed font subset covers. */
+const SUBSET_ASCII = Array.from({ length: 0x7e - 0x20 + 1 }, (_, index) => 0x20 + index);
+
+/**
+ * Latin-1 letters that are composite glyphs.
+ *
+ * Every one of these is a base letter plus a combining accent, which is the case a reader that only
+ * handles simple glyphs renders as a bare letter with no accent and no error.
+ */
+const SUBSET_ACCENTS = [0xc0, 0xc5, 0xc9, 0xe0, 0xe9, 0xef, 0xf1, 0xfc];
+
+/**
+ * A codepoint past the BMP, mapped onto the glyph `A` uses.
+ *
+ * Only in the format 12 subset, because format 4 cannot express it. It is what makes the two
+ * subsets differ in a way a test can see: the same string draws through one and not the other.
+ */
+const SUBSET_ASTRAL = 0x1f600;
+
+/** Codepoints the synthesized BDF face covers. */
+const BDF_CODEPOINTS = [0x20, 0x2e, 0x41, 0x42, 0x43, 0xe9];
+
+/**
+ * The font fixtures, committed because `blobs/` is not.
+ *
+ * A test that only read `blobs/fonts` would not run in CI, and one that skipped when the blob was
+ * absent would not gate. The real face is cut down by `scripts/fonts.ts` from 757 KB to 21, and the
+ * three bitmap faces are synthesized so the expected pixels are known rather than measured.
+ */
+function fontFixtures() {
+	const source = join(BLOBS, 'fonts', 'DejaVuSans.ttf');
+
+	if (!existsSync(source)) {
+		throw new Error(`${source} is missing; run \`bun run blobs\` first`);
+	}
+
+	const dejavu = readFileSync(source);
+	const wanted = [...SUBSET_ASCII, ...SUBSET_ACCENTS];
+
+	const four = subsetFont(dejavu, wanted, 4);
+	writeFileSync(derivedPath('fonts', 'dejavu-latin.ttf'), four.bytes);
+
+	const twelve = subsetFont(dejavu, wanted, 12, { aliases: { [SUBSET_ASTRAL]: 0x41 } });
+	writeFileSync(derivedPath('fonts', 'dejavu-latin-cmap12.ttf'), twelve.bytes);
+
+	// format 6 under the Macintosh platform, and the short loca form, both of which the reader
+	// claims to handle and neither of which the two variants above reach
+	const six = subsetFont(dejavu, wanted, 6, { shortLoca: true });
+	writeFileSync(derivedPath('fonts', 'dejavu-latin-cmap6.ttf'), six.bytes);
+
+	// out of specification, and recoverable: the em box is a usable line and every glyph shares
+	// the first advance
+	const headless = subsetFont(dejavu, wanted, 4, { dropHhea: true });
+	writeFileSync(derivedPath('fonts', 'dejavu-latin-no-hhea.ttf'), headless.bytes);
+
+	console.log(
+		`  fonts: ${four.summary.glyphs} glyphs, ${four.summary.codepoints} codepoints, ` +
+			`${(four.summary.bytes / 1024).toFixed(1)} KiB from ${(dejavu.length / 1024).toFixed(0)}; ` +
+			`cmap6 reaches ${six.summary.codepoints}`
+	);
+
+	writeFileSync(derivedPath('fonts', 'tiny.psf'), buildPsf2(8, 16, 128));
+	writeFileSync(derivedPath('fonts', 'tiny-psf1.psf'), buildPsf1(8));
+	writeFileSync(derivedPath('fonts', 'tiny.bdf'), buildBdf(8, 8, BDF_CODEPOINTS));
+
+	// an OpenType wrapper around CFF outlines, which this library refuses rather than parses
+	writeFileSync(derivedPath('fonts', 'cff.otf'), cffStub());
+
+	writeFileSync(
+		derivedPath('fonts', 'not-a-font.bin'),
+		Buffer.from('this is not a font at all, not even a little', 'utf8')
+	);
+
+	// a truncated real face: the directory promises tables the file does not hold
+	writeFileSync(
+		derivedPath('fonts', 'truncated.ttf'),
+		four.bytes.subarray(0, Math.floor(four.bytes.length / 3))
+	);
+
+	// BDF faces missing a header the reader needs, one for each of the two it checks
+	const bdf = buildBdf(8, 8, BDF_CODEPOINTS);
+
+	writeFileSync(
+		derivedPath('fonts', 'bdf-no-chars.bdf'),
+		bdf.replace(/^CHARS .*$/m, 'COMMENT no chars line')
+	);
+	writeFileSync(
+		derivedPath('fonts', 'bdf-no-bbox.bdf'),
+		bdf.replace(/^FONTBOUNDINGBOX .*$/m, 'COMMENT no bounding box')
+	);
+
+	// a negative descent, which is the one place the BDF reader reads a signed number
+	writeFileSync(
+		derivedPath('fonts', 'bdf-descender.bdf'),
+		bdf.replace('FONTBOUNDINGBOX 8 8 0 0', 'FONTBOUNDINGBOX 8 10 0 -2')
+	);
+}
+
+/** The cascades, repacked from the XML the blob step downloads. */
+function cascadeFixtures() {
+	for (const cascade of CASCADES) {
+		const source = join(BLOBS, 'cascades', `${cascade.id}.xml`);
+
+		// the blobs step packs the same download and then removes it, so requiring it to still be
+		// there made this depend on which of the two ran last
+		const downloaded = !existsSync(source);
+		if (downloaded) {
+			mkdirSync(join(BLOBS, 'cascades'), { recursive: true });
+			download(cascade.url, source);
+		}
+
+		const { bytes, summary } = packCascade(readFileSync(source, 'utf8'));
+		writeFileSync(derivedPath('cascades', `${cascade.id}.bin`), bytes);
+
+		if (downloaded) rmSync(source);
+
+		console.log(
+			`  ${cascade.id}: ${summary.window} window, ${summary.stages} stages, ` +
+				`${summary.stumps} stumps, ${summary.features} features, ${summary.bytes} bytes`
+		);
+	}
+
+	// a header whose magic is right and whose counts are not, for the rejection path
+	const good = readFileSync(derivedPath('cascades', `${CASCADES[0]!.id}.bin`));
+	const bad = Buffer.from(good.subarray(0, 28));
+	bad.writeUInt32LE(9999, 16);
+	writeFileSync(derivedPath('cascades', 'malformed.bin'), bad);
+}
+
+/**
+ * Everything the derived set is made of, in one list.
+ *
+ * One list because {@link derived} and {@link check} both run it, and when they each had their own
+ * the two drifted: a generator added to one and not the other made `--check` report its own output
+ * as missing.
+ */
+function generate() {
 	mkdirSync(DERIVED, { recursive: true });
 	baseImages();
 	codecMatrix();
 	perFixtureReferences();
 	edgeCases();
 	colorProfiles();
+	filterReferences();
+	fontFixtures();
+	textReferences();
+	cascadeFixtures();
+}
+
+function derived() {
+	requireTools('magick', 'cwebp', 'webpmux', 'avifenc', 'exiftool');
+	console.log('generating tests/fixtures/derived');
+
+	generate();
 
 	const count = countFiles(DERIVED);
 	console.log(`  ${count.files} files, ${(count.bytes / 1024 / 1024).toFixed(1)} MiB`);
@@ -488,7 +1045,7 @@ function derived() {
  * its own job and not on the gate.
  */
 function check() {
-	requireTools('magick', 'cwebp', 'avifenc');
+	requireTools('magick', 'cwebp', 'webpmux', 'avifenc', 'exiftool');
 
 	// the versions are the first thing to look at when this reports differences: the committed set
 	// is only reproducible with the tools that wrote it, which is why this is a local check and not
@@ -509,12 +1066,7 @@ function check() {
 
 	DERIVED = scratch;
 	try {
-		mkdirSync(DERIVED, { recursive: true });
-		baseImages();
-		codecMatrix();
-		perFixtureReferences();
-		edgeCases();
-		colorProfiles();
+		generate();
 	} finally {
 		DERIVED = committed;
 	}
@@ -640,10 +1192,20 @@ function blobs() {
 	console.log('  fonts: DejaVuSans, DejaVuSansMono (Bitstream Vera license, redistributable)');
 
 	for (const cascade of CASCADES) {
-		const into = join(BLOBS, 'cascades', `${cascade.id}.xml`);
-		if (!existsSync(into)) download(cascade.url, into);
+		const xml = join(BLOBS, 'cascades', `${cascade.id}.xml`);
+		if (!existsSync(xml)) download(cascade.url, xml);
+
+		const { bytes, summary } = packCascade(readFileSync(xml, 'utf8'));
+		writeFileSync(join(BLOBS, 'cascades', `${cascade.id}.bin`), bytes);
+
+		// the XML was the download, not the deliverable; the detector reads the packed form and
+		// leaving both would upload 50 KB nothing reads
+		rmSync(xml);
+
+		console.log(
+			`  ${cascade.id}: ${summary.window} window, ${summary.stages} stages, ${summary.bytes} bytes`
+		);
 	}
-	console.log('  cascades: OpenCV LBP frontal and profile (BSD, repacked in Phase 6)');
 
 	manifest();
 	blobReadme();
@@ -694,7 +1256,7 @@ function blobReadme() {
 		join(BLOBS, 'README.md'),
 		`# tinyimg blobs
 
-Optional data tinyimg loads at runtime. None of it is required; tinyimg ships no font, no colour
+Optional data tinyimg loads at runtime. None of it is required; tinyimg ships no font, no color
 profile and no cascade, and every feature that reads one degrades without it.
 
 Regenerate with \`bun run blobs\`. This directory is gitignored.
@@ -704,8 +1266,8 @@ Regenerate with \`bun run blobs\`. This directory is gitignored.
 | Path | What reads it |
 | --- | --- |
 | \`fonts/*.ttf\` | \`tiny_image_draw_text\`, after \`tiny_blob_load(TINYIMG_BLOB_FONT, ...)\` |
-| \`icc/*.icc\` | colour conversion between tagged profiles and sRGB |
-| \`cascades/*.xml\` | \`gravity: face\`, \`blur_faces\`, \`pixelate_faces\` |
+| \`icc/*.icc\` | color conversion between tagged profiles and sRGB |
+| \`cascades/*.bin\` | \`gravity: face\`, \`blur_faces\`, \`pixelate_faces\` |
 
 \`fonts/LICENSE\` is the Bitstream Vera and Arev license the DejaVu faces ship under. The cascades are
 OpenCV's, BSD licensed. The profiles are generated by \`scripts/icc.ts\` from published primaries and
