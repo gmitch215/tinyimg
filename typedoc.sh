@@ -11,8 +11,9 @@ if [[ ! -d $HTML_DIR ]]; then
 	exit 1
 fi
 
-git config --local user.email "action@github.com"
-git config --local user.name "GitHub Action"
+# -c rather than 'git config --local', which writes into .git/config and stays there; see the same
+# note in doxygen.sh
+commit_as=(-c "user.email=action@github.com" -c "user.name=GitHub Action")
 
 start="$(git symbolic-ref --quiet --short HEAD || git rev-parse HEAD)"
 tmpdir="$(mktemp -d)"
@@ -61,6 +62,6 @@ if git diff --cached --quiet; then
 	exit 0
 fi
 
-git commit -m "Update TypeDoc ($1)"
+git "${commit_as[@]}" commit -m "Update TypeDoc ($1)"
 # the branch was built on origin/gh-pages, so this fast-forwards and never needs -f
 git push origin gh-pages
