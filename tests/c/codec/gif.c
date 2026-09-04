@@ -99,6 +99,22 @@ int main(void) {
     r |= assertEquals((long) info.width, 160L);
     r |= assertEquals((long) info.height, 120L);
 
+    /*
+     * A real animation, which every generated one above is not.
+     *
+     * 57 frames out of a production file, so the block walk has to survive a
+     * long chain of graphic control extensions and per-frame palettes to reach
+     * the terminator and report the count. base-animation.gif has three frames
+     * and would pass a walk that mishandled either.
+     */
+    r |= assertEquals(probeFixture("ball_kick.gif", &info), TINYIMG_OK);
+    r |= assertEquals((long) info.frames, 57L);
+    r |= assertEquals((long) info.width, 800L);
+    r |= assertEquals((long) info.height, 600L);
+
+    // its first frame is interlaced, which is this format's unstreamable layout
+    r |= assertEquals((long) info.progressive, 1L);
+
     // #endregion
 
     // #region the same picture in two layouts
@@ -130,6 +146,33 @@ int main(void) {
 
     size_t pixels = (size_t) 320 * 180 * 3;
     r |= assertPSNR(sequential.data, source.data, pixels, 28.0);
+
+    /*
+     * An animation's first frame against ImageMagick's read of the same frame.
+     *
+     * Exact, because it measured exact and because there is nothing here for a
+     * floor to absorb: the format is lossless and the palette is in the file,
+     * so any difference would be a fault in the LZW decode, the interlace pass
+     * arithmetic or the screen placement. This is the only GIF reference not
+     * produced by quantizing our own PNG.
+     *
+     * The offset is where scripts/fixtures.ts takes the crop, a third of the
+     * way into a fixture the node lane pins at 800x600.
+     */
+    TinyImage animated;
+    TinyImage magick;
+
+    r |= assertEquals(decodeFixture("ball_kick.gif", &animated, 3), TINYIMG_OK);
+    r |= assertEquals((long) animated.width, 800L);
+    r |= assertEquals((long) animated.height, 600L);
+
+    r |= assertEquals(
+        decodeFixture("derived/ref/ball_kick.crop.png", &magick, 3), TINYIMG_OK
+    );
+    r |= assertMatchesCrop(&magick, &animated, 266, 200);
+
+    tiny_image_destroy(&magick);
+    tiny_image_destroy(&animated);
 
     // #endregion
 
