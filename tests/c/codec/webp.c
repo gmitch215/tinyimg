@@ -295,6 +295,77 @@ int main(void) {
     r |= assertEquals((long) image.height, 33L);
     tiny_image_destroy(&image);
 
+    /*
+     * A region stops the reconstruction, the filter and the conversion after
+     * the macroblock row it reaches, so every band has to equal the same rows
+     * of a full decode.
+     *
+     * Both ends are checked on purpose. A band at the top truncates nearly
+     * everything and a band at the bottom truncates nothing, because a
+     * macroblock predicts from its neighbors and the filter reads back one row,
+     * so the saving is the tail and not the complement. A test that only took a
+     * top band would pass with the bound off by a row.
+     */
+    TinyImage whole;
+    r |= assertEquals(
+        decodeFixture("derived/base-lossy.webp", &whole, 3), TINYIMG_OK
+    );
+
+    /*
+     * 48 and 64 end exactly on a macroblock boundary, which is the case the
+     * bound is easy to get wrong in: the next row's top edge filter reaches
+     * four rows back into the band, so dropping it leaves the band's last four
+     * rows unfiltered and every other band still passes.
+     */
+    static const uint32_t bands[6][2] = {{0, 40}, {0, 48},  {0, 64},
+                                         {0, 90}, {90, 90}, {140, 40}};
+
+    for (size_t i = 0; i < 6; i++) {
+        TinyDecodeOpts opts = {0, bands[i][1], 320, bands[i][1], 1, 3};
+        opts.y = bands[i][0];
+        opts.height = bands[i][1];
+
+        r |= assertEquals(
+            decodeWith("derived/base-lossy.webp", &image, &opts), TINYIMG_OK
+        );
+        r |= assertEquals((long) image.height, (long) bands[i][1]);
+        r |= assertMatchesCrop(&image, &whole, 0, bands[i][0]);
+
+        tiny_image_destroy(&image);
+    }
+
+    tiny_image_destroy(&whole);
+
+    /*
+     * A lossy file from the wild against libwebp's own read of it.
+     *
+     * VP8 defines its dequantization, its inverse transforms and its
+     * predictors in exact integer arithmetic, so two correct decoders agree
+     * sample for sample and this is asserted exact rather than against a floor.
+     * It measured exact over the whole crop.
+     *
+     * Every other lossy fixture came out of an encoder driven by
+     * scripts/fixtures.ts, so all of them use the modes and probabilities that
+     * encoder happens to pick. This one was encoded by someone else and
+     * reaches whatever it chose.
+     */
+    TinyImage wild;
+    TinyImage reference;
+
+    r |=
+        assertEquals(decodeFixture("toyota_racing.webp", &wild, 3), TINYIMG_OK);
+    r |= assertEquals((long) wild.width, 1000L);
+    r |= assertEquals((long) wild.height, 666L);
+
+    r |= assertEquals(
+        decodeFixture("derived/ref/toyota_racing.crop.png", &reference, 3),
+        TINYIMG_OK
+    );
+    r |= assertMatchesCrop(&reference, &wild, 333, 222);
+
+    tiny_image_destroy(&reference);
+    tiny_image_destroy(&wild);
+
     // #endregion
 
     // #region alpha planes
@@ -548,7 +619,7 @@ int main(void) {
         decodeFixture("derived/base-rgb8.png", &image, 0), TINYIMG_OK
     );
 
-    TinyEncodeOpts lossless = {0, 1, 0, 0};
+    TinyEncodeOpts lossless = {0, 1, 0, 0, 0};
     TinyImage back;
     size_t bytes = 0;
 
@@ -573,7 +644,7 @@ int main(void) {
     tiny_image_destroy(&image);
 
     /*
-     * An image inside 256 colours keeps them exactly, through the palette
+     * An image inside 256 colors keeps them exactly, through the palette
      * transform rather than through the predictors. A logo is the case that
      * matters: it is what the format is best at and what a photograph's
      * pipeline would handle badly.
@@ -585,7 +656,7 @@ int main(void) {
     tiny_image_destroy(&back);
     tiny_image_destroy(&image);
 
-    // one colour, which is the smallest palette there is and bundles eight
+    // one color, which is the smallest palette there is and bundles eight
     // indices into every byte
     r |= assertEquals(decodeFixture("derived/flat.png", &image, 0), TINYIMG_OK);
     r |= assertEquals(roundTrip(&image, &lossless, &back, &bytes), TINYIMG_OK);
@@ -595,7 +666,7 @@ int main(void) {
     tiny_image_destroy(&back);
     tiny_image_destroy(&image);
 
-    // one pixel, where there is no neighbour to predict from and no pair to
+    // one pixel, where there is no neighbor to predict from and no pair to
     // hash
     r |= assertEquals(
         decodeFixture("derived/single-pixel.png", &image, 0), TINYIMG_OK
@@ -618,7 +689,7 @@ int main(void) {
     tiny_image_destroy(&image);
 
     /*
-     * Greyscale. The format has no greyscale mode, so one channel goes in as
+     * Grayscale. The format has no grayscale mode, so one channel goes in as
      * three equal ones and comes back as three: the pixels survive and the
      * channel count does not, which is what a caller has to expect. Asking for
      * one channel back returns exactly what went in.
@@ -628,20 +699,20 @@ int main(void) {
     );
     r |= assertEquals((long) image.channels, 1L);
 
-    TinyWriter grey;
-    r |= assertEquals(tiny_writer_init(&grey, 0), TINYIMG_OK);
+    TinyWriter gray;
+    r |= assertEquals(tiny_writer_init(&gray, 0), TINYIMG_OK);
     r |= assertEquals(
-        tiny_image_encode(&image, TINYIMG_FORMAT_WEBP, &lossless, &grey),
+        tiny_image_encode(&image, TINYIMG_FORMAT_WEBP, &lossless, &gray),
         TINYIMG_OK
     );
 
-    TinyDecodeOpts asGrey = {0, 0, 0, 0, 1, 1};
+    TinyDecodeOpts asGray = {0, 0, 0, 0, 1, 1};
     r |= assertEquals(
-        tiny_image_decode(&back, grey.data, grey.size, &asGrey), TINYIMG_OK
+        tiny_image_decode(&back, gray.data, gray.size, &asGray), TINYIMG_OK
     );
     r |= assertImageEquals(&image, &back);
 
-    tiny_writer_free(&grey);
+    tiny_writer_free(&gray);
     tiny_image_destroy(&back);
     tiny_image_destroy(&image);
 
@@ -653,7 +724,7 @@ int main(void) {
         decodeFixture("derived/base-rgb8.png", &image, 0), TINYIMG_OK
     );
 
-    TinyEncodeOpts lossy = {80, 0, 0, 0};
+    TinyEncodeOpts lossy = {80, 0, 0, 0, 0};
     size_t at80 = 0;
 
     r |= assertEquals(roundTrip(&image, &lossy, &back, &at80), TINYIMG_OK);
@@ -673,7 +744,7 @@ int main(void) {
 
     // quality has to mean something monotone, or a caller cannot use the
     // number: more of it costs more bytes and loses less
-    TinyEncodeOpts lower = {40, 0, 0, 0};
+    TinyEncodeOpts lower = {40, 0, 0, 0, 0};
     size_t at40 = 0;
 
     r |= assertEquals(roundTrip(&image, &lower, &back, &at40), TINYIMG_OK);
@@ -683,7 +754,7 @@ int main(void) {
 
     tiny_image_destroy(&back);
 
-    TinyEncodeOpts higher = {95, 0, 0, 0};
+    TinyEncodeOpts higher = {95, 0, 0, 0, 0};
     size_t at95 = 0;
 
     r |= assertEquals(roundTrip(&image, &higher, &back, &at95), TINYIMG_OK);
@@ -693,6 +764,62 @@ int main(void) {
     );
 
     tiny_image_destroy(&back);
+
+    /*
+     * TINYIMG_EFFORT_FAST bounds the 4x4 prediction search to the four whole
+     * block modes, leaving out the six diagonals. The search is 47% of this
+     * encoder, so what it buys and what it costs are both worth pinning.
+     *
+     * Measured over six fixtures at 800 wide: 1.18x to 1.45x faster, 8.8%
+     * smaller to 17.5% larger, and never more than 0.05 dB apart. The size can
+     * go either way because the per subblock choice minimizes prediction error
+     * rather than rate, so a diagonal mode can win on error and then cost more
+     * bits; the cartoons lose most, which is where hard diagonal edges live.
+     *
+     * The assertion is therefore about quality and about the output still being
+     * a WebP a decoder agrees with, not about the byte count, which is not
+     * ordered. A timing assertion is left out on purpose: this runs on whatever
+     * machine CI gives it.
+     */
+    TinyEncodeOpts fancy = {80, 0, 0, 0, TINYIMG_EFFORT_FANCY};
+    TinyEncodeOpts fast = {80, 0, 0, 0, TINYIMG_EFFORT_FAST};
+
+    size_t fancy_bytes = 0;
+    size_t fast_bytes = 0;
+    TinyImage fancy_back;
+    TinyImage fast_back;
+
+    r |= assertEquals(
+        roundTrip(&image, &fancy, &fancy_back, &fancy_bytes), TINYIMG_OK
+    );
+    r |= assertEquals(
+        roundTrip(&image, &fast, &fast_back, &fast_bytes), TINYIMG_OK
+    );
+
+    r |= assertEquals((long) fast_back.width, 320L);
+    r |= assertEquals((long) fast_back.height, 180L);
+
+    if (image.data && fancy_back.data && fast_back.data) {
+        size_t count = (size_t) 320 * 180 * 3;
+
+        double patient = computePSNR(fancy_back.data, image.data, count);
+        double hurried = computePSNR(fast_back.data, image.data, count);
+
+        // the same floor the patient path is held to, so fast is not a way to
+        // sneak under it
+        r |= assertPSNR(fast_back.data, image.data, count, 32.0);
+
+        // and within a fifth of a decibel of it, which is the measured spread
+        // with room for a different picture
+        r |= assertIn(hurried - patient, -0.2, 0.2);
+    }
+
+    // a bounded search is still a search: the modes it did pick have to be the
+    // ones it coded, or the reconstruction drifts from what a decoder rebuilds
+    r |= assertTrue(fast_bytes > 0);
+
+    tiny_image_destroy(&fancy_back);
+    tiny_image_destroy(&fast_back);
     tiny_image_destroy(&image);
 
     // an odd sized picture, where the last macroblock of a row and of a column

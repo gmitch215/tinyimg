@@ -1,6 +1,7 @@
 #include "tinyimg/codec/webp.h"
 
 #include "tinyimg/memory.h"
+#include "tinyimg/work.h"
 #include "vp8-tables.h"
 
 #define WEBP_ALPHA_FLAG 0x10u
@@ -20,9 +21,9 @@
 #define VP8L_PLANE_CODES 120u
 
 #define VP8L_PREDICTOR 0u
-#define VP8L_CROSS_COLOUR 1u
+#define VP8L_CROSS_COLOR 1u
 #define VP8L_SUBTRACT_GREEN 2u
-#define VP8L_COLOUR_INDEX 3u
+#define VP8L_COLOR_INDEX 3u
 
 typedef struct {
     const uint8_t* data;
@@ -125,7 +126,7 @@ static int parse_vp8(
  *
  * A simple file is one `VP8 ` or `VP8L` chunk and nothing else. An extended one
  * opens with `VP8X`, whose canvas extents win over the bitstream's own, and may
- * then carry alpha, colour and metadata chunks in any order, so this records
+ * then carry alpha, color and metadata chunks in any order, so this records
  * offsets on the way past rather than assuming a layout.
  */
 static int webp_parse(const uint8_t* buffer, size_t size, WebpHeader* header) {
@@ -278,7 +279,7 @@ typedef struct {
      * @brief The only symbol, when the code is one symbol wide.
      *
      * Such a code reads no bits at all, which is this format's rule and not an
-     * optimisation: an encoder that finds one green value in a tile writes a
+     * optimization: an encoder that finds one green value in a tile writes a
      * tree of one symbol, and a decoder that spent a bit on it would desync.
      */
     int32_t single;
@@ -409,7 +410,7 @@ static int read_code_lengths(
         uint32_t wide = tiny_bits_lsb(bits, 1);
 
         // the first symbol is one bit when it is 0 or 1 and eight otherwise,
-        // which is what makes a two colour tile nearly free
+        // which is what makes a two color tile nearly free
         uint32_t first = tiny_bits_lsb(bits, wide ? 8 : 1);
 
         if (first >= count) return TINYIMG_ERR_CORRUPT;
@@ -524,7 +525,7 @@ static int32_t sub3(int32_t a, int32_t b, int32_t c) {
 }
 
 /**
- * Picks whichever of the two neighbours the gradient points at.
+ * Picks whichever of the two neighbors the gradient points at.
  *
  * Summed over all four channels rather than decided per channel, so the
  * predictor either takes a whole pixel or takes none of it.
@@ -576,7 +577,7 @@ static uint32_t clip_add_half(uint32_t a, uint32_t b, uint32_t c) {
 }
 
 /**
- * Predicts one pixel from its already decoded neighbours.
+ * Predicts one pixel from its already decoded neighbors.
  *
  * @param mode Which of the fourteen predictors to use.
  * @param left The pixel to the left.
@@ -638,7 +639,7 @@ static void inverse_predictor(
         for (uint32_t x = 1; x < width; x++) {
             uint32_t mode = (block[x >> bits] >> 8) & 0x0Fu;
 
-            // the top right neighbour of the last column would be off the end
+            // the top right neighbor of the last column would be off the end
             // of the row above, and the format's answer is that it wraps to the
             // first pixel of the current row, which is what indexing the flat
             // plane already does
@@ -647,12 +648,12 @@ static void inverse_predictor(
     }
 }
 
-static int32_t colour_delta(int32_t multiplier, int32_t channel) {
+static int32_t color_delta(int32_t multiplier, int32_t channel) {
     return (multiplier * channel) >> 5;
 }
 
-/** Undoes the cross colour transform in place. */
-static void inverse_cross_colour(
+/** Undoes the cross color transform in place. */
+static void inverse_cross_color(
     uint32_t* pixels, uint32_t width, uint32_t height, uint32_t bits,
     const uint32_t* codes
 ) {
@@ -673,15 +674,15 @@ static void inverse_cross_colour(
             int32_t green = (int8_t) ((pixel >> 8) & 0xFFu);
 
             int32_t red = (int32_t) ((pixel >> 16) & 0xFFu);
-            red += colour_delta(green_to_red, green);
+            red += color_delta(green_to_red, green);
             red &= 0xFF;
 
             int32_t blue = (int32_t) (pixel & 0xFFu);
-            blue += colour_delta(green_to_blue, green);
+            blue += color_delta(green_to_blue, green);
 
             // against the reconstructed red, not the residual one, so the two
             // deltas do not have to be undone in the order they were applied
-            blue += colour_delta(red_to_blue, (int8_t) red);
+            blue += color_delta(red_to_blue, (int8_t) red);
             blue &= 0xFF;
 
             row[x] = (pixel & 0xFF00FF00u) | ((uint32_t) red << 16) |
@@ -702,13 +703,13 @@ static void inverse_subtract_green(uint32_t* pixels, size_t count) {
 }
 
 /**
- * Expands the colour indexing transform, widening the row as it goes.
+ * Expands the color indexing transform, widening the row as it goes.
  *
- * With sixteen colours or fewer several indices share a byte, so the coded row
+ * With sixteen colors or fewer several indices share a byte, so the coded row
  * is narrower than the image and this is the one inverse that cannot run in
  * place.
  */
-static void inverse_colour_index(
+static void inverse_color_index(
     const uint32_t* packed, uint32_t width, uint32_t height, uint32_t bits,
     const uint32_t* palette, uint32_t* out
 ) {
@@ -761,7 +762,7 @@ typedef struct {
  * Builds the table that turns a short distance code into a nearby pixel.
  *
  * The format's own table is 120 entries of a packed row and column offset,
- * ordered so that the codes an encoder reaches for first are the neighbours a
+ * ordered so that the codes an encoder reaches for first are the neighbors a
  * copy is most likely to come from. It is not shipped, because the ordering is
  * a rule rather than a list: every offset with a row of 0 to 7 and a column of
  * -7 to 8 that names a pixel already written, sorted by squared distance, then
@@ -863,7 +864,7 @@ static int decode_image_stream(
  *
  * A meta Huffman image splits the picture into blocks and gives each its own
  * five codes, which is what lets one file carry a photograph and a run of flat
- * colour without either paying for the other's statistics.
+ * color without either paying for the other's statistics.
  */
 static int read_entropy(
     WebpLossless* state, uint32_t width, uint32_t height, int level0,
@@ -873,7 +874,7 @@ static int read_entropy(
 
     uint32_t groups = 1;
 
-    // the colour cache comes first, before the meta Huffman flag, and getting
+    // the color cache comes first, before the meta Huffman flag, and getting
     // that order wrong reads the cache's width as a group count
     if (tiny_bits_lsb(&state->bits, 1)) {
         entropy->cache_bits = tiny_bits_lsb(&state->bits, 4);
@@ -967,7 +968,7 @@ static const WebpGroup* group_at(
  *
  * Three kinds of symbol share the green alphabet, which is what makes the
  * format's compression work at all: a literal, a copy of a run already written,
- * or a reference into a small cache of recent colours.
+ * or a reference into a small cache of recent colors.
  */
 static int decode_pixels(
     WebpLossless* state, const WebpEntropy* entropy, uint32_t* pixels,
@@ -1083,7 +1084,7 @@ static int decode_pixels(
  * Reads one transform's header and its own image.
  *
  * A transform is recorded with the width it saw, not the width it leaves
- * behind: colour indexing narrows the coded rows, and every transform read
+ * behind: color indexing narrows the coded rows, and every transform read
  * after it describes the narrower ones, so the inverses undo in reverse and
  * each finds the width it expects.
  */
@@ -1105,7 +1106,7 @@ static int read_transform(
 
     switch (type) {
         case VP8L_PREDICTOR:
-        case VP8L_CROSS_COLOUR: {
+        case VP8L_CROSS_COLOR: {
             transform->bits = (uint8_t) (tiny_bits_lsb(&state->bits, 3) + 2u);
 
             uint32_t coded = 0;
@@ -1119,21 +1120,21 @@ static int read_transform(
         case VP8L_SUBTRACT_GREEN: return TINYIMG_OK;
 
         default: {
-            uint32_t colours = tiny_bits_lsb(&state->bits, 8) + 1u;
+            uint32_t colors = tiny_bits_lsb(&state->bits, 8) + 1u;
 
-            // fewer colours pack more indices into a byte, and the coded rows
+            // fewer colors pack more indices into a byte, and the coded rows
             // narrow by the same factor
-            transform->bits = (uint8_t) (colours > 16  ? 0
-                                         : colours > 4 ? 1
-                                         : colours > 2 ? 2
-                                                       : 3);
+            transform->bits = (uint8_t) (colors > 16  ? 0
+                                         : colors > 4 ? 1
+                                         : colors > 2 ? 2
+                                                      : 3);
 
             *width = subsample_size(*width, transform->bits);
 
             uint32_t* palette = 0;
             uint32_t coded = 0;
             int result =
-                decode_image_stream(state, colours, 1, 0, &palette, &coded);
+                decode_image_stream(state, colors, 1, 0, &palette, &coded);
             if (result != TINYIMG_OK) return result;
 
             /*
@@ -1152,11 +1153,11 @@ static int read_transform(
 
             transform->data[0] = palette[0];
 
-            for (size_t i = 4; i < (size_t) colours * 4; i++) {
+            for (size_t i = 4; i < (size_t) colors * 4; i++) {
                 bytes[i] = (uint8_t) (source[i] + bytes[i - 4]);
             }
 
-            for (size_t i = (size_t) colours * 4; i < (size_t) entries * 4;
+            for (size_t i = (size_t) colors * 4; i < (size_t) entries * 4;
                  i++) {
                 bytes[i] = 0;
             }
@@ -1169,7 +1170,7 @@ static int read_transform(
 /**
  * Decodes one image stream, which is the format's single recursive unit.
  *
- * The picture itself, a predictor's block modes, a cross colour transform's
+ * The picture itself, a predictor's block modes, a cross color transform's
  * multipliers, a palette and a meta Huffman index image are all the same thing
  * read at different sizes. Only the outermost one carries transforms, so the
  * recursion is two deep at most.
@@ -1213,7 +1214,7 @@ static int decode_image_stream(
  * @param pixels The coded plane, which may be narrower than the image.
  * @param width Receives the width after each widening transform.
  * @param height Image height.
- * @return uint32_t* The plane, which colour indexing may have replaced.
+ * @return uint32_t* The plane, which color indexing may have replaced.
  */
 static uint32_t* apply_transforms(
     const WebpLossless* state, uint32_t* pixels, uint32_t* width,
@@ -1229,8 +1230,8 @@ static uint32_t* apply_transforms(
                 );
                 break;
 
-            case VP8L_CROSS_COLOUR:
-                inverse_cross_colour(
+            case VP8L_CROSS_COLOR:
+                inverse_cross_color(
                     pixels, *width, height, transform->bits, transform->data
                 );
                 break;
@@ -1245,7 +1246,7 @@ static uint32_t* apply_transforms(
                 );
                 if (!wide) return 0;
 
-                inverse_colour_index(
+                inverse_color_index(
                     pixels, transform->width, height, transform->bits,
                     transform->data, wide
                 );
@@ -1557,7 +1558,7 @@ static int32_t bool_tree(
 #define VP8_V_PRED 2
 #define VP8_H_PRED 3
 
-/** The three DC variants for a block missing neighbours. */
+/** The three DC variants for a block missing neighbors. */
 #define VP8_DC_NO_TOP 4
 #define VP8_DC_NO_LEFT 5
 #define VP8_DC_NO_TOP_LEFT 6
@@ -1702,7 +1703,7 @@ static void setup_quant(Vp8Decoder* vp8, int32_t base, const int32_t* deltas) {
  * The order is fixed and not obvious: segmentation, then the loop filter, then
  * the coefficient partition count, then the quantizer, then one entropy flag,
  * and only then the coefficient probability updates. Reading the quantizer
- * before the partition count desynchronises everything after it.
+ * before the partition count desynchronizes everything after it.
  */
 static int parse_header(
     Vp8Decoder* vp8, const uint8_t* data, size_t size, size_t part0
@@ -1711,7 +1712,7 @@ static int parse_header(
 
     Vp8Bool* bits = &vp8->part0;
 
-    // colour space and clamping type, both of which have one defined value
+    // color space and clamping type, both of which have one defined value
     if (bool_uint(bits, 2) != 0) return TINYIMG_ERR_UNSUPPORTED_VARIANT;
 
     vp8->segments_on = bool_get(bits, 128);
@@ -1820,7 +1821,7 @@ static int parse_header(
 
 #pragma region lossy coefficients
 
-/** Which context slot a block's left neighbour flag lives in. */
+/** Which context slot a block's left neighbor flag lives in. */
 static uint32_t left_slot(uint32_t block) {
     if (block < 16) return block >> 2;
     if (block < 20) return 4u + ((block - 16u) >> 1);
@@ -1884,7 +1885,7 @@ static int32_t large_value(Vp8Bool* bits, const uint8_t* probabilities) {
  *
  * @param bits The coefficient partition.
  * @param probabilities The eight bands of this block type.
- * @param context Zero, one or two, from the neighbours' non-zero flags.
+ * @param context Zero, one or two, from the neighbors' non-zero flags.
  * @param quant The DC and AC multipliers.
  * @param first Where to start, which is one for a luma block whose DC term
  * came from the second order block.
@@ -2147,7 +2148,7 @@ static void fill_block(uint8_t* dest, uint32_t size, uint8_t value) {
  * Predicts a whole 16x16 or 8x8 block from its edges.
  *
  * The DC mode has three extra variants for a block at the frame's edge, because
- * averaging the neighbours it does not have would mean averaging the fill
+ * averaging the neighbors it does not have would mean averaging the fill
  * values. The other three modes read those fills deliberately: a top row of 127
  * and a left column of 129 are what the format specifies, and they differ by
  * two so that a vertical and a horizontal prediction of the same corner do not
@@ -2227,7 +2228,7 @@ static void predict_block(uint8_t* dest, uint32_t size, uint32_t mode) {
  *
  * Ten modes, of which the last six have no full block counterpart: each fills
  * the block along diagonals of a fixed slope, taking every pixel on a diagonal
- * from the same edge sample. The two modes with a half slope synthesise samples
+ * from the same edge sample. The two modes with a half slope synthesize samples
  * midway between two real ones, which is what `avg2p` is for.
  */
 static void predict_subblock(uint8_t* dest, uint32_t mode) {
@@ -2288,7 +2289,7 @@ static void predict_subblock(uint8_t* dest, uint32_t mode) {
 
         case 3: {
             // the bottom row is the exception, because there is no left sample
-            // below the block to centre an average on
+            // below the block to center an average on
             uint8_t value = avg3(left[2], left[3], left[3]);
             uint32_t y = 3;
 
@@ -2386,7 +2387,7 @@ static void predict_subblock(uint8_t* dest, uint32_t mode) {
     }
 }
 
-/** Substitutes a DC variant when the block is missing a neighbour. */
+/** Substitutes a DC variant when the block is missing a neighbor. */
 static uint32_t dc_variant(uint32_t mode, uint32_t mb_x, uint32_t mb_y) {
     if (mode != VP8_DC_PRED) return mode;
 
@@ -2549,15 +2550,17 @@ static void filter_edge(
  * left edge, then the vertical interior edges, then the top edge, then the
  * horizontal interior edges.
  */
-static void filter_frame(Vp8Decoder* vp8) {
+static void filter_frame(Vp8Decoder* vp8, uint32_t mb_rows) {
     if (vp8->filter_level == 0 && !vp8->segments_on && !vp8->delta_on) return;
 
-    for (uint32_t mb_y = 0; mb_y < vp8->mb_h; mb_y++) {
+    for (uint32_t mb_y = 0; mb_y < mb_rows; mb_y++) {
         for (uint32_t mb_x = 0; mb_x < vp8->mb_w; mb_x++) {
             size_t index = (size_t) mb_y * vp8->mb_w + mb_x;
             uint32_t level = vp8->levels[index];
 
             if (level == 0) continue;
+
+            tiny_work_add(TINYIMG_WORK_FILTERED, 1);
 
             uint32_t interior = level;
 
@@ -2931,10 +2934,10 @@ static void reconstruct(
 
 #pragma endregion
 
-#pragma region lossy colour
+#pragma region lossy color
 
 /**
- * Converts one pixel out of the format's own colour space.
+ * Converts one pixel out of the format's own color space.
  *
  * The coefficients and the 8708 and 14234 offsets are libwebp's fixed point
  * form of the studio range conversion, kept exactly so that a decode can be
@@ -3046,15 +3049,25 @@ static void upsample_pair(
  * Converts the planes into RGBA, upsampling chroma as it goes.
  *
  * The pairing is the part worth stating, because the obvious one is wrong: a
- * chroma sample sits at the centre of the two by two luma block it covers, so
+ * chroma sample sits at the center of the two by two luma block it covers, so
  * the pair of output rows a chroma row pair straddles is offset by one. Rows
  * `2k-1` and `2k` come from chroma rows `k-1` and `k`, which leaves the first
  * row, and the last row of an even height image, taking a single chroma row
  * with no second one to weight against.
+ *
+ * Stops after `rows`, which is what the region asked for. The conversion has no
+ * dependency between rows, so unlike the reconstruction and the filter this can
+ * be cut to exactly the rows a caller reads rather than to a raster prefix.
  */
-static void planes_to_rgba(const Vp8Decoder* vp8, uint8_t* rgba) {
+static void planes_to_rgba(
+    const Vp8Decoder* vp8, uint8_t* rgba, uint32_t rows
+) {
     uint32_t width = vp8->width;
-    uint32_t height = vp8->height;
+    uint32_t full = vp8->height;
+
+    // one row pair beyond the request, so every row a caller reads still gets
+    // the chroma pair its position calls for
+    uint32_t height = (rows + 2u >= full) ? full : rows + 2u;
     size_t row_bytes = (size_t) width * 4u;
 
     const uint8_t* first_u = vp8->u;
@@ -3080,15 +3093,17 @@ static void planes_to_rgba(const Vp8Decoder* vp8, uint8_t* rgba) {
         );
     }
 
-    if ((height & 1u) == 0) {
-        uint32_t last = (height - 1u) / 2u;
+    // the single chroma row belongs to the image's last row, so it runs only
+    // when the conversion actually reached it rather than at a truncation
+    if (height == full && (full & 1u) == 0) {
+        uint32_t last = (full - 1u) / 2u;
 
         const uint8_t* cur_u = vp8->u + (size_t) last * vp8->uv_stride;
         const uint8_t* cur_v = vp8->v + (size_t) last * vp8->uv_stride;
 
         upsample_pair(
-            vp8->y + (size_t) (height - 1u) * vp8->y_stride, 0, cur_u, cur_v,
-            cur_u, cur_v, rgba + (size_t) (height - 1u) * row_bytes, 0, width
+            vp8->y + (size_t) (full - 1u) * vp8->y_stride, 0, cur_u, cur_v,
+            cur_u, cur_v, rgba + (size_t) (full - 1u) * row_bytes, 0, width
         );
     }
 }
@@ -3102,12 +3117,18 @@ static void planes_to_rgba(const Vp8Decoder* vp8, uint8_t* rgba) {
  *
  * Two passes over the macroblocks. The first reads each one's modes and
  * coefficients and reconstructs it, which has to happen in order because every
- * macroblock predicts from its neighbours. The second filters, which has to
+ * macroblock predicts from its neighbors. The second filters, which has to
  * come after all of the first for the same reason.
+ *
+ * `rows` is how many luma rows the caller will read. Both passes run in raster
+ * order and neither lets a later macroblock reach an earlier one, so everything
+ * past the last macroblock row the region touches can be dropped: not the whole
+ * region's complement, because a macroblock reads its left and upper neighbors,
+ * but the tail. A region that reaches the last row costs what it always did.
  */
 static int decode_lossy(
     const uint8_t* data, size_t size, uint32_t width, uint32_t height,
-    uint8_t* rgba
+    uint8_t* rgba, uint32_t rows, uint8_t effort
 ) {
     uint32_t coded_width = 0;
     uint32_t coded_height = 0;
@@ -3156,7 +3177,18 @@ static int decode_lossy(
     tiny_memset(vp8->above_nz, 0, (size_t) vp8->mb_w * 9u);
     tiny_memset(vp8->above_modes, 0, (size_t) vp8->mb_w * 4u);
 
-    for (uint32_t mb_y = 0; mb_y < vp8->mb_h; mb_y++) {
+    /*
+     * Filtering macroblock row `m` writes luma rows 16m-4 through 16m+15, since
+     * a top edge reaches four rows back, so a region ending at row R needs
+     * every m with 16m-4 <= R-1. The reconstruction has to cover the same rows,
+     * because that is what the filter reads.
+     */
+    uint32_t wanted = rows == 0 || rows > vp8->height ? vp8->height : rows;
+    uint32_t mb_rows = (wanted + 3u) / 16u + 1u;
+
+    if (mb_rows > vp8->mb_h) mb_rows = vp8->mb_h;
+
+    for (uint32_t mb_y = 0; mb_y < mb_rows; mb_y++) {
         Vp8Bool* tokens = &vp8->tokens[mb_y & (vp8->partitions - 1u)];
 
         tiny_memset(vp8->left_nz, 0, sizeof(vp8->left_nz));
@@ -3231,6 +3263,8 @@ static int decode_lossy(
 
             vp8->levels[index] = (uint8_t) level;
             vp8->inner[index] = (uint8_t) (is_i4x4 || !empty);
+
+            tiny_work_add(TINYIMG_WORK_MACROBLOCKS, 1);
         }
 
         // the coefficient partition is the one worth checking. The first
@@ -3239,8 +3273,20 @@ static int decode_lossy(
         if (tokens->eof) return TINYIMG_ERR_CORRUPT;
     }
 
-    filter_frame(vp8);
-    planes_to_rgba(vp8, rgba);
+    /*
+     * The deblocking filter is a post-pass here, not an in-loop one.
+     *
+     * VP8 defines it as in-loop because a later frame predicts from the
+     * filtered result, but this codec decodes one keyframe and nothing
+     * references what it writes. Intra prediction inside the frame reads the
+     * unfiltered reconstruction, which is why the call sits after the whole
+     * frame rather than between macroblock rows. So skipping it changes the
+     * output and nothing else, which is what makes it the one thing a lossy
+     * decode can drop.
+     */
+    if (effort != TINYIMG_EFFORT_FAST) filter_frame(vp8, mb_rows);
+
+    planes_to_rgba(vp8, rgba, wanted);
 
     // a frame coded larger than the canvas leaves the rest of the plane as the
     // caller had it, which for a still image cannot happen and for an animation
@@ -3253,7 +3299,7 @@ static int decode_lossy(
 #pragma region lossless encode
 
 /**
- * @brief How many colours a cache may remember, as a power of two.
+ * @brief How many colors a cache may remember, as a power of two.
  *
  * The format allows eleven bits. Eight is used because the shared Huffman
  * length builder picks the two lightest nodes by scanning, which is quadratic
@@ -3303,7 +3349,7 @@ typedef struct {
      *
      * Such a symbol is written with no bits at all, because that is how the
      * decoder reads it. Giving it the one bit a canonical code would assign
-     * desynchronises the stream immediately, and an opaque image's alpha
+     * desynchronizes the stream immediately, and an opaque image's alpha
      * channel is exactly this case, so it is not a corner.
      */
     int32_t single;
@@ -3568,7 +3614,7 @@ static uint32_t find_match(
     if (limit > VP8L_MAX_MATCH) limit = VP8L_MAX_MATCH;
 
     /*
-     * The row above and its two diagonal neighbours are tried outright rather
+     * The row above and its two diagonal neighbors are tried outright rather
      * than left to the hash chain to find. A picture repeats vertically far
      * more than a byte stream does, and a flat region fills one hash bucket
      * with identical recent positions, so a bounded chain walk may never reach
@@ -3627,7 +3673,7 @@ static uint32_t find_match(
  * Walks the image once, either counting symbols or writing them.
  *
  * The two passes have to agree exactly, so neither may look at anything the
- * other does not: the match search and the colour cache both depend only on
+ * other does not: the match search and the color cache both depend only on
  * the pixels, so running the walk twice costs time and produces the same
  * tokens rather than needing a token list, which for a photograph would be
  * larger than the image.
@@ -3785,7 +3831,7 @@ static void write_huffman_code(
      * and a dense one has long stretches at one length, which is the rest.
      */
     // one entry per symbol at worst, since a run only ever shortens the list,
-    // and the largest alphabet is the green one with a full colour cache
+    // and the largest alphabet is the green one with a full color cache
     uint8_t
         symbols[VP8L_LITERALS + VP8L_LENGTHS + (1u << VP8L_ENCODE_CACHE_BITS)];
     uint8_t
@@ -4098,7 +4144,7 @@ static void apply_predictor(
         }
     }
 
-    // backward, because a residual must be computed from source neighbours and
+    // backward, because a residual must be computed from source neighbors and
     // writing forward would overwrite them first
     for (uint32_t y = height; y-- > 0;) {
         uint32_t* row = pixels + (size_t) y * width;
@@ -4140,7 +4186,7 @@ static void apply_subtract_green(uint32_t* pixels, size_t count) {
 }
 
 /**
- * Collects the image's colours, giving up past 256.
+ * Collects the image's colors, giving up past 256.
  *
  * A palette is what makes the format lossless on flat artwork rather than
  * merely correct on it, so this runs first and the rest of the pipeline is
@@ -4217,7 +4263,7 @@ static int encode_lossless(const TinyImage* image, TinyWriter* writer) {
         if (rgba[3] != 255) opaque = 0;
     }
 
-    uint32_t colours = collect_palette(pixels, count, palette);
+    uint32_t colors = collect_palette(pixels, count, palette);
 
     uint8_t planes[VP8L_PLANE_CODES];
     build_planes(planes);
@@ -4263,20 +4309,20 @@ static int encode_lossless(const TinyImage* image, TinyWriter* writer) {
     uint32_t coded_width = width;
     int result = TINYIMG_OK;
 
-    if (colours > 0) {
+    if (colors > 0) {
         /*
          * A palette, and nothing else. The indices go in the green channel
          * because that is where the inverse reads them, and with sixteen
-         * colours or fewer several share a byte, which narrows the coded rows.
+         * colors or fewer several share a byte, which narrows the coded rows.
          */
-        uint32_t tile = colours > 16  ? 0u
-                        : colours > 4 ? 1u
-                        : colours > 2 ? 2u
-                                      : 3u;
+        uint32_t tile = colors > 16  ? 0u
+                        : colors > 4 ? 1u
+                        : colors > 2 ? 2u
+                                     : 3u;
 
         coded_width = subsample_size(width, tile);
 
-        uint32_t* deltas = tiny_arena_alloc(colours * sizeof(uint32_t), 4);
+        uint32_t* deltas = tiny_arena_alloc(colors * sizeof(uint32_t), 4);
         uint32_t* packed =
             tiny_arena_alloc((size_t) coded_width * height * 4u, 4);
 
@@ -4286,14 +4332,14 @@ static int encode_lossless(const TinyImage* image, TinyWriter* writer) {
             return TINYIMG_ERR_MEMORY;
         }
 
-        // the format stores the palette as differences between neighbouring
+        // the format stores the palette as differences between neighboring
         // entries, byte by byte across all four channels
         uint8_t* delta_bytes = (uint8_t*) deltas;
         const uint8_t* entry_bytes = (const uint8_t*) palette;
 
         deltas[0] = palette[0];
 
-        for (size_t i = 4; i < (size_t) colours * 4; i++) {
+        for (size_t i = 4; i < (size_t) colors * 4; i++) {
             delta_bytes[i] = (uint8_t) (entry_bytes[i] - entry_bytes[i - 4]);
         }
 
@@ -4309,7 +4355,7 @@ static int encode_lossless(const TinyImage* image, TinyWriter* writer) {
             for (uint32_t x = 0; x < width; x++) {
                 uint32_t index = 0;
 
-                while (index + 1 < colours && palette[index] != row[x]) {
+                while (index + 1 < colors && palette[index] != row[x]) {
                     index++;
                 }
 
@@ -4319,11 +4365,11 @@ static int encode_lossless(const TinyImage* image, TinyWriter* writer) {
         }
 
         tiny_bitwriter_lsb(&bits, 1, 1);
-        tiny_bitwriter_lsb(&bits, VP8L_COLOUR_INDEX, 2);
-        tiny_bitwriter_lsb(&bits, colours - 1u, 8);
+        tiny_bitwriter_lsb(&bits, VP8L_COLOR_INDEX, 2);
+        tiny_bitwriter_lsb(&bits, colors - 1u, 8);
 
         enc->cache_bits = 0;
-        result = encode_image_stream(enc, deltas, colours, 1, 0, &bits);
+        result = encode_image_stream(enc, deltas, colors, 1, 0, &bits);
 
         tiny_bitwriter_lsb(&bits, 0, 1);
 
@@ -4709,7 +4755,7 @@ static void write_large_value(
  * Mirrors the decoder's loop step for step rather than being derived
  * independently, because the two have to agree on where the end of block
  * decision is read and where it is not: after a run of zeros it is skipped,
- * and an encoder that wrote one there would desynchronise the stream.
+ * and an encoder that wrote one there would desynchronize the stream.
  */
 static void write_coefficients(
     Vp8Writer* out, const uint8_t probabilities[8][3][11], uint32_t context,
@@ -4824,12 +4870,20 @@ typedef struct {
     /** How many bits of distortion one coded coefficient is worth. */
     uint32_t lambda;
 
+    /**
+     * How many of the ten 4x4 prediction modes to try per subblock.
+     *
+     * The search is 47% of this encoder, so this is the one number that decides
+     * whether a request fits a small CPU budget.
+     */
+    uint32_t i4_modes;
+
     Vp8Record* records;
     Vp8ModePath paths[10];
 } Vp8Encoder;
 
 /**
- * Converts the image to the format's colour space on a macroblock grid.
+ * Converts the image to the format's color space on a macroblock grid.
  *
  * The padding past the picture repeats its edge rather than being left black,
  * because the last macroblock of a row or column predicts from it and a hard
@@ -5072,7 +5126,14 @@ static uint64_t try_i4(Vp8Encoder* enc, const uint8_t* source, uint8_t* modes) {
         uint32_t best = 0;
         uint32_t cheapest = 0;
 
-        for (uint32_t mode = 0; mode < 10; mode++) {
+        /*
+         * The first four modes are DC, TrueMotion, vertical and horizontal, and
+         * the other six are the diagonals. Trying only the four is what
+         * TINYIMG_EFFORT_FAST buys: this loop is 47% of the encoder, so the
+         * search is where a CPU budget is won or lost. What it costs in
+         * decibels and in bytes is measured in the tests rather than assumed.
+         */
+        for (uint32_t mode = 0; mode < enc->i4_modes; mode++) {
             predict_subblock(dest, mode);
 
             uint32_t error = block_error(here, dest, 4);
@@ -5202,7 +5263,7 @@ static void write_residuals(
  *
  * The curve is libwebp's, because a quality number has to mean the same thing
  * across encoders for a caller to move between them: file size grows about as
- * the cube of the quantizer, so the quality is linearised and then cube rooted.
+ * the cube of the quantizer, so the quality is linearized and then cube rooted.
  */
 static int32_t quality_to_quant(uint32_t quality) {
     float value = (float) quality / 100.0f;
@@ -5224,6 +5285,10 @@ static int encode_lossy(
 
     uint32_t quality = options && options->quality ? options->quality : 75u;
     if (quality > 100) quality = 100;
+
+    // the four whole-block modes under FAST, all ten otherwise
+    uint32_t i4_modes =
+        options && options->effort == TINYIMG_EFFORT_FAST ? 4u : 10u;
 
     Vp8Encoder* enc = tiny_arena_alloc(sizeof(Vp8Encoder), 8);
     Vp8Decoder* rec = tiny_arena_alloc(sizeof(Vp8Decoder), 8);
@@ -5280,6 +5345,8 @@ static int encode_lossy(
         tiny_arena_release(&mark);
         return TINYIMG_ERR_MEMORY;
     }
+
+    enc->i4_modes = i4_modes;
 
     int32_t quant = quality_to_quant(quality);
     int32_t deltas[5] = {0, 0, 0, 0, 0};
@@ -5582,7 +5649,7 @@ static int encode_lossy(
  * Copies a region of a decoded plane into the image, box averaging as it goes.
  *
  * Neither bitstream can decode a part of itself, so the region and the scale
- * are honoured here instead. The averaging matches every other codec's, so a
+ * are honored here instead. The averaging matches every other codec's, so a
  * scaled WebP and a scaled PNG of the same picture agree.
  */
 static void resample_region(
@@ -5591,6 +5658,30 @@ static void resample_region(
 ) {
     uint32_t den = resolved->scale_den;
     uint8_t channels = image->channels;
+
+    // an unscaled region is a copy, and the loop below would reach it by
+    // averaging one pixel: four divisions by one to move four bytes
+    if (den == 1) {
+        for (uint32_t oy = 0; oy < image->height; oy++) {
+            const uint8_t* row =
+                rgba +
+                ((size_t) (resolved->y + oy) * plane_width + resolved->x) * 4u;
+            uint8_t* dest = image->data + (size_t) oy * image->width * channels;
+
+            if (channels == 4) {
+                tiny_memcpy(dest, row, (size_t) image->width * 4u);
+                continue;
+            }
+
+            for (uint32_t ox = 0; ox < image->width; ox++) {
+                tiny_pixel_convert(
+                    dest + (size_t) ox * channels, channels,
+                    row + (size_t) ox * 4u, 4
+                );
+            }
+        }
+        return;
+    }
 
     for (uint32_t oy = 0; oy < image->height; oy++) {
         uint8_t* dest = image->data + (size_t) oy * image->width * channels;
@@ -5703,8 +5794,13 @@ static int webp_decode(
         }
     }
     else {
+        // an alpha chunk is decoded over the whole plane, so it needs all of it
+        uint32_t rows =
+            header.alpha_at ? header.height : resolved.y + resolved.height;
+
         result = decode_lossy(
-            stream, header.bitstream_size, header.width, header.height, rgba
+            stream, header.bitstream_size, header.width, header.height, rgba,
+            rows, resolved.effort
         );
 
         if (result == TINYIMG_OK && header.alpha_at) {

@@ -32,37 +32,6 @@ static int probeFixture(const char* name, TinyImageInfo* info) {
     return result;
 }
 
-/** Asserts an image equals the same rectangle taken out of a larger one. */
-static int assertMatchesCrop(
-    const TinyImage* part, const TinyImage* whole, uint32_t x, uint32_t y
-) {
-    if (part->width + x > whole->width || part->height + y > whole->height) {
-        printf(
-            "crop %ux%u+%u+%u does not fit\n", part->width, part->height, x, y
-        );
-        return assertTrue(0);
-    }
-
-    for (uint32_t row = 0; row < part->height; row++) {
-        const uint8_t* a =
-            part->data + (size_t) row * part->width * part->channels;
-        const uint8_t* b =
-            whole->data +
-            ((size_t) (y + row) * whole->width + x) * whole->channels;
-
-        for (uint32_t i = 0; i < part->width * part->channels; i++) {
-            if (a[i] != b[i]) {
-                printf(
-                    "row %u byte %u: had %u, wanted %u\n", row, i, a[i], b[i]
-                );
-                return assertTrue(0);
-            }
-        }
-    }
-
-    return assertTrue(1);
-}
-
 int main(void) {
     int r = 0;
 
@@ -87,7 +56,7 @@ int main(void) {
     r |= assertEquals((long) info.progressive, 1L);
     r |= assertEquals((long) info.channels, 3L);
 
-    // a greyscale file says one channel, and a four component one still says
+    // a grayscale file says one channel, and a four component one still says
     // three, because CMYK and YCCK both come out as RGB
     r |= assertEquals(probeFixture("derived/base-gray.jpg", &info), TINYIMG_OK);
     r |= assertEquals((long) info.channels, 1L);
@@ -154,8 +123,8 @@ int main(void) {
         {"derived/base-420.jpg", 33.0},
         {"derived/base-411.jpg", 31.0},
         {"derived/base-restart.jpg", 33.0},
-        // CMYK went through a colour space round trip, which is what the
-        // higher floor is: the quantisation is the same
+        // CMYK went through a color space round trip, which is what the
+        // higher floor is: the quantization is the same
         {"derived/base-cmyk.jpg", 44.0}
     };
 
@@ -168,8 +137,8 @@ int main(void) {
     }
 
     // the restart fixture is 4:2:0 with a restart marker every four MCUs, so it
-    // has to agree with the plain 4:2:0 file exactly. Resynchronising wrongly
-    // would shift a colour band, not lose a decibel
+    // has to agree with the plain 4:2:0 file exactly. Resynchronizing wrongly
+    // would shift a color band, not lose a decibel
     TinyImage plain;
     TinyImage restarted;
 
@@ -210,8 +179,8 @@ int main(void) {
         tiny_image_destroy(&image);
     }
 
-    // a greyscale file asked for one channel is the file's own samples, so it
-    // has to match the luminance of the colour decode closely
+    // a grayscale file asked for one channel is the file's own samples, so it
+    // has to match the luminance of the color decode closely
     r |= assertEquals(
         decodeFixture("derived/base-gray.jpg", &image, 1), TINYIMG_OK
     );
@@ -328,44 +297,118 @@ int main(void) {
         tiny_image_destroy(&scaled);
     }
 
-    // the eighth scale is one sample per block, which is the block's mean, and
-    // is what the planner runs statistics on
-    TinyDecodeOpts eighth = {0, 0, 0, 0, 8, 1};
-    TinyImage tiny;
+    /*
+     * A reduced decode is the area average of the full one, so averaging the
+     * full decode over the same boxes has to land on it.
+     *
+     * A single component file, because with three the chroma upsampler and the
+     * color conversion sit between the two decodes and neither commutes with an
+     * average, which makes a three channel comparison measure those instead.
+     *
+     * The tolerances are measured rather than chosen. Halves and quarters fold
+     * the average into the transform and land within one level, which is the
+     * rounding: this averages bytes that were already rounded, the codec rounds
+     * once at the end. The eighth is a block's DC term, whose average covers
+     * the padding an incomplete edge block carries, so only whole boxes are
+     * compared and its floor is looser.
+     */
+    TinyImage gray;
     r |= assertEquals(
-        decodeWith("derived/base-gray.jpg", &tiny, &eighth), TINYIMG_OK
-    );
-    r |= assertEquals((long) tiny.width, 40L);
-    r |= assertEquals((long) tiny.height, 23L);
-
-    // averaging the full decode over the same boxes has to land within a level,
-    // since the two differ only in where the rounding happens
-    TinyImage grey;
-    r |= assertEquals(
-        decodeFixture("derived/base-gray.jpg", &grey, 1), TINYIMG_OK
+        decodeFixture("derived/base-gray.jpg", &gray, 1), TINYIMG_OK
     );
 
-    int close = 1;
-    for (uint32_t by = 0; by < 22; by++) {
-        for (uint32_t bx = 0; bx < 40; bx++) {
-            uint32_t sum = 0;
+    static const struct {
+        uint8_t den;
+        uint32_t width;
+        uint32_t height;
+        int tolerance;
+    } reduced[3] = {{2, 160, 90, 1}, {4, 80, 45, 1}, {8, 40, 23, 2}};
 
-            for (uint32_t y = 0; y < 8; y++) {
-                for (uint32_t x = 0; x < 8; x++) {
-                    sum += grey.data[(size_t) (by * 8 + y) * 320 + bx * 8 + x];
+    for (size_t i = 0; i < 3; i++) {
+        TinyDecodeOpts opts = {0, 0, 0, 0, reduced[i].den, 1};
+        TinyImage small;
+
+        r |= assertEquals(
+            decodeWith("derived/base-gray.jpg", &small, &opts), TINYIMG_OK
+        );
+        r |= assertEquals((long) small.width, (long) reduced[i].width);
+        r |= assertEquals((long) small.height, (long) reduced[i].height);
+
+        uint32_t den = reduced[i].den;
+        uint32_t across = gray.width / den;
+        uint32_t down = gray.height / den;
+        int close = 1;
+        int worst = 0;
+
+        for (uint32_t by = 0; by < down; by++) {
+            for (uint32_t bx = 0; bx < across; bx++) {
+                uint32_t sum = 0;
+
+                for (uint32_t y = 0; y < den; y++) {
+                    for (uint32_t x = 0; x < den; x++) {
+                        sum += gray.data
+                                   [(size_t) (by * den + y) * gray.width +
+                                    bx * den + x];
+                    }
                 }
+
+                int mean = (int) ((sum + den * den / 2) / (den * den));
+                int got = small.data[(size_t) by * small.width + bx];
+                int delta = got > mean ? got - mean : mean - got;
+
+                if (delta > worst) worst = delta;
+                if (delta > reduced[i].tolerance) close = 0;
             }
-
-            int mean = (int) ((sum + 32) / 64);
-            int got = tiny.data[(size_t) by * 40 + bx];
-
-            if (got - mean > 2 || mean - got > 2) close = 0;
         }
-    }
-    r |= assertTrue(close);
 
-    tiny_image_destroy(&grey);
-    tiny_image_destroy(&tiny);
+        if (!close) {
+            printf(
+                "1/%u drifted %d levels from the area average, over %d\n", den,
+                worst, reduced[i].tolerance
+            );
+        }
+        r |= assertTrue(close);
+
+        tiny_image_destroy(&small);
+    }
+
+    tiny_image_destroy(&gray);
+
+    /*
+     * The largest source in the set, both ways round.
+     *
+     * digicam.jpg is 3600x2700, which is 29.2 MB of RGB against the 32 MiB
+     * TINYIMG_MAX_IMAGE_BYTES cap, so a whole decode is the closest any fixture
+     * comes to the ceiling and has to succeed. Asking for four channels of the
+     * same picture is 38.9 MB and has to be refused with the specific error,
+     * which is the pair that says the cap is a budget and not an extent.
+     *
+     * The scaled decode is what a request actually takes: 1/8 of this source is
+     * 450x338, and it is the reason a source this size is usable at all.
+     */
+    TinyImage large;
+    r |= assertEquals(decodeFixture("digicam.jpg", &large, 3), TINYIMG_OK);
+    r |= assertEquals((long) large.width, 3600L);
+    r |= assertEquals((long) large.height, 2700L);
+
+    TinyImage magick;
+    r |= assertEquals(
+        decodeFixture("derived/ref/digicam.crop.png", &magick, 3), TINYIMG_OK
+    );
+    r |= assertMatchesCrop(&magick, &large, 1200, 900);
+
+    tiny_image_destroy(&magick);
+    tiny_image_destroy(&large);
+
+    r |= assertEquals(
+        decodeFixture("digicam.jpg", &image, 4), TINYIMG_ERR_TOO_LARGE
+    );
+
+    TinyDecodeOpts eighth = {0, 0, 0, 0, 8, 3};
+    r |= assertEquals(decodeWith("digicam.jpg", &image, &eighth), TINYIMG_OK);
+    r |= assertEquals((long) image.width, 450L);
+    r |= assertEquals((long) image.height, 338L);
+    tiny_image_destroy(&image);
 
     // #endregion
 
@@ -459,7 +502,7 @@ int main(void) {
     double scores[4] = {0, 0, 0, 0};
 
     for (size_t i = 0; i < 4; i++) {
-        TinyEncodeOpts opts = {qualities[i], 0, 0, 0};
+        TinyEncodeOpts opts = {qualities[i], 0, 0, 0, 0};
         TinyWriter out;
 
         r |= assertEquals(tiny_writer_init(&out, 0), TINYIMG_OK);
@@ -498,7 +541,7 @@ int main(void) {
      * pixels.
      *
      * The two write the same coefficients through different entropy coding, so
-     * this is the encoder's side of the check the decoder has: it caught a grey
+     * this is the encoder's side of the check the decoder has: it caught a gray
      * scan script that never finished DC successive approximation, which cost
      * the DC band's lowest bit and showed up nowhere else, because the file was
      * perfectly valid and simply one step coarser than asked for.
@@ -513,8 +556,8 @@ int main(void) {
         TinyImage flat;
         TinyImage staged;
 
-        TinyEncodeOpts baseline = {85, 0, 0, 0};
-        TinyEncodeOpts stepped = {85, 0, 1, 0};
+        TinyEncodeOpts baseline = {85, 0, 0, 0, 0};
+        TinyEncodeOpts stepped = {85, 0, 1, 0, 0};
 
         TinyWriter first;
         TinyWriter second;
@@ -573,7 +616,7 @@ int main(void) {
             TINYIMG_OK
         );
 
-        TinyEncodeOpts opts = {85, 0, 0, 0};
+        TinyEncodeOpts opts = {85, 0, 0, 0, 0};
         TinyWriter out;
 
         r |= assertEquals(tiny_writer_init(&out, 0), TINYIMG_OK);
@@ -601,7 +644,7 @@ int main(void) {
         r |= assertEquals(decodeFixture(awkward[i], &source, 3), TINYIMG_OK);
 
         for (uint8_t stepped = 0; stepped <= 1; stepped++) {
-            TinyEncodeOpts opts = {85, 0, stepped, 0};
+            TinyEncodeOpts opts = {85, 0, stepped, 0, 0};
             TinyWriter out;
 
             r |= assertEquals(tiny_writer_init(&out, 0), TINYIMG_OK);
@@ -624,8 +667,8 @@ int main(void) {
 
     // zero quality is the default rather than the worst possible, and a value
     // past the range is clamped instead of wrapping
-    TinyEncodeOpts defaulted = {0, 0, 0, 0};
-    TinyEncodeOpts absurd = {200, 0, 0, 0};
+    TinyEncodeOpts defaulted = {0, 0, 0, 0, 0};
+    TinyEncodeOpts absurd = {200, 0, 0, 0, 0};
     TinyWriter one;
     TinyWriter two;
 
@@ -655,6 +698,66 @@ int main(void) {
     tiny_writer_free(&nothing);
 
     tiny_image_destroy(&subject);
+
+    // #endregion
+
+    // #region blocks with no vertical detail
+
+    /*
+     * A picture whose columns do not vary leaves every vertical AC coefficient
+     * zero, so each block is one row repeated eight times and the inverse
+     * transform computes that row once. The shortcut is only sound if the rows
+     * really are identical, which is what this asserts; horizontal detail is
+     * deliberately present, because it is the axis that must survive.
+     */
+    TinyImage columns;
+    r |= assertEquals(tiny_image_create(&columns, 64, 32, 3), TINYIMG_OK);
+
+    for (uint32_t y = 0; y < columns.height; y++) {
+        for (uint32_t x = 0; x < columns.width; x++) {
+            uint8_t* pixel =
+                columns.data + ((size_t) y * columns.width + x) * 3;
+
+            pixel[0] = (uint8_t) (x * 4u);
+            pixel[1] = (uint8_t) (255u - x * 4u);
+            pixel[2] = (x & 1u) ? 30u : 220u;
+        }
+    }
+
+    TinyEncodeOpts column_opts = {92, 0, 0, 0, 0};
+    TinyWriter column_bytes;
+
+    r |= assertEquals(tiny_writer_init(&column_bytes, 0), TINYIMG_OK);
+    r |= assertEquals(
+        tiny_image_encode(
+            &columns, TINYIMG_FORMAT_JPEG, &column_opts, &column_bytes
+        ),
+        TINYIMG_OK
+    );
+    r |= assertEquals(
+        tiny_image_decode(&image, column_bytes.data, column_bytes.size, 0),
+        TINYIMG_OK
+    );
+
+    int rows_agree = 1;
+    uint32_t row_bytes = image.width * image.channels;
+
+    for (uint32_t y = 1; y < image.height; y++) {
+        for (uint32_t i = 0; i < row_bytes; i++) {
+            if (image.data[(size_t) y * row_bytes + i] != image.data[i]) {
+                rows_agree = 0;
+            }
+        }
+    }
+
+    r |= assertTrue(rows_agree);
+
+    // and the horizontal detail is still there, so this is not a flat image
+    r |= assertGreaterThan((double) image.data[3 * 3], (double) image.data[0]);
+
+    tiny_image_destroy(&image);
+    tiny_image_destroy(&columns);
+    tiny_writer_free(&column_bytes);
 
     // #endregion
 
@@ -724,8 +827,8 @@ int main(void) {
     tiny_image_destroy(&bare);
 
     // re-encoding carries the payload through byte for byte
-    TinyEncodeOpts keep = {85, 0, 0, 0};
-    TinyEncodeOpts drop = {85, 0, 0, 1};
+    TinyEncodeOpts keep = {85, 0, 0, 0, 0};
+    TinyEncodeOpts drop = {85, 0, 0, 1, 0};
     TinyWriter kept;
     TinyWriter stripped;
 

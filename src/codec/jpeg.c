@@ -1,6 +1,7 @@
 #include "tinyimg/codec/jpeg.h"
 
 #include "tinyimg/memory.h"
+#include "tinyimg/work.h"
 
 #define JPEG_MAX_COMPONENTS 4
 #define JPEG_FAST_BITS 8
@@ -12,7 +13,7 @@
  * engages on a stream carrying values no image could have been encoded from,
  * where every affected pixel clamps at the output anyway. It is not a quality
  * choice: without it the column pass of the integer transform overflows a
- * signed 32 bit accumulator, which is undefined behaviour rather than merely
+ * signed 32 bit accumulator, which is undefined behavior rather than merely
  * wrong.
  */
 #define JPEG_COEF_LIMIT 4096
@@ -73,7 +74,8 @@ typedef struct {
     const uint8_t* data;
     size_t size;
     size_t pos;
-    uint32_t accumulator;
+    /** 64 bit so four bytes can arrive in one step; `count` bits are valid. */
+    uint64_t accumulator;
     uint32_t count;
     /** The marker byte that ended the segment, or 0 while inside it. */
     uint8_t marker;
@@ -94,6 +96,30 @@ static void bits_init(
 }
 
 static void bits_fill(JpegBits* bits, uint32_t need) {
+    if (bits->count >= need) return;
+
+    /*
+     * Four bytes in one step while none of them is 0xFF, which is what a scan
+     * is made of: the loop below checks for stuffing and for a marker on every
+     * byte, and this reaches 32 bits with one load and one test instead. Never
+     * more than one attempt is needed, since 32 bits covers the longest read.
+     */
+    if (bits->count <= 32 && !bits->marker && bits->pos + 4 <= bits->size) {
+        const uint8_t* at = bits->data + bits->pos;
+        uint32_t word = ((uint32_t) at[0] << 24) | ((uint32_t) at[1] << 16) |
+                        ((uint32_t) at[2] << 8) | (uint32_t) at[3];
+        uint32_t flipped = ~word;
+
+        // zero unless one of the four bytes is 0xFF
+        if (((flipped - 0x01010101u) & ~flipped & 0x80808080u) == 0) {
+            bits->accumulator = (bits->accumulator << 32) | word;
+            bits->count += 32;
+            bits->pos += 4;
+
+            return;
+        }
+    }
+
     while (bits->count < need) {
         if (bits->marker || bits->pos >= bits->size) {
             bits->accumulator <<= 8;
@@ -131,7 +157,8 @@ static void bits_fill(JpegBits* bits, uint32_t need) {
 
 static inline uint32_t bits_peek(JpegBits* bits, uint32_t n) {
     bits_fill(bits, n);
-    return (bits->accumulator >> (bits->count - n)) & ((1u << n) - 1u);
+    return (uint32_t) ((bits->accumulator >> (bits->count - n)) &
+                       ((1ull << n) - 1ull));
 }
 
 static inline uint32_t bits_get(JpegBits* bits, uint32_t n) {
@@ -140,7 +167,8 @@ static inline uint32_t bits_get(JpegBits* bits, uint32_t n) {
     bits_fill(bits, n);
     bits->count -= n;
 
-    return (bits->accumulator >> bits->count) & ((1u << n) - 1u);
+    return (uint32_t) ((bits->accumulator >> bits->count) &
+                       ((1ull << n) - 1ull));
 }
 
 static inline int is_restart(uint8_t marker) {
@@ -436,7 +464,7 @@ static void idct_pass(const int32_t* in, int32_t* out, uint32_t shift) {
  * the intermediate is rounded between the passes and swapping them moves about
  * one pixel in twenty by a single level.
  *
- * A column whose AC terms are all zero, which after quantisation is most of
+ * A column whose AC terms are all zero, which after quantization is most of
  * them, skips the transform entirely.
  */
 static void idct_8x8(
@@ -444,6 +472,8 @@ static void idct_8x8(
     uint32_t stride
 ) {
     int32_t workspace[64];
+
+    uint32_t flat = 0;
 
     for (uint32_t column = 0; column < 8; column++) {
         const int16_t* source = coefficients + column;
@@ -454,6 +484,7 @@ static void idct_8x8(
             source[56] == 0) {
             int32_t value = dequantize(source, scale, 0) << JPEG_PASS1_BITS;
 
+            flat++;
             for (uint32_t i = 0; i < 8; i++) workspace[i * 8 + column] = value;
             continue;
         }
@@ -470,7 +501,11 @@ static void idct_8x8(
         for (uint32_t i = 0; i < 8; i++) workspace[i * 8 + column] = output[i];
     }
 
-    for (uint32_t row = 0; row < 8; row++) {
+    // a block with no vertical detail leaves the eight workspace rows equal, so
+    // the row pass would compute the same eight samples eight times
+    uint32_t rows = flat == 8 ? 1u : 8u;
+
+    for (uint32_t row = 0; row < rows; row++) {
         int32_t output[8];
 
         idct_pass(
@@ -481,45 +516,158 @@ static void idct_8x8(
             out[row * stride + i] = tiny_clamp_u8(output[i] + 128);
         }
     }
+
+    for (uint32_t row = rows; row < 8; row++) {
+        tiny_memcpy(out + (size_t) row * stride, out, 8);
+    }
+}
+
+/*
+ * The box average is linear and separable, so it folds into the transform and
+ * the intermediate 64 samples never have to exist.
+ *
+ * Averaging the 8 point IDCT in groups of 8/n is a linear operator on the
+ * coefficients, so the composition is an n by 8 matrix, and for these two n it
+ * collapses:
+ *
+ *   n = 4  coefficient 4 contributes nothing to a pairwise average, and 5, 6, 7
+ *          carry the same cosines as 3, 2, 1 with the opposite sign, so eight
+ *          coefficients fold onto four and a 4 point transform finishes the job
+ *   n = 2  only the odd coefficients survive a quad average, and the two
+ *          outputs differ only in the sign of their sum
+ *
+ * Every constant below is a product of the two stages' factors, so a
+ * coefficient meets exactly one of them: no chained multiply, so no
+ * intermediate descale and no precision lost between the fold and the
+ * transform. Peak pass 1 sums are 26.4 bits against a JPEG_COEF_LIMIT of 4096,
+ * so int32 is enough.
+ *
+ * Truncating the coefficients to the top left n by n instead is smaller still
+ * and was measured 15 dB worse, because spectral truncation rings: on a
+ * photograph it lands 35 dB from a true area average where libjpeg's reduced
+ * kernels land at 50. This is not an approximation of either, it is the area
+ * average itself, so the definition the rest of the library documents survives.
+ */
+#define JPEG_R4_W0 2896
+#define JPEG_R4_QW2 2676
+#define JPEG_R4_QW6 1108
+#define JPEG_R4_PW1 3711
+#define JPEG_R4_PW7 738
+#define JPEG_R4_RW3 1303
+#define JPEG_R4_RW5 871
+#define JPEG_R4_RW1 1537
+#define JPEG_R4_RW7 306
+#define JPEG_R4_PW3 3146
+#define JPEG_R4_PW5 2102
+
+#define JPEG_R2_C0 2896
+#define JPEG_R2_G1 2624
+#define JPEG_R2_G3 (-922)
+#define JPEG_R2_G5 616
+#define JPEG_R2_G7 (-522)
+
+/** One row or column, eight coefficients to four box averaged samples. */
+static void idct_pass4(const int32_t* in, int32_t* out, uint32_t shift) {
+    int32_t u0 = in[0] * JPEG_R4_W0;
+    int32_t even = in[2] * JPEG_R4_QW2 - in[6] * JPEG_R4_QW6;
+
+    int32_t e0 = u0 + even;
+    int32_t e1 = u0 - even;
+
+    int32_t o0 = in[1] * JPEG_R4_PW1 - in[7] * JPEG_R4_PW7 +
+                 in[3] * JPEG_R4_RW3 - in[5] * JPEG_R4_RW5;
+    int32_t o1 = in[1] * JPEG_R4_RW1 - in[7] * JPEG_R4_RW7 -
+                 in[3] * JPEG_R4_PW3 + in[5] * JPEG_R4_PW5;
+
+    out[0] = descale(e0 + o0, shift);
+    out[1] = descale(e1 + o1, shift);
+    out[2] = descale(e1 - o1, shift);
+    out[3] = descale(e0 - o0, shift);
+}
+
+/** One row or column, eight coefficients to two box averaged samples. */
+static void idct_pass2(const int32_t* in, int32_t* out, uint32_t shift) {
+    int32_t dc = in[0] * JPEG_R2_C0;
+    int32_t sum = in[1] * JPEG_R2_G1 + in[3] * JPEG_R2_G3 + in[5] * JPEG_R2_G5 +
+                  in[7] * JPEG_R2_G7;
+
+    out[0] = descale(dc + sum, shift);
+    out[1] = descale(dc - sum, shift);
 }
 
 /**
- * The full transform followed by a box average down to NxN, for N of 2 or 4.
- *
- * Truncating the coefficients to the top left NxN and shortening the transform
- * is smaller and faster than this, and it was measured 15 dB worse: spectral
- * truncation rings, so on a photograph it lands 35 dB from a true area average
- * where libjpeg's reduced kernels land at 50. Those kernels are not a
- * truncation, and their constants do not follow from the transform, so what is
- * left is the definition the rest of the library already documents: every codec
- * box averages when it downscales, and now so does this one.
+ * The area averaged NxN result, for N of 2 or 4, without the 8x8 in between.
  *
  * The 1x1 case keeps its own path, where a block's mean is its DC term over
  * eight with no transform at all.
  */
-static void idct_boxed(
+static void idct_reduced(
     const int16_t* coefficients, const uint16_t* quant, uint8_t* out,
     uint32_t stride, uint32_t n
 ) {
-    uint8_t block[64];
+    int32_t workspace[32];
+    uint32_t flat = 0;
 
-    idct_8x8(coefficients, quant, block, 8);
+    for (uint32_t column = 0; column < 8; column++) {
+        const int16_t* source = coefficients + column;
+        const uint16_t* scale = quant + column;
 
-    uint32_t span = 8u / n;
-    uint32_t area = span * span;
+        if (source[8] == 0 && source[16] == 0 && source[24] == 0 &&
+            source[32] == 0 && source[40] == 0 && source[48] == 0 &&
+            source[56] == 0) {
+            // both passes weight the DC term by the same constant, so a column
+            // with no detail is that one product repeated
+            int32_t value = descale(
+                dequantize(source, scale, 0) * JPEG_R4_W0,
+                JPEG_CONST_BITS - JPEG_PASS1_BITS
+            );
 
-    for (uint32_t y = 0; y < n; y++) {
-        for (uint32_t x = 0; x < n; x++) {
-            uint32_t sum = 0;
+            for (uint32_t i = 0; i < n; i++) workspace[i * 8 + column] = value;
 
-            for (uint32_t sy = 0; sy < span; sy++) {
-                const uint8_t* row = block + (y * span + sy) * 8 + x * span;
-
-                for (uint32_t sx = 0; sx < span; sx++) sum += row[sx];
-            }
-
-            out[y * stride + x] = (uint8_t) ((sum + area / 2) / area);
+            flat++;
+            continue;
         }
+
+        int32_t input[8];
+        int32_t output[4];
+
+        for (uint32_t i = 0; i < 8; i++) {
+            input[i] = dequantize(source, scale, i * 8);
+        }
+
+        if (n == 4) {
+            idct_pass4(input, output, JPEG_CONST_BITS - JPEG_PASS1_BITS);
+        }
+        else {
+            idct_pass2(input, output, JPEG_CONST_BITS - JPEG_PASS1_BITS);
+        }
+
+        for (uint32_t i = 0; i < n; i++) workspace[i * 8 + column] = output[i];
+    }
+
+    uint32_t rows = flat == 8 ? 1u : n;
+
+    for (uint32_t row = 0; row < rows; row++) {
+        int32_t output[4];
+
+        if (n == 4) {
+            idct_pass4(
+                workspace + row * 8, output, JPEG_CONST_BITS + JPEG_PASS1_BITS
+            );
+        }
+        else {
+            idct_pass2(
+                workspace + row * 8, output, JPEG_CONST_BITS + JPEG_PASS1_BITS
+            );
+        }
+
+        for (uint32_t i = 0; i < n; i++) {
+            out[row * stride + i] = tiny_clamp_u8(output[i] + 128);
+        }
+    }
+
+    for (uint32_t row = rows; row < n; row++) {
+        tiny_memcpy(out + (size_t) row * stride, out, n);
     }
 }
 
@@ -527,6 +675,9 @@ static void idct_block(
     const int16_t* coefficients, const uint16_t* quant, uint8_t* out,
     uint32_t stride, uint32_t n
 ) {
+    tiny_work_add(TINYIMG_WORK_TRANSFORMS, 1);
+    tiny_work_add(TINYIMG_WORK_TRANSFORM_SAMPLES, n * n);
+
     if (n == 8) {
         idct_8x8(coefficients, quant, out, stride);
         return;
@@ -540,7 +691,7 @@ static void idct_block(
         return;
     }
 
-    idct_boxed(coefficients, quant, out, stride, n);
+    idct_reduced(coefficients, quant, out, stride, n);
 }
 
 #pragma endregion
@@ -613,7 +764,7 @@ typedef struct {
     uint32_t mcus_y;
     uint32_t restart_interval;
 
-    /** Non-zero once an Adobe APP14 segment named a colour transform. */
+    /** Non-zero once an Adobe APP14 segment named a color transform. */
     uint8_t adobe;
     uint8_t transform;
     /** Non-zero when the component ids spell out RGB rather than YCbCr. */
@@ -1182,6 +1333,8 @@ static int decode_block_at(
         return TINYIMG_ERR_CORRUPT;
     }
 
+    tiny_work_add(TINYIMG_WORK_BLOCKS, 1);
+
     if (decoder->progressive) {
         int16_t* block =
             component->coefficients +
@@ -1313,26 +1466,44 @@ static inline uint32_t clamp_column(
  * Fills one row of a component at the output's resolution.
  *
  * The triangle filter for the 2x cases is the one libjpeg calls fancy
- * upsampling, computed per pixel with clamped neighbour indices rather than as
+ * upsampling, computed per pixel with clamped neighbor indices rather than as
  * a streaming loop with special cased ends; clamping reproduces those ends
  * exactly and there is then no edge case to get wrong.
+ *
+ * Under TINYIMG_EFFORT_FAST the 2x cases fall through to the replicating tail,
+ * which is what libjpeg does with `do_fancy_upsampling` off. It reaches only
+ * chroma, and only on a subsampled file, so a full color file decodes the same
+ * either way.
  */
 static void sample_row(
     const JpegComponent* component, uint32_t row, uint32_t x0, uint32_t count,
-    uint32_t hr, uint32_t vr, uint8_t* out
+    uint32_t hr, uint32_t vr, uint8_t* out, uint8_t effort
 ) {
+    int fancy = effort != TINYIMG_EFFORT_FAST;
+
     if (hr == 1 && vr == 1) {
         const uint8_t* source =
             component->plane +
             (size_t) clamp_row(component, row) * component->stride;
 
-        for (uint32_t i = 0; i < count; i++) {
+        // the column clamp can only bite past the last column, so the span
+        // before it is a copy rather than a compare per sample
+        uint32_t flat = count;
+
+        if (x0 + flat > component->plane_width) {
+            flat =
+                x0 < component->plane_width ? component->plane_width - x0 : 0;
+        }
+
+        tiny_memcpy(out, source + x0, flat);
+
+        for (uint32_t i = flat; i < count; i++) {
             out[i] = source[clamp_column(component, (int64_t) x0 + i)];
         }
         return;
     }
 
-    if (hr == 2 && vr == 1) {
+    if (fancy && hr == 2 && vr == 1) {
         const uint8_t* source =
             component->plane +
             (size_t) clamp_row(component, row) * component->stride;
@@ -1340,18 +1511,18 @@ static void sample_row(
         for (uint32_t i = 0; i < count; i++) {
             uint32_t x = x0 + i;
             uint32_t index = x >> 1;
-            int64_t neighbour =
+            int64_t neighbor =
                 (x & 1u) ? (int64_t) index + 1 : (int64_t) index - 1;
 
             uint32_t near = source[clamp_column(component, (int64_t) index)];
-            uint32_t far = source[clamp_column(component, neighbour)];
+            uint32_t far = source[clamp_column(component, neighbor)];
 
             out[i] = (uint8_t) ((near * 3u + far + ((x & 1u) ? 2u : 1u)) >> 2);
         }
         return;
     }
 
-    if (hr == 2 && vr == 2) {
+    if (fancy && hr == 2 && vr == 2) {
         uint32_t index_y = row >> 1;
         int64_t other_y =
             (row & 1u) ? (int64_t) index_y + 1 : (int64_t) index_y - 1;
@@ -1367,11 +1538,11 @@ static void sample_row(
         for (uint32_t i = 0; i < count; i++) {
             uint32_t x = x0 + i;
             uint32_t index = x >> 1;
-            int64_t neighbour =
+            int64_t neighbor =
                 (x & 1u) ? (int64_t) index + 1 : (int64_t) index - 1;
 
             uint32_t here = clamp_column(component, (int64_t) index);
-            uint32_t there = clamp_column(component, neighbour);
+            uint32_t there = clamp_column(component, neighbor);
 
             uint32_t sum = near_row[here] * 3u + far_row[here];
             uint32_t other = near_row[there] * 3u + far_row[there];
@@ -1392,7 +1563,7 @@ static void sample_row(
 
 #pragma endregion
 
-#pragma region colour
+#pragma region color
 
 /**
  * Rec. 601 inverse, in 16 bit fixed point.
@@ -1525,7 +1696,7 @@ static int allocate_planes(JpegDecoder* decoder) {
         if (!component->plane) return TINYIMG_ERR_MEMORY;
 
         // padding blocks and skipped columns are never read, but a plane that
-        // is partly uninitialised is a sanitizer report waiting to happen
+        // is partly uninitialized is a sanitizer report waiting to happen
         tiny_memset(component->plane, 128, (size_t) bytes);
     }
 
@@ -1577,7 +1748,7 @@ static void transform_coefficients(JpegDecoder* decoder) {
 
 static int write_pixels(
     JpegDecoder* decoder, TinyImage* image, uint32_t x0, uint32_t y0,
-    uint8_t channels
+    uint8_t channels, uint8_t effort
 ) {
     TinyArenaMark mark;
     tiny_arena_mark(&mark);
@@ -1603,7 +1774,7 @@ static int write_pixels(
 
             sample_row(
                 component, y0 + oy, x0, image->width, component->h_ratio,
-                component->v_ratio, rows[i]
+                component->v_ratio, rows[i], effort
             );
         }
 
@@ -1692,7 +1863,7 @@ static int attach_metadata(JpegDecoder* decoder, TinyImage* image) {
  * Walks the marker sequence, decoding every scan it finds.
  *
  * Segments are parsed where they appear rather than gathered first, because a
- * quantisation or Huffman table may be redefined between scans and only the
+ * quantization or Huffman table may be redefined between scans and only the
  * definition in force at a scan applies to it.
  */
 static int walk(
@@ -1855,7 +2026,9 @@ static int walk(
 
     image->format = TINYIMG_FORMAT_JPEG;
 
-    int written = write_pixels(decoder, image, x0, y0, channels);
+    int written = write_pixels(
+        decoder, image, x0, y0, channels, options ? options->effort : 0u
+    );
     if (written != TINYIMG_OK) return written;
 
     return attach_metadata(decoder, image);
@@ -1963,7 +2136,7 @@ static int jpeg_probe(const uint8_t* buffer, size_t size, TinyImageInfo* info) {
  *
  * The same algorithm and the same constants as the inverse, run backwards, so
  * the encoder adds no table of its own. The output is eight times the true
- * transform, which the quantisation divisors absorb.
+ * transform, which the quantization divisors absorb.
  */
 static void fdct_8x8(const uint8_t* in, uint32_t stride, int32_t* out) {
     int32_t workspace[64];
@@ -2080,7 +2253,7 @@ static void fdct_8x8(const uint8_t* in, uint32_t stride, int32_t* out) {
 
 #pragma endregion
 
-#pragma region quantisation tables
+#pragma region quantization tables
 
 /**
  * The example tables from the standard's Annex K.
@@ -2089,7 +2262,7 @@ static void fdct_8x8(const uint8_t* in, uint32_t stride, int32_t* out) {
  * they are the one thing it carries. mozjpeg ships tables tuned past these, but
  * writing down numbers attributed to a project without having them in front of
  * me is worse than using the ones the standard states, so the encoder takes its
- * gains from optimised Huffman coding and the progressive script instead.
+ * gains from optimized Huffman coding and the progressive script instead.
  */
 static const uint8_t annex_k_luma[64] = {
     16, 11, 10, 16, 24,  40,  51,  61,  12, 12, 14, 19, 26,  58,  60,  55,
@@ -2623,7 +2796,7 @@ static void encode_ac_refine(
 /** Rec. 601 forward, in the same 16 bit fixed point as the inverse. */
 static void rgb_to_ycbcr(uint32_t r, uint32_t g, uint32_t b, uint8_t* out) {
     // 19595 + 38470 + 7471 is exactly 65536, and each chroma row sums to zero,
-    // so a grey input produces a flat 128 rather than drifting
+    // so a gray input produces a flat 128 rather than drifting
     out[0] = (uint8_t) ((19595 * r + 38470 * g + 7471 * b + 32768) >> 16);
     out[1] =
         tiny_clamp_u8((int32_t) ((-11059 * (int32_t) r - 21709 * (int32_t) g +
@@ -2760,7 +2933,7 @@ static int build_planes(JpegEncoder* encoder) {
     return TINYIMG_OK;
 }
 
-/** Transforms and quantises every block of every component. */
+/** Transforms and quantizes every block of every component. */
 static void build_coefficients(JpegEncoder* encoder) {
     for (uint32_t i = 0; i < encoder->count; i++) {
         JpegEncodeComponent* component = &encoder->components[i];
@@ -2985,7 +3158,7 @@ static void write_scan_header(JpegEncoder* encoder) {
  * Measures one scan, builds the tables it needs, writes them and then writes
  * it.
  *
- * Two passes over the coefficients rather than one, which is what optimised
+ * Two passes over the coefficients rather than one, which is what optimized
  * tables cost: the frequencies are not known until every symbol the scan will
  * write has been seen. It is worth between two and six percent against the
  * example tables in the standard, on every image measured.
@@ -3057,7 +3230,7 @@ typedef struct {
     uint8_t al;
 } JpegScanSpec;
 
-static const JpegScanSpec colour_script[10] = {
+static const JpegScanSpec color_script[10] = {
     {3, {0, 1, 2}, 0, 0, 0, 1},  {1, {0, 0, 0}, 1, 5, 0, 2},
     {1, {2, 0, 0}, 1, 63, 0, 1}, {1, {1, 0, 0}, 1, 63, 0, 1},
     {1, {0, 0, 0}, 6, 63, 0, 2}, {1, {0, 0, 0}, 1, 63, 2, 1},
@@ -3074,7 +3247,7 @@ static const JpegScanSpec colour_script[10] = {
  * requiring a progressive encode and a baseline one to decode to the same
  * pixels, which is the only check that could see it.
  */
-static const JpegScanSpec grey_script[6] = {
+static const JpegScanSpec gray_script[6] = {
     {1, {0, 0, 0}, 0, 0, 0, 1},  {1, {0, 0, 0}, 1, 5, 0, 2},
     {1, {0, 0, 0}, 6, 63, 0, 2}, {1, {0, 0, 0}, 1, 63, 2, 1},
     {1, {0, 0, 0}, 0, 0, 1, 0},  {1, {0, 0, 0}, 1, 63, 1, 0}
@@ -3205,7 +3378,7 @@ static int jpeg_encode(
 
     if (encoder->progressive) {
         const JpegScanSpec* script =
-            encoder->count == 1 ? grey_script : colour_script;
+            encoder->count == 1 ? gray_script : color_script;
         uint32_t scans = encoder->count == 1 ? 6u : 10u;
 
         for (uint32_t i = 0; i < scans; i++) {
