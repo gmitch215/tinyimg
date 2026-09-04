@@ -370,6 +370,33 @@ int tiny_plan_op_at(const TinyPlan* plan, uint32_t index, TinyPlanOp* op) {
     return TINYIMG_OK;
 }
 
+TINYIMG_EXPORT("tiny_plan_field")
+uint32_t tiny_plan_field(
+    const TinyPlanResolution* resolution, TinyPlanField field
+) {
+    if (!resolution) return 0u;
+
+    switch (field) {
+        case TINYIMG_FIELD_REGION_X: return resolution->decode.x;
+        case TINYIMG_FIELD_REGION_Y: return resolution->decode.y;
+        case TINYIMG_FIELD_REGION_WIDTH: return resolution->decode.width;
+        case TINYIMG_FIELD_REGION_HEIGHT: return resolution->decode.height;
+        case TINYIMG_FIELD_SCALE: return resolution->decode.scale_den;
+        case TINYIMG_FIELD_DECODE_WIDTH: return resolution->decode_width;
+        case TINYIMG_FIELD_DECODE_HEIGHT: return resolution->decode_height;
+        case TINYIMG_FIELD_WIDTH: return resolution->width;
+        case TINYIMG_FIELD_HEIGHT: return resolution->height;
+        case TINYIMG_FIELD_CHANNELS: return resolution->channels;
+        case TINYIMG_FIELD_OPS: return resolution->ops;
+        case TINYIMG_FIELD_ELIMINATED: return resolution->eliminated;
+        case TINYIMG_FIELD_COLLAPSED: return resolution->collapsed;
+        case TINYIMG_FIELD_COLOR_STAGES: return resolution->color_stages;
+        case TINYIMG_FIELD_PASSES: return resolution->passes;
+        case TINYIMG_FIELD_KERNELS: return resolution->kernels;
+        default: return 0u;
+    }
+}
+
 #pragma endregion
 
 #pragma region orientation
