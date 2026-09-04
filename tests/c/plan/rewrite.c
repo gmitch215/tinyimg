@@ -142,10 +142,10 @@ static int pairs(void) {
 }
 
 /**
- * @brief A colour operation between two geometry ones does not stop them
+ * @brief A color operation between two geometry ones does not stop them
  * pairing.
  *
- * A colour operation reads one pixel and never moves it, so the two flips are
+ * A color operation reads one pixel and never moves it, so the two flips are
  * still adjacent as far as geometry is concerned and the merge is exact. This
  * is the rule that makes a chain built by a fluent API collapse at all, since
  * nobody writes their operations pre-sorted.
@@ -179,7 +179,7 @@ static int commuting(void) {
     failures += assertEquals(res.op[0].crop.width, 50);
 
     /*
-     * A neighbourhood operation is a different matter, because it reads the
+     * A neighborhood operation is a different matter, because it reads the
      * pixels around the one it writes. The crops stay apart.
      */
     TinyPlan blurred;
@@ -269,7 +269,7 @@ static int blur_reorder(void) {
     return failures;
 }
 
-/** A greyscale image has no saturation to change and no hue to turn. */
+/** A grayscale image has no saturation to change and no hue to turn. */
 static int grayscale_absorbs(void) {
     int failures = 0;
 
@@ -286,7 +286,7 @@ static int grayscale_absorbs(void) {
     failures += assertEquals(res.op[0].kind, TINYIMG_OP_GRAYSCALE);
     failures += assertEquals(res.channels, 1);
 
-    // and only one colour operation is left, so the decoder can produce the
+    // and only one color operation is left, so the decoder can produce the
     // luminance itself and the stage disappears with it
     failures += assertTrue((res.kernels & TINYIMG_KERNEL_GRAY_DECODE) != 0);
     failures += assertEquals(res.color_stages, 0);
@@ -303,17 +303,17 @@ static int grayscale_absorbs(void) {
     failures += assertEquals(res.color_stages, 1);
     failures += assertFalse((res.kernels & TINYIMG_KERNEL_GRAY_DECODE) != 0);
 
-    // a greyscale over an image that is already one channel is an identity
-    TinyImage grey;
-    if (tiny_image_create(&grey, 16, 16, 1) == TINYIMG_OK) {
+    // a grayscale over an image that is already one channel is an identity
+    TinyImage gray;
+    if (tiny_image_create(&gray, 16, 16, 1) == TINYIMG_OK) {
         TinyPlan already;
-        tiny_plan_init_image(&already, &grey);
+        tiny_plan_init_image(&already, &gray);
         tiny_plan_grayscale(&already);
 
         failures += assertEquals(resolve(&already, &res), TINYIMG_OK);
         failures += assertEquals(res.ops, 0);
 
-        tiny_image_destroy(&grey);
+        tiny_image_destroy(&gray);
     }
 
     return failures;

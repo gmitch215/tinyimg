@@ -50,7 +50,7 @@ static int worked_example(void) {
     failures += assertEquals(res.width, 100);
     failures += assertEquals(res.height, 100);
 
-    // four colour operations, two kinds, and the nonlinear one is last, so they
+    // four color operations, two kinds, and the nonlinear one is last, so they
     // collapse to exactly the one matrix and one table the plan claims
     failures += assertEquals(res.color_stages, 2);
     failures += assertEquals(res.color_stages_before, 0);
@@ -187,7 +187,7 @@ static int propagation(void) {
 }
 
 /**
- * @brief A neighbourhood operation stops the propagation unless it was moved.
+ * @brief A neighborhood operation stops the propagation unless it was moved.
  *
  * Scaling the decode under a blur would change the blur's radius without
  * anybody having said so, which is the rewrite's job and is measured where the
@@ -317,7 +317,7 @@ static int gravities(void) {
         {TINYIMG_GRAVITY_NORTH_EAST, 200, 0},
         {TINYIMG_GRAVITY_SOUTH_WEST, 0, 50},
         {TINYIMG_GRAVITY_SOUTH_EAST, 200, 50},
-        // both computed gravities fall back to the centre until the phases that
+        // both computed gravities fall back to the center until the phases that
         // measure them land, and the fallback is what has to be clean
         {TINYIMG_GRAVITY_AUTO, 100, 25},
         {TINYIMG_GRAVITY_FACE, 100, 25}
@@ -561,12 +561,23 @@ static int too_large(void) {
     failures += assertEquals(tiny_plan_run(&plan, &out), TINYIMG_ERR_TOO_LARGE);
 
     // just under the budget is allowed, which is what says the limit is the
-    // budget and not an arbitrary extent
+    // budget and not an arbitrary extent. the source is RGB, so the byte cap is
+    // the one that binds and 3344 squared is the last extent under it
     TinyPlan allowed;
     tiny_plan_init_image(&allowed, &image);
-    tiny_plan_resize(&allowed, 4000, 4000);
+    tiny_plan_resize(&allowed, 3344, 3344);
 
     failures += assertEquals(tiny_plan_resolve(&allowed, &res), TINYIMG_OK);
+
+    // resolve has to refuse what the executor could not allocate, or a plan
+    // that resolved would still fail in the middle of running
+    TinyPlan overByBytes;
+    tiny_plan_init_image(&overByBytes, &image);
+    tiny_plan_resize(&overByBytes, 3345, 3345);
+
+    failures += assertEquals(
+        tiny_plan_resolve(&overByBytes, &res), TINYIMG_ERR_TOO_LARGE
+    );
 
     tiny_image_destroy(&image);
     return failures;

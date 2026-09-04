@@ -9,7 +9,7 @@
 static TinyImage source;
 static TinyColorStage stages[TINYIMG_PLAN_MAX_OPS];
 
-/** Resolves a plan and collapses its colour operations. */
+/** Resolves a plan and collapses its color operations. */
 static uint32_t collapse(const TinyPlan* plan, TinyPlanResolution* res) {
     uint32_t count = 0;
 
@@ -56,7 +56,7 @@ static int single_matrices(void) {
     failures += assertEquals(stages[0].matrix[3], -(127 * ONE + ONE / 2));
 
     // a saturation of nothing is a luminance in every channel, which is the
-    // same matrix a greyscale asks for
+    // same matrix a grayscale asks for
     TinyPlan flat;
     tiny_plan_init_image(&flat, &source);
     tiny_plan_saturation(&flat, 0.0f);
@@ -120,7 +120,7 @@ static int composition(void) {
  * Which is a property of the matrix and not of any image: the three channel
  * weights of every row sum to one, so a pixel whose channels are equal comes
  * through unchanged at any angle. It is also why a hue rotation after a
- * greyscale can be dropped.
+ * grayscale can be dropped.
  */
 static int hue_preserves_luma(void) {
     int failures = 0;
@@ -351,27 +351,27 @@ static int pixels(void) {
 
     // a saturation of nothing puts the luminance in all three channels, and it
     // is the same luminance the codecs reduce with
-    uint8_t grey[6];
-    grey[0] = grey[1] = grey[2] = tiny_luma(100, 150, 200);
-    grey[3] = grey[4] = grey[5] = tiny_luma(10, 20, 30);
+    uint8_t gray[6];
+    gray[0] = gray[1] = gray[2] = tiny_luma(100, 150, 200);
+    gray[3] = gray[4] = gray[5] = tiny_luma(10, 20, 30);
 
     TinyPlan flat;
     tiny_plan_init_image(&flat, &strip);
     tiny_plan_saturation(&flat, 0.0f);
 
     failures += assertEquals(tiny_plan_run(&flat, &out), TINYIMG_OK);
-    failures += assertBytesMatch(out.data, grey, 6);
+    failures += assertBytesMatch(out.data, gray, 6);
     tiny_image_destroy(&out);
 
-    // and a greyscale is the same values in one channel
+    // and a grayscale is the same values in one channel
     TinyPlan mono;
     tiny_plan_init_image(&mono, &strip);
     tiny_plan_grayscale(&mono);
 
     failures += assertEquals(tiny_plan_run(&mono, &out), TINYIMG_OK);
     failures += assertEquals(out.channels, 1);
-    failures += assertEquals(out.data[0], grey[0]);
-    failures += assertEquals(out.data[1], grey[3]);
+    failures += assertEquals(out.data[0], gray[0]);
+    failures += assertEquals(out.data[1], gray[3]);
     tiny_image_destroy(&out);
 
     // a gamma is the library's own table, applied per channel
@@ -394,13 +394,13 @@ static int pixels(void) {
 }
 
 /**
- * @brief A colour operation on a single channel image reads as if it had three.
+ * @brief A color operation on a single channel image reads as if it had three.
  *
  * Widening to RGB, applying and reducing again is what a caller means, and
  * taking the matrix's first row alone is not the same thing: it would turn a
- * hue rotation of a grey image into a brightness change.
+ * hue rotation of a gray image into a brightness change.
  */
-static int grey_channels(void) {
+static int gray_channels(void) {
     int failures = 0;
 
     TinyImage strip;
@@ -459,7 +459,7 @@ static int grey_channels(void) {
     return failures;
 }
 
-/** Alpha is never read and never written by a colour operation. */
+/** Alpha is never read and never written by a color operation. */
 static int alpha_untouched(void) {
     int failures = 0;
 
@@ -499,7 +499,7 @@ int main(void) {
     failures += interleaving();
     failures += split();
     failures += pixels();
-    failures += grey_channels();
+    failures += gray_channels();
     failures += alpha_untouched();
 
     tiny_image_destroy(&source);

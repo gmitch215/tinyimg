@@ -263,7 +263,7 @@ static int identity_resample(void) {
  * @brief A box reduction by a whole factor is the mean of what it covers.
  *
  * Worked out on a ramp, where every output pixel has an exact answer, so this
- * separates a real area average from a nearest neighbour pick dressed up as
+ * separates a real area average from a nearest neighbor pick dressed up as
  * one.
  */
 static int box_reduction(void) {
@@ -380,7 +380,7 @@ static int chains(void) {
     tiny_plan_rotate(&geometry, 90);
     failures += both_ways(&geometry, "crop, flip, turn", 0.0);
 
-    // one resample and one colour operation is one of each either way, so the
+    // one resample and one color operation is one of each either way, so the
     // fused pass has no intermediate to save and must land on the same bytes
     TinyPlan single;
     tiny_plan_init_image(&single, &decoded);
@@ -422,7 +422,7 @@ static int chains(void) {
     tiny_plan_brightness(&reducing, 0.9f);
     tiny_plan_contrast(&reducing, 0.95f);
     tiny_plan_saturation(&reducing, 0.8f);
-    failures += both_ways(&reducing, "colour, nothing clamping", 45.0);
+    failures += both_ways(&reducing, "color, nothing clamping", 45.0);
 
     TinyPlan curved;
     tiny_plan_init_image(&curved, &decoded);
@@ -448,7 +448,7 @@ static int chains(void) {
     tiny_plan_saturation(&first, 0.8f);
     tiny_plan_crop(&first, 20, 20, 180, 100);
     tiny_plan_resize(&first, 90, 60);
-    failures += both_ways(&first, "colour before geometry", 45.0);
+    failures += both_ways(&first, "color before geometry", 45.0);
 
     tiny_image_destroy(&decoded);
     free(bytes);
@@ -462,7 +462,7 @@ static double clamp255(double value) {
 }
 
 /**
- * @brief Collapsing colour operations is more accurate, not just fewer passes.
+ * @brief Collapsing color operations is more accurate, not just fewer passes.
  *
  * Where an intermediate would have clamped, the two paths do not merely round
  * differently: they compute different functions. Running a brightness, then a
@@ -628,7 +628,7 @@ static int from_bytes(void) {
     /*
      * The fused run decoded a quarter of a five hundred pixel square and the
      * eager one decoded all six megapixels, so the floor here is the cost of
-     * the whole optimisation: what the region and scale decode gives up against
+     * the whole optimization: what the region and scale decode gives up against
      * reading everything. Anything much below this would mean the scaled decode
      * is not the area average it claims to be.
      */
@@ -639,7 +639,7 @@ static int from_bytes(void) {
     return failures;
 }
 
-/** Padding is filled with the background, and a later colour op reaches it. */
+/** Padding is filled with the background, and a later color op reaches it. */
 static int padding(void) {
     int failures = 0;
 
@@ -680,14 +680,14 @@ static int padding(void) {
     return failures;
 }
 
-/** Resampling an image with transparency does not drag colour out of it. */
+/** Resampling an image with transparency does not drag color out of it. */
 static int premultiplied(void) {
     int failures = 0;
 
     TinyImage sprite;
     if (tiny_image_create(&sprite, 8, 8, 4) != TINYIMG_OK) return 1;
 
-    // a transparent left half carrying a colour nothing should ever see, and an
+    // a transparent left half carrying a color nothing should ever see, and an
     // opaque green right half
     for (uint32_t y = 0; y < 8u; y++) {
         for (uint32_t x = 0; x < 8u; x++) {
@@ -732,11 +732,11 @@ static int premultiplied(void) {
 }
 
 /**
- * @brief Operations after a neighbourhood one run over what it produced.
+ * @brief Operations after a neighborhood one run over what it produced.
  *
  * The rewrite moves a blur to the small side of a downscale where it can, and
  * where it cannot the plan is genuinely two passes: everything up to the blur,
- * the blur on a materialised image, then everything after it. An enlargement is
+ * the blur on a materialized image, then everything after it. An enlargement is
  * the case the rewrite refuses, so it is the one that exercises the second
  * pass.
  */
@@ -792,7 +792,7 @@ static int after_a_blur(void) {
     return failures;
 }
 
-/** A greyscale beside another colour operation reduces on the way out. */
+/** A grayscale beside another color operation reduces on the way out. */
 static int channel_change(void) {
     int failures = 0;
 
@@ -808,7 +808,7 @@ static int channel_change(void) {
     TinyPlanResolution res;
     failures += assertEquals(tiny_plan_resolve(&plan, &res), TINYIMG_OK);
 
-    // two colour operations, so the decoder cannot be asked for the luminance
+    // two color operations, so the decoder cannot be asked for the luminance
     // and the reduction to one channel happens as the pass writes
     failures += assertFalse((res.kernels & TINYIMG_KERNEL_GRAY_DECODE) != 0);
     failures += assertEquals(res.channels, 1);
