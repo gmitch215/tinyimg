@@ -129,7 +129,7 @@ describe('the jpeg codec inside the wasm module', () => {
 		).toHaveLength(1);
 	});
 
-	it('resynchronises on restart markers', async () => {
+	it('resynchronizes on restart markers', async () => {
 		const source = fixture('derived/base-restart.jpg');
 
 		// the fixture carries a restart interval, so the decoder has to step over the markers
@@ -286,7 +286,7 @@ describe('the jpeg codec inside the wasm module', () => {
 			expect(abi.probe(flat.bytes!).info.progressive, `${channels} channels`).toBe(false);
 
 			// the same coefficients through different entropy coding, so the pixels cannot
-			// differ; this is what caught a grey scan script that never finished DC
+			// differ; this is what caught a gray scan script that never finished DC
 			// successive approximation and quietly lost the DC band's lowest bit
 			const a = abi.decode(flat.bytes!).image!;
 			const b = abi.decode(staged.bytes!).image!;

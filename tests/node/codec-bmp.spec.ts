@@ -178,7 +178,7 @@ describe('the bmp codec inside the wasm module', () => {
 		expect(abi.decode(encoded!).image!.channels).toBe(4);
 	});
 
-	it('writes a greyscale palette for a one channel image', () => {
+	it('writes a grayscale palette for a one channel image', () => {
 		const { result, bytes: encoded } = abi.transcode(
 			fixture('derived/base.bmp'),
 			Format.bmp,
@@ -191,7 +191,7 @@ describe('the bmp codec inside the wasm module', () => {
 		expect(header.paletteCount).toBe(256);
 		expect(header.pixelOffset).toBe(1078);
 
-		// entry n has to be n in all three channels, or a reader shows a false colour image
+		// entry n has to be n in all three channels, or a reader shows a false color image
 		for (const index of [0, 1, 128, 254, 255]) {
 			const entry = 54 + index * 4;
 			expect([encoded![entry], encoded![entry + 1], encoded![entry + 2]]).toEqual([
@@ -224,8 +224,8 @@ describe('the bmp codec inside the wasm module', () => {
 		);
 		expect(abi.decode(new Uint8Array([0x42, 0x4d])).result).toBe(Err.corrupt);
 
-		// a format this build recognises but cannot decode, which is a different answer from not
-		// recognising it at all. WebP served here until it gained a codec; AVIF is what is left,
+		// a format this build recognizes but cannot decode, which is a different answer from not
+		// recognizing it at all. WebP served here until it gained a codec; AVIF is what is left,
 		// since its own answers probe and neither direction of pixels
 		expect(abi.decode(fixture('derived/base.avif')).result).toBe(Err.unsupportedCodec);
 
@@ -354,9 +354,9 @@ describe.skipIf(!hasMagick())('the bmp encoder against imagemagick', () => {
 		expect(output).toMatch(/^320 180 srgba/);
 	});
 
-	it('produces a greyscale file magick reads as one channel', () => {
+	it('produces a grayscale file magick reads as one channel', () => {
 		const { bytes: encoded } = abi.transcode(fixture('derived/base.bmp'), Format.bmp, 1);
-		const { path, output } = identify('grey.bmp', encoded!);
+		const { path, output } = identify('gray.bmp', encoded!);
 
 		expect(output).toMatch(/^320 180 /);
 
@@ -364,11 +364,11 @@ describe.skipIf(!hasMagick())('the bmp encoder against imagemagick', () => {
 		const ours = abi.transcode(fixture('derived/base.bmp'), Format.bmp, 1);
 		const decoded = abi.decode(ours.bytes!).image!;
 
-		// our decode widens the palette back to rgb, so compare magick's grey against one channel
-		const grey = new Uint8Array(320 * 180);
-		for (let i = 0; i < grey.length; i++) grey[i] = decoded.pixels[i * 3]!;
+		// our decode widens the palette back to rgb, so compare magick's gray against one channel
+		const gray = new Uint8Array(320 * 180);
+		for (let i = 0; i < gray.length; i++) gray[i] = decoded.pixels[i * 3]!;
 
-		expect(new Uint8Array(raw)).toEqual(grey);
+		expect(new Uint8Array(raw)).toEqual(gray);
 	});
 
 	it('reads back a bitmap magick wrote from our own output', () => {

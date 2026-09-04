@@ -99,7 +99,7 @@ describe('the gif codec inside the wasm module', () => {
 	});
 
 	it('decodes to the pixels the bmp codec reaches through a different container', async () => {
-		// the same picture through the same quantiser, in a palette BMP and a GIF: three
+		// the same picture through the same quantizer, in a palette BMP and a GIF: three
 		// unrelated readers of one set of indices have to agree
 		const gif = abi.decode(fixture('derived/base.gif')).image!;
 		const bmp = abi.decode(fixture('derived/base-rle8.bmp')).image!;
@@ -178,7 +178,7 @@ describe('the gif codec inside the wasm module', () => {
 		}
 	});
 
-	it('quantises what does not fit, and stays close', () => {
+	it('quantizes what does not fit, and stays close', () => {
 		const source = fixture('sf-24.jpg');
 		const original = abi.decode(source).image!;
 

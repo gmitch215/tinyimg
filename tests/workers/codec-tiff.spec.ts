@@ -53,7 +53,7 @@ describe('the tiff codec inside workerd', () => {
 		}
 	});
 
-	it('reads a colour map and an alpha channel', async () => {
+	it('reads a color map and an alpha channel', async () => {
 		const indexed = await decode(palette);
 		expect(indexed.channels).toBe(3);
 		expect(indexed.digest).toBe(golden.bmpRle8);

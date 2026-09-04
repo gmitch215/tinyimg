@@ -53,7 +53,7 @@ describe('the jpeg codec inside workerd', () => {
 		expect(report.digest).toBe(golden.jpeg444);
 	});
 
-	it('resynchronises on restart markers', async () => {
+	it('resynchronizes on restart markers', async () => {
 		const report = await decode(restart);
 
 		expect(report.result).toBe(0);

@@ -110,7 +110,7 @@ describe('the webp codec inside the wasm module', () => {
 		const image = abi.decode(fixture('derived/base-lossless.webp')).image!;
 
 		// the same picture as a BMP, three PNGs and seven TIFFs. WebP lossless gets there by
-		// subtracting green from red and blue and then predicting every pixel from its neighbours,
+		// subtracting green from red and blue and then predicting every pixel from its neighbors,
 		// which is nothing like what the others do
 		expect(await sha256(image.pixels)).toBe(golden.reference);
 		expect(image.pixels).toEqual(abi.decode(fixture('derived/base-rgb8.png')).image!.pixels);
@@ -315,7 +315,7 @@ describe('the webp codec inside the wasm module', () => {
 		expect(encoded!.byteLength).toBeLessThan(320 * 180 * 3);
 	});
 
-	it('keeps an image inside 256 colours exactly, through a palette', () => {
+	it('keeps an image inside 256 colors exactly, through a palette', () => {
 		const source = fixture('derived/logo.png');
 		const original = abi.decode(source).image!;
 
@@ -329,7 +329,7 @@ describe('the webp codec inside the wasm module', () => {
 		expect(encoded!.byteLength).toBeLessThan(2048);
 	});
 
-	it('keeps one colour exactly, which is the smallest palette there is', () => {
+	it('keeps one color exactly, which is the smallest palette there is', () => {
 		const source = fixture('derived/flat.png');
 		const original = abi.decode(source).image!;
 

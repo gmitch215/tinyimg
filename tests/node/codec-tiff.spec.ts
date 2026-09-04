@@ -92,7 +92,7 @@ describe('the tiff codec inside the wasm module', () => {
 		expect(tag(fixture('derived/base-packbits.tif'), 259)).toBe(32773);
 	});
 
-	it('reads a colour map to the pixels the other palette formats reach', async () => {
+	it('reads a color map to the pixels the other palette formats reach', async () => {
 		const image = abi.decode(fixture('derived/base-palette.tif')).image!;
 
 		expect(tag(fixture('derived/base-palette.tif'), 262)).toBe(3);
@@ -100,11 +100,11 @@ describe('the tiff codec inside the wasm module', () => {
 		expect(await sha256(image.pixels)).toBe(golden.bmpRle8);
 	});
 
-	it('reads greyscale and an alpha channel', async () => {
-		const grey = abi.decode(fixture('derived/base-gray.tif')).image!;
+	it('reads grayscale and an alpha channel', async () => {
+		const gray = abi.decode(fixture('derived/base-gray.tif')).image!;
 
-		expect(grey.channels).toBe(1);
-		expect(await sha256(grey.pixels)).toBe(golden.tiffGray);
+		expect(gray.channels).toBe(1);
+		expect(await sha256(gray.pixels)).toBe(golden.tiffGray);
 
 		const alpha = abi.decode(fixture('derived/base-alpha.tif')).image!;
 

@@ -145,7 +145,7 @@ describe('the avif container reader inside the wasm module', () => {
 		expect(abi.decode(source).result).toBe(Err.unsupportedCodec);
 	});
 
-	it('leaves heif recognised and unclaimed', () => {
+	it('leaves heif recognized and unclaimed', () => {
 		// the two families share the container and are separated by the brand. Nothing registers
 		// HEIF, so a probe of one has to say so specifically rather than call it unreadable
 		const heic = new Uint8Array([

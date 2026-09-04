@@ -65,7 +65,7 @@ describe('the gif codec inside workerd', () => {
 	});
 
 	it('encodes a palette that already fits without losing a pixel', async () => {
-		// format 4 is GIF, and this file's colours all fit, so the round trip has to be exact
+		// format 4 is GIF, and this file's colors all fit, so the round trip has to be exact
 		const report = await decode(base, '?reencode=4');
 
 		expect(report.result).toBe(0);

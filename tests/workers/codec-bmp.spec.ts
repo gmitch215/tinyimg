@@ -114,7 +114,7 @@ describe('the bmp codec inside workerd', () => {
 		expect(report.roundTripDigest).toBe(golden.reference);
 	});
 
-	it('reports a recognised format it cannot decode by name', async () => {
+	it('reports a recognized format it cannot decode by name', async () => {
 		// WebP served here until it gained a codec; AVIF is what is left, since its own answers
 		// probe and neither direction of pixels
 		const report = await decode(unsupported);
@@ -123,7 +123,7 @@ describe('the bmp codec inside workerd', () => {
 		expect(report.errorName).toBe('unsupported codec');
 	});
 
-	it('reports an unrecognised buffer by name', async () => {
+	it('reports an unrecognized buffer by name', async () => {
 		const report = await decode(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]));
 
 		expect(report.result).toBe(-6);

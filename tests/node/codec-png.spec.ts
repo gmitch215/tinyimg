@@ -264,7 +264,7 @@ describe.skipIf(!hasMagick())('the png encoder against imagemagick', () => {
 
 	it('produces flat artwork no larger than magick does', () => {
 		// the unfiltered candidate exists for this case: scoring a row by how close its bytes are to
-		// zero says nothing about whether LZ77 could match it against its neighbours
+		// zero says nothing about whether LZ77 could match it against its neighbors
 		const ours = abi.transcode(fixture('derived/logo.png'), Format.png, 4);
 		const source = fixture('derived/logo.png');
 
