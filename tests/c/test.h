@@ -304,6 +304,49 @@ static inline int assertImageEquals(const TinyImage* a, const TinyImage* b) {
     return assertBytesMatch(a->data, b->data, n);
 }
 
+/**
+ * @brief Asserts an image equals the same rectangle taken out of a larger one.
+ *
+ * Which is how a region decode is checked: the codec produces the part and the
+ * assertion holds it against the whole, so a wrong offset, a wrong stride or a
+ * truncated pass is a mismatch rather than a plausible looking picture.
+ *
+ * @param part The smaller image.
+ * @param whole The image it should be a rectangle of.
+ * @param x Left edge of that rectangle in `whole`.
+ * @param y Top edge of that rectangle in `whole`.
+ * @return int 0 when they match, 1 otherwise.
+ */
+static inline int assertMatchesCrop(
+    const TinyImage* part, const TinyImage* whole, uint32_t x, uint32_t y
+) {
+    if (part->width + x > whole->width || part->height + y > whole->height) {
+        printf(
+            "crop %ux%u+%u+%u does not fit\n", part->width, part->height, x, y
+        );
+        return assertTrue(0);
+    }
+
+    for (uint32_t row = 0; row < part->height; row++) {
+        const uint8_t* a =
+            part->data + (size_t) row * part->width * part->channels;
+        const uint8_t* b =
+            whole->data +
+            ((size_t) (y + row) * whole->width + x) * whole->channels;
+
+        for (uint32_t i = 0; i < part->width * part->channels; i++) {
+            if (a[i] != b[i]) {
+                printf(
+                    "row %u byte %u: had %u, wanted %u\n", row, i, a[i], b[i]
+                );
+                return assertTrue(0);
+            }
+        }
+    }
+
+    return assertTrue(1);
+}
+
 #pragma endregion
 
 #endif
