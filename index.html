@@ -226,6 +226,7 @@ own CPU budget.</p>
 <li><a href="#text">Text</a></li>
 <li><a href="#face-detection">Face Detection</a></li>
 <li><a href="#color-management">Color Management</a></li>
+<li><a href="#reading-the-db-figures">Reading the dB Figures</a></li>
 <li><a href="#budget-and-effort">Budget and Effort</a></li>
 <li><a href="#caching">Caching</a></li>
 <li><a href="#work-counters">Work Counters</a></li>
@@ -805,9 +806,16 @@ measurement said. Kern pairs are applied when the face carries a <code>kern</cod
 <p>100 characters at 16 px cost 0.156 ms.</p>
 <h2 id="face-detection">Face Detection</h2>
 <p>An LBP cascade over an integral image, multi-scale, with union-find grouping. The cascades are
-OpenCV&#39;s, repacked from XML to a flat binary.</p>
-<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'frontal'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, frontalBytes);</span></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'profile'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, profileBytes);</span></span>
+OpenCV&#39;s <code>lbpcascade_frontalface_improved.xml</code> and <code>lbpcascade_profileface.xml</code>.</p>
+<p>The module carries no cascade data and no XML parser, so a cascade arrives as bytes in a packed form
+that <code>scripts/fixtures.ts</code> builds from the OpenCV source: 7.4 kB for the frontal cascade against 54 kB
+of XML. <code>loadBlob</code> rejects one still in XML. Both packed cascades are published, and
+<code>bun run blobs</code> rebuilds them if you would rather host your own:</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> frontal</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> fetch</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'https://cdn.gmitch215.dev/tinyimg/cascades/lbp-frontalface.bin'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> profile</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> fetch</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'https://cdn.gmitch215.dev/tinyimg/cascades/lbp-profileface.bin'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'frontal'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> frontal.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">arrayBuffer</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">());</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'profile'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> profile.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">arrayBuffer</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">());</span></span>
 <span class="line"></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> faces</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">detectFaces</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(source);</span></span>
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// [{ x, y, width, height, neighbors }]</span></span></code></pre><p>Every resident cascade runs and the results are grouped together, so a frontal and a profile cascade
@@ -819,9 +827,45 @@ within a pixel on identical pixels.</p>
 <p>ICC matrix-and-TRC profiles: the <code>rXYZ</code> / <code>gXYZ</code> / <code>bXYZ</code> primaries, <code>curv</code> and parametric <code>para</code>
 tone curves, and Bradford chromatic adaptation folded into the matrix. Conversion between a tagged
 profile and sRGB agrees with ImageMagick at 49 dB.</p>
+<h3 id="reading-the-db-figures">Reading the dB Figures</h3>
+<p>Every accuracy number here and in the technical report is PSNR against a stated reference:
+<code>10 * log10(255^2 / MSE)</code>, where the mean squared error runs over every channel sample of both
+images. It is a log scale, so 6 dB is one bit of precision and each 10 dB is a tenfold drop in
+squared error. Higher is closer, and infinity means the two images are byte-identical.</p>
+<p>Where the thresholds fall, for 8-bit images:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>PSNR</th>
+<th>What it looks like</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>above 50 dB</td>
+<td>below one level of quantization; no viewer can distinguish the two</td>
+</tr>
+<tr>
+<td>40 to 50 dB</td>
+<td>indistinguishable in normal viewing, and separable in a difference blend</td>
+</tr>
+<tr>
+<td>30 to 40 dB</td>
+<td>artifacts findable if you look for them, around the quality of a JPEG at q75-85</td>
+</tr>
+<tr>
+<td>below 30 dB</td>
+<td>visible on inspection</td>
+</tr>
+</tbody></table></div>
+<p>Those bands are the conventional reading of the scale rather than something measured here, and PSNR
+scores per-sample error without regard to where the error sits. A few badly wrong pixels and a faint
+haze across the whole frame can score the same while looking nothing alike, which is why the codec
+tests assert a floor per fixture instead of one number for the library. The floors that matter are
+the ones the comparison is stated at: 49 dB for an ICC conversion is a rounding difference, and the
+24 dB floor on a glyph shape is a hinting difference measured against FreeType.</p>
 <p>LUT-based A2B and B2A profiles, which is mostly CMYK printer profiles, are rejected with a specific
 error rather than approximated. The matrix and TRC path covers sRGB, Display P3, Adobe RGB and
-Rec.2020, which is what web images carry.</p>
+Rec.2020, the profiles web images carry.</p>
 <h2 id="budget-and-effort">Budget and Effort</h2>
 <p>Three things let a caller work inside a CPU limit instead of discovering it.</p>
 <p><strong>A request the source already satisfies costs a header read.</strong> <code>transform</code> compares the request
@@ -912,7 +956,7 @@ and re-encoded as JPEG has no deblocking pass, no chroma to replicate and no pre
 there is nothing for effort to spend.</p>
 <p>Encoded size can go either way under <code>fast</code>, because the per-subblock choice minimizes prediction
 error rather than rate: a diagonal mode can win on error and then cost more bits to code. Flat-color
-illustrations pay the most, which is what those modes are for.</p>
+illustrations pay the most, and hard diagonal edges are what those modes exist for.</p>
 <p><strong><code>decide().estimateMs</code> prices a plan before it runs, and <code>budgetMs</code> acts on it.</strong> The encoders differ
 by roughly a factor of five per sample, so <code>format: &#39;auto&#39;</code> with a budget takes WebP when it fits and
 JPEG when it does not:</p>
@@ -925,7 +969,7 @@ JPEG when it does not:</p>
 <span class="line"></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">result.format; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// 'webp' if it fits inside 7 ms, otherwise 'jpeg'</span></span></code></pre><p>A format you name is never substituted, however far over budget it is. The estimate is accurate to
 about 20% on the machine its rates were measured on, so give a budget below the limit rather than at
-it, and use <a href="#work-counters"><code>measure</code></a> when you need what a request actually cost.</p>
+it, and use <a href="#work-counters"><code>measure</code></a> when you need what a request cost.</p>
 <h2 id="caching">Caching</h2>
 <p>A cache hit costs no CPU at all, which is how a request too expensive to serve synchronously still
 gets served: it is computed once. <code>artifactKey</code> builds the canonical key, identifying the source by
@@ -943,24 +987,31 @@ the hash of its bytes so the same picture from two places is one artifact:</p>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">ctx.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">waitUntil</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(caches.default.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">put</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(key, response.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">clone</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">()));</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">return</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> response;</span></span></code></pre><h2 id="work-counters">Work Counters</h2>
 <p>Every reduction in this library is a claim that some work does not happen, and a label is not
-evidence. <code>measure</code> returns what the module actually did:</p>
+evidence. <code>measure</code> returns what the module did:</p>
 <pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> { </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">work</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> } </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">=</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">measure</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(() </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">=></span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> transform</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(tinyimg, source, { width: </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">200</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> }));</span></span>
 <span class="line"></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.samplesPerTransform; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// 1 at an eighth scale, 4 at a quarter, 64 at full</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.decodedSamples </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">/</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> work.sourceSamples; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// what the reduction was worth</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.filtered; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// macroblocks a region did not skip</span></span></code></pre><p><code>samplesPerTransform</code> is the one that matters most: a decode transforming whole blocks and averaging
-them away reads 64 whatever its name is.</p>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.filtered; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// macroblocks a region did not skip</span></span></code></pre><p><code>samplesPerTransform</code> is the one to read for a scaled decode: a decode transforming whole blocks and
+averaging them away reads 64 whatever its name is.</p>
 <h2 id="blobs">Blobs</h2>
 <p>Three kinds of data load at runtime rather than shipping in the module: fonts, ICC profiles and
-detection cascades. Two delivery modes, and no code change between them.</p>
-<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// from a bucket: one subrequest, no bundle bytes</span></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> cascade</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> env.</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">BLOBS</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">get</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascades/lbp-frontalface.bin'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">if</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> (cascade) </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'frontal'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, cascade.body);</span></span></code></pre><pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// as a wrangler Data module: bundle bytes, no latency</span></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">import</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> cascade </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">from</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> './lbp-frontalface.bin'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">;</span></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'frontal'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, cascade);</span></span></code></pre><pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">{</span></span>
+detection cascades. <code>loadBlob</code> takes bytes from anywhere, so there are three ways to deliver them and
+no code change between them.</p>
+<p>The prebuilt set is published at <code>https://cdn.gmitch215.dev/tinyimg/</code>, with
+<code>https://cdn.gmitch215.xyz/tinyimg/</code> and <code>https://cdn.gmitch215.blog/tinyimg/</code> as mirrors.
+<code>blobs.json</code> sits at that prefix and each entry&#39;s <code>path</code> resolves against it, so one URL is enough to
+find the rest. A plain <code>fetch</code> needs no binding and costs one subrequest:</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> font</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> fetch</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'https://cdn.gmitch215.dev/tinyimg/fonts/DejaVuSans.ttf'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'font'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'sans'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> font.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">arrayBuffer</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">());</span></span></code></pre><p>A binding costs the same one subrequest and keeps the bytes on your own account. <code>BLOBS</code> below is an
+R2 bucket you have uploaded <code>blobs/</code> to, and an Assets binding works the same way:</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> cascade</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> env.</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">BLOBS</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">get</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascades/lbp-frontalface.bin'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">if</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> (cascade) </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'frontal'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, cascade.body);</span></span></code></pre><pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">{</span></span>
 <span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">	"r2_buckets"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: [{ </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">"binding"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"BLOBS"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">"bucket_name"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"tinyimg-blobs"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> }]</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">}</span></span></code></pre><p>Eight blobs can be resident at once. <code>freeBlob</code> releases one and <code>freeBlobs</code> releases all. A cascade
-is parsed at load, so a bad one is a startup failure rather than a search that finds nothing.</p>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">}</span></span></code></pre><p>Or bundle one as a wrangler Data module, which costs bundle bytes and no latency:</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">import</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> cascade </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">from</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> './lbp-frontalface.bin'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'frontal'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, cascade);</span></span></code></pre><p>Eight blobs can be resident at once. <code>freeBlob</code> releases one and <code>freeBlobs</code> releases all. A cascade
+is parsed at load, so a bad one fails at startup instead of becoming a search that finds nothing.</p>
 <h2 id="error-handling">Error Handling</h2>
 <p>Every failure carries the module&#39;s own error code and its stable name, so a caller branches on the
 code rather than on a message.</p>

@@ -120,6 +120,7 @@ Table of Contents</h1>
 <li><a class="el" href="#text" title="Text">Text</a></li>
 <li><a class="el" href="#face-detection" title="Face Detection">Face Detection</a></li>
 <li><a class="el" href="#color-management" title="Color Management">Color Management</a></li>
+<li><a class="el" href="#reading-the-db-figures" title="Reading the dB Figures">Reading the dB Figures</a></li>
 <li><a class="el" href="#budget-and-effort" title="Budget and Effort">Budget and Effort</a></li>
 <li><a class="el" href="#caching" title="Caching">Caching</a></li>
 <li><a class="el" href="#work-counters" title="Work Counters">Work Counters</a></li>
@@ -433,9 +434,13 @@ Text</h1>
 <p>100 characters at 16 px cost 0.156 ms.</p>
 <h1 class="doxsection"><a class="anchor" id="face-detection"></a>
 Face Detection</h1>
-<p>An LBP cascade over an integral image, multi-scale, with union-find grouping. The cascades are OpenCV's, repacked from XML to a flat binary.</p>
-<div class="fragment"><div class="line">await tinyimg.loadBlob(&#39;cascade&#39;, &#39;frontal&#39;, frontalBytes);</div>
-<div class="line">await tinyimg.loadBlob(&#39;cascade&#39;, &#39;profile&#39;, profileBytes);</div>
+<p>An LBP cascade over an integral image, multi-scale, with union-find grouping. The cascades are OpenCV's <span class="tt">lbpcascade_frontalface_improved.xml</span> and <span class="tt">lbpcascade_profileface.xml</span>.</p>
+<p>The module carries no cascade data and no XML parser, so a cascade arrives as bytes in a packed form that <span class="tt">scripts/fixtures.ts</span> builds from the OpenCV source: 7.4 kB for the frontal cascade against 54 kB of XML. <span class="tt">loadBlob</span> rejects one still in XML. Both packed cascades are published, and <span class="tt">bun run blobs</span> rebuilds them if you would rather host your own:</p>
+<div class="fragment"><div class="line">const frontal = await fetch(&#39;https://cdn.gmitch215.dev/tinyimg/cascades/lbp-frontalface.bin&#39;);</div>
+<div class="line">const profile = await fetch(&#39;https://cdn.gmitch215.dev/tinyimg/cascades/lbp-profileface.bin&#39;);</div>
+<div class="line"> </div>
+<div class="line">await tinyimg.loadBlob(&#39;cascade&#39;, &#39;frontal&#39;, await frontal.arrayBuffer());</div>
+<div class="line">await tinyimg.loadBlob(&#39;cascade&#39;, &#39;profile&#39;, await profile.arrayBuffer());</div>
 <div class="line"> </div>
 <div class="line">const faces = await tinyimg.detectFaces(source);</div>
 <div class="line">// [{ x, y, width, height, neighbors }]</div>
@@ -444,7 +449,24 @@ Face Detection</h1>
 <h1 class="doxsection"><a class="anchor" id="color-management"></a>
 Color Management</h1>
 <p>ICC matrix-and-TRC profiles: the <span class="tt">rXYZ</span> / <span class="tt">gXYZ</span> / <span class="tt">bXYZ</span> primaries, <span class="tt">curv</span> and parametric <span class="tt">para</span> tone curves, and Bradford chromatic adaptation folded into the matrix. Conversion between a tagged profile and sRGB agrees with ImageMagick at 49 dB.</p>
-<p>LUT-based A2B and B2A profiles, which is mostly CMYK printer profiles, are rejected with a specific error rather than approximated. The matrix and TRC path covers sRGB, Display P3, Adobe RGB and Rec.2020, which is what web images carry.</p>
+<h2 class="doxsection"><a class="anchor" id="reading-the-db-figures"></a>
+Reading the dB Figures</h2>
+<p>Every accuracy number here and in the technical report is PSNR against a stated reference: <span class="tt">10 * log10(255^2 / MSE)</span>, where the mean squared error runs over every channel sample of both images. It is a log scale, so 6 dB is one bit of precision and each 10 dB is a tenfold drop in squared error. Higher is closer, and infinity means the two images are byte-identical.</p>
+<p>Where the thresholds fall, for 8-bit images:</p>
+<table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone">PSNR  </th><th class="markdownTableHeadNone">What it looks like  </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">above 50 dB  </td><td class="markdownTableBodyNone">below one level of quantization; no viewer can distinguish the two  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">40 to 50 dB  </td><td class="markdownTableBodyNone">indistinguishable in normal viewing, and separable in a difference blend  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">30 to 40 dB  </td><td class="markdownTableBodyNone">artifacts findable if you look for them, around the quality of a JPEG at q75-85  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">below 30 dB  </td><td class="markdownTableBodyNone">visible on inspection  </td></tr>
+</table>
+<p>Those bands are the conventional reading of the scale rather than something measured here, and PSNR scores per-sample error without regard to where the error sits. A few badly wrong pixels and a faint haze across the whole frame can score the same while looking nothing alike, which is why the codec tests assert a floor per fixture instead of one number for the library. The floors that matter are the ones the comparison is stated at: 49 dB for an ICC conversion is a rounding difference, and the 24 dB floor on a glyph shape is a hinting difference measured against FreeType.</p>
+<p>LUT-based A2B and B2A profiles, which is mostly CMYK printer profiles, are rejected with a specific error rather than approximated. The matrix and TRC path covers sRGB, Display P3, Adobe RGB and Rec.2020, the profiles web images carry.</p>
 <h1 class="doxsection"><a class="anchor" id="budget-and-effort"></a>
 Budget and Effort</h1>
 <p>Three things let a caller work inside a CPU limit instead of discovering it.</p>
@@ -478,7 +500,7 @@ Budget and Effort</h1>
 <td class="markdownTableBodyNone">800 px, JPEG source, JPEG out  </td><td class="markdownTableBodyRight">21.6 ms  </td><td class="markdownTableBodyRight">21.5 ms  </td><td class="markdownTableBodyRight">1.01x  </td></tr>
 </table>
 <p>A WebP source gains most, because it is the only one where both the decode and the encode have something to give. The last row is the contract working rather than a failure: a 4:4:4 JPEG decoded and re-encoded as JPEG has no deblocking pass, no chroma to replicate and no prediction search, so there is nothing for effort to spend.</p>
-<p>Encoded size can go either way under <span class="tt">fast</span>, because the per-subblock choice minimizes prediction error rather than rate: a diagonal mode can win on error and then cost more bits to code. Flat-color illustrations pay the most, which is what those modes are for.</p>
+<p>Encoded size can go either way under <span class="tt">fast</span>, because the per-subblock choice minimizes prediction error rather than rate: a diagonal mode can win on error and then cost more bits to code. Flat-color illustrations pay the most, and hard diagonal edges are what those modes exist for.</p>
 <p><b><span class="tt">decide().estimateMs</span> prices a plan before it runs, and <span class="tt">budgetMs</span> acts on it.</b> The encoders differ by roughly a factor of five per sample, so <span class="tt">format: 'auto'</span> with a budget takes WebP when it fits and JPEG when it does not:</p>
 <div class="fragment"><div class="line">const result = await transform(tinyimg, source, {</div>
 <div class="line">    width: 400,</div>
@@ -488,7 +510,7 @@ Budget and Effort</h1>
 <div class="line">});</div>
 <div class="line"> </div>
 <div class="line">result.format; // &#39;webp&#39; if it fits inside 7 ms, otherwise &#39;jpeg&#39;</div>
-</div><!-- fragment --><p>A format you name is never substituted, however far over budget it is. The estimate is accurate to about 20% on the machine its rates were measured on, so give a budget below the limit rather than at it, and use <a class="el" href="#work-counters" title="Work Counters">`measure`</a> when you need what a request actually cost.</p>
+</div><!-- fragment --><p>A format you name is never substituted, however far over budget it is. The estimate is accurate to about 20% on the machine its rates were measured on, so give a budget below the limit rather than at it, and use <a class="el" href="#work-counters" title="Work Counters">`measure`</a> when you need what a request cost.</p>
 <h1 class="doxsection"><a class="anchor" id="caching"></a>
 Caching</h1>
 <p>A cache hit costs no CPU at all, which is how a request too expensive to serve synchronously still gets served: it is computed once. <span class="tt">artifactKey</span> builds the canonical key, identifying the source by the hash of its bytes so the same picture from two places is one artifact:</p>
@@ -506,26 +528,29 @@ Caching</h1>
 <div class="line">return response;</div>
 </div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="work-counters"></a>
 Work Counters</h1>
-<p>Every reduction in this library is a claim that some work does not happen, and a label is not evidence. <span class="tt">measure</span> returns what the module actually did:</p>
+<p>Every reduction in this library is a claim that some work does not happen, and a label is not evidence. <span class="tt">measure</span> returns what the module did:</p>
 <div class="fragment"><div class="line">const { work } = await tinyimg.measure(() =&gt; transform(tinyimg, source, { width: 200 }));</div>
 <div class="line"> </div>
 <div class="line">work.samplesPerTransform; // 1 at an eighth scale, 4 at a quarter, 64 at full</div>
 <div class="line">work.decodedSamples / work.sourceSamples; // what the reduction was worth</div>
 <div class="line">work.filtered; // macroblocks a region did not skip</div>
-</div><!-- fragment --><p><span class="tt">samplesPerTransform</span> is the one that matters most: a decode transforming whole blocks and averaging them away reads 64 whatever its name is.</p>
+</div><!-- fragment --><p><span class="tt">samplesPerTransform</span> is the one to read for a scaled decode: a decode transforming whole blocks and averaging them away reads 64 whatever its name is.</p>
 <h1 class="doxsection"><a class="anchor" id="blobs"></a>
 Blobs</h1>
-<p>Three kinds of data load at runtime rather than shipping in the module: fonts, ICC profiles and detection cascades. Two delivery modes, and no code change between them.</p>
-<div class="fragment"><div class="line">// from a bucket: one subrequest, no bundle bytes</div>
-<div class="line">const cascade = await env.BLOBS.get(&#39;cascades/lbp-frontalface.bin&#39;);</div>
+<p>Three kinds of data load at runtime rather than shipping in the module: fonts, ICC profiles and detection cascades. <span class="tt">loadBlob</span> takes bytes from anywhere, so there are three ways to deliver them and no code change between them.</p>
+<p>The prebuilt set is published at <span class="tt"><a href="https://cdn.gmitch215.dev/tinyimg/">https://cdn.gmitch215.dev/tinyimg/</a></span>, with <span class="tt"><a href="https://cdn.gmitch215.xyz/tinyimg/">https://cdn.gmitch215.xyz/tinyimg/</a></span> and <span class="tt"><a href="https://cdn.gmitch215.blog/tinyimg/">https://cdn.gmitch215.blog/tinyimg/</a></span> as mirrors. <span class="tt">blobs.json</span> sits at that prefix and each entry's <span class="tt">path</span> resolves against it, so one URL is enough to find the rest. A plain <span class="tt">fetch</span> needs no binding and costs one subrequest:</p>
+<div class="fragment"><div class="line">const font = await fetch(&#39;https://cdn.gmitch215.dev/tinyimg/fonts/DejaVuSans.ttf&#39;);</div>
+<div class="line">await tinyimg.loadBlob(&#39;font&#39;, &#39;sans&#39;, await font.arrayBuffer());</div>
+</div><!-- fragment --><p>A binding costs the same one subrequest and keeps the bytes on your own account. <span class="tt">BLOBS</span> below is an R2 bucket you have uploaded <span class="tt">blobs/</span> to, and an Assets binding works the same way:</p>
+<div class="fragment"><div class="line">const cascade = await env.BLOBS.get(&#39;cascades/lbp-frontalface.bin&#39;);</div>
 <div class="line">if (cascade) await tinyimg.loadBlob(&#39;cascade&#39;, &#39;frontal&#39;, cascade.body);</div>
-</div><!-- fragment --><div class="fragment"><div class="line">// as a wrangler Data module: bundle bytes, no latency</div>
-<div class="line">import cascade from &#39;./lbp-frontalface.bin&#39;;</div>
-<div class="line">await tinyimg.loadBlob(&#39;cascade&#39;, &#39;frontal&#39;, cascade);</div>
 </div><!-- fragment --><div class="fragment"><div class="line">{</div>
 <div class="line">    &quot;r2_buckets&quot;: [{ &quot;binding&quot;: &quot;BLOBS&quot;, &quot;bucket_name&quot;: &quot;tinyimg-blobs&quot; }]</div>
 <div class="line">}</div>
-</div><!-- fragment --><p>Eight blobs can be resident at once. <span class="tt">freeBlob</span> releases one and <span class="tt">freeBlobs</span> releases all. A cascade is parsed at load, so a bad one is a startup failure rather than a search that finds nothing.</p>
+</div><!-- fragment --><p>Or bundle one as a wrangler Data module, which costs bundle bytes and no latency:</p>
+<div class="fragment"><div class="line">import cascade from &#39;./lbp-frontalface.bin&#39;;</div>
+<div class="line">await tinyimg.loadBlob(&#39;cascade&#39;, &#39;frontal&#39;, cascade);</div>
+</div><!-- fragment --><p>Eight blobs can be resident at once. <span class="tt">freeBlob</span> releases one and <span class="tt">freeBlobs</span> releases all. A cascade is parsed at load, so a bad one fails at startup instead of becoming a search that finds nothing.</p>
 <h1 class="doxsection"><a class="anchor" id="error-handling"></a>
 Error Handling</h1>
 <p>Every failure carries the module's own error code and its stable name, so a caller branches on the code rather than on a message.</p>
