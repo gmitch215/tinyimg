@@ -170,6 +170,16 @@ int tiny_plan_fit(
     TinyPlan* plan, uint32_t width, uint32_t height, TinyImageFit mode,
     TinyImageGravity gravity
 ) {
+    return tiny_plan_fit_with(
+        plan, width, height, mode, gravity, TINYIMG_FILTER_AUTO
+    );
+}
+
+TINYIMG_EXPORT("tiny_plan_fit_with")
+int tiny_plan_fit_with(
+    TinyPlan* plan, uint32_t width, uint32_t height, TinyImageFit mode,
+    TinyImageGravity gravity, TinyResampleFilter filter
+) {
     if (width == 0 || height == 0) return TINYIMG_ERR_RANGE;
 
     TinyPlanOp op;
@@ -180,6 +190,7 @@ int tiny_plan_fit(
     op.fit.height = height;
     op.fit.mode = mode;
     op.fit.gravity = gravity;
+    op.fit.filter = filter;
 
     return plan_append(plan, &op);
 }
@@ -1394,7 +1405,7 @@ static int geometry_apply(Geometry* g, const TinyPlanOp* op) {
 
             if (fit.scale_width != width || fit.scale_height != height) {
                 geometry_resize(
-                    g, fit.scale_width, fit.scale_height, TINYIMG_FILTER_AUTO
+                    g, fit.scale_width, fit.scale_height, op->fit.filter
                 );
             }
 
