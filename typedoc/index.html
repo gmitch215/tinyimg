@@ -33,6 +33,7 @@ own CPU budget.</p>
 <li><a href="#text">Text</a></li>
 <li><a href="#face-detection">Face Detection</a></li>
 <li><a href="#color-management">Color Management</a></li>
+<li><a href="#reading-the-db-figures">Reading the dB Figures</a></li>
 <li><a href="#budget-and-effort">Budget and Effort</a></li>
 <li><a href="#caching">Caching</a></li>
 <li><a href="#work-counters">Work Counters</a></li>
@@ -614,8 +615,12 @@ measurement said. Kern pairs are applied when the face carries a <code>kern</cod
 <p>100 characters at 16 px cost 0.156 ms.</p>
 <h2 id="face-detection" class="tsd-anchor-link">Face Detection<a href="#face-detection" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <p>An LBP cascade over an integral image, multi-scale, with union-find grouping. The cascades are
-OpenCV's, repacked from XML to a flat binary.</p>
-<pre><code class="ts"><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">loadBlob</span><span class="hl-1">(</span><span class="hl-2">&#39;cascade&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;frontal&#39;</span><span class="hl-1">, </span><span class="hl-4">frontalBytes</span><span class="hl-1">);</span><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">loadBlob</span><span class="hl-1">(</span><span class="hl-2">&#39;cascade&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;profile&#39;</span><span class="hl-1">, </span><span class="hl-4">profileBytes</span><span class="hl-1">);</span><br/><br/><span class="hl-5">const</span><span class="hl-1"> </span><span class="hl-6">faces</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">detectFaces</span><span class="hl-1">(</span><span class="hl-4">source</span><span class="hl-1">);</span><br/><span class="hl-9">// [{ x, y, width, height, neighbors }]</span>
+OpenCV's <code>lbpcascade_frontalface_improved.xml</code> and <code>lbpcascade_profileface.xml</code>.</p>
+<p>The module carries no cascade data and no XML parser, so a cascade arrives as bytes in a packed form
+that <code>scripts/fixtures.ts</code> builds from the OpenCV source: 7.4 kB for the frontal cascade against 54 kB
+of XML. <code>loadBlob</code> rejects one still in XML. Both packed cascades are published, and
+<code>bun run blobs</code> rebuilds them if you would rather host your own:</p>
+<pre><code class="ts"><span class="hl-5">const</span><span class="hl-1"> </span><span class="hl-6">frontal</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-0">fetch</span><span class="hl-1">(</span><span class="hl-2">&#39;https://cdn.gmitch215.dev/tinyimg/cascades/lbp-frontalface.bin&#39;</span><span class="hl-1">);</span><br/><span class="hl-5">const</span><span class="hl-1"> </span><span class="hl-6">profile</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-0">fetch</span><span class="hl-1">(</span><span class="hl-2">&#39;https://cdn.gmitch215.dev/tinyimg/cascades/lbp-profileface.bin&#39;</span><span class="hl-1">);</span><br/><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">loadBlob</span><span class="hl-1">(</span><span class="hl-2">&#39;cascade&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;frontal&#39;</span><span class="hl-1">, </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">frontal</span><span class="hl-1">.</span><span class="hl-0">arrayBuffer</span><span class="hl-1">());</span><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">loadBlob</span><span class="hl-1">(</span><span class="hl-2">&#39;cascade&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;profile&#39;</span><span class="hl-1">, </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">profile</span><span class="hl-1">.</span><span class="hl-0">arrayBuffer</span><span class="hl-1">());</span><br/><br/><span class="hl-5">const</span><span class="hl-1"> </span><span class="hl-6">faces</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">detectFaces</span><span class="hl-1">(</span><span class="hl-4">source</span><span class="hl-1">);</span><br/><span class="hl-9">// [{ x, y, width, height, neighbors }]</span>
 </code><button type="button">Copy</button></pre>
 
 <p>Every resident cascade runs and the results are grouped together, so a frontal and a profile cascade
@@ -627,9 +632,47 @@ within a pixel on identical pixels.</p>
 <p>ICC matrix-and-TRC profiles: the <code>rXYZ</code> / <code>gXYZ</code> / <code>bXYZ</code> primaries, <code>curv</code> and parametric <code>para</code>
 tone curves, and Bradford chromatic adaptation folded into the matrix. Conversion between a tagged
 profile and sRGB agrees with ImageMagick at 49 dB.</p>
+<h3 id="reading-the-db-figures" class="tsd-anchor-link">Reading the dB Figures<a href="#reading-the-db-figures" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Every accuracy number here and in the technical report is PSNR against a stated reference:
+<code>10 * log10(255^2 / MSE)</code>, where the mean squared error runs over every channel sample of both
+images. It is a log scale, so 6 dB is one bit of precision and each 10 dB is a tenfold drop in
+squared error. Higher is closer, and infinity means the two images are byte-identical.</p>
+<p>Where the thresholds fall, for 8-bit images:</p>
+<table>
+<thead>
+<tr>
+<th>PSNR</th>
+<th>What it looks like</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>above 50 dB</td>
+<td>below one level of quantization; no viewer can distinguish the two</td>
+</tr>
+<tr>
+<td>40 to 50 dB</td>
+<td>indistinguishable in normal viewing, and separable in a difference blend</td>
+</tr>
+<tr>
+<td>30 to 40 dB</td>
+<td>artifacts findable if you look for them, around the quality of a JPEG at q75-85</td>
+</tr>
+<tr>
+<td>below 30 dB</td>
+<td>visible on inspection</td>
+</tr>
+</tbody>
+</table>
+<p>Those bands are the conventional reading of the scale rather than something measured here, and PSNR
+scores per-sample error without regard to where the error sits. A few badly wrong pixels and a faint
+haze across the whole frame can score the same while looking nothing alike, which is why the codec
+tests assert a floor per fixture instead of one number for the library. The floors that matter are
+the ones the comparison is stated at: 49 dB for an ICC conversion is a rounding difference, and the
+24 dB floor on a glyph shape is a hinting difference measured against FreeType.</p>
 <p>LUT-based A2B and B2A profiles, which is mostly CMYK printer profiles, are rejected with a specific
 error rather than approximated. The matrix and TRC path covers sRGB, Display P3, Adobe RGB and
-Rec.2020, which is what web images carry.</p>
+Rec.2020, the profiles web images carry.</p>
 <h2 id="budget-and-effort" class="tsd-anchor-link">Budget and Effort<a href="#budget-and-effort" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <p>Three things let a caller work inside a CPU limit instead of discovering it.</p>
 <p><strong>A request the source already satisfies costs a header read.</strong> <code>transform</code> compares the request
@@ -724,7 +767,7 @@ and re-encoded as JPEG has no deblocking pass, no chroma to replicate and no pre
 there is nothing for effort to spend.</p>
 <p>Encoded size can go either way under <code>fast</code>, because the per-subblock choice minimizes prediction
 error rather than rate: a diagonal mode can win on error and then cost more bits to code. Flat-color
-illustrations pay the most, which is what those modes are for.</p>
+illustrations pay the most, and hard diagonal edges are what those modes exist for.</p>
 <p><strong><code>decide().estimateMs</code> prices a plan before it runs, and <code>budgetMs</code> acts on it.</strong> The encoders differ
 by roughly a factor of five per sample, so <code>format: 'auto'</code> with a budget takes WebP when it fits and
 JPEG when it does not:</p>
@@ -733,7 +776,7 @@ JPEG when it does not:</p>
 
 <p>A format you name is never substituted, however far over budget it is. The estimate is accurate to
 about 20% on the machine its rates were measured on, so give a budget below the limit rather than at
-it, and use <a href="#work-counters"><code>measure</code></a> when you need what a request actually cost.</p>
+it, and use <a href="#work-counters"><code>measure</code></a> when you need what a request cost.</p>
 <h2 id="caching" class="tsd-anchor-link">Caching<a href="#caching" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <p>A cache hit costs no CPU at all, which is how a request too expensive to serve synchronously still
 gets served: it is computed once. <code>artifactKey</code> builds the canonical key, identifying the source by
@@ -743,26 +786,37 @@ the hash of its bytes so the same picture from two places is one artifact:</p>
 
 <h2 id="work-counters" class="tsd-anchor-link">Work Counters<a href="#work-counters" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <p>Every reduction in this library is a claim that some work does not happen, and a label is not
-evidence. <code>measure</code> returns what the module actually did:</p>
+evidence. <code>measure</code> returns what the module did:</p>
 <pre><code class="ts"><span class="hl-5">const</span><span class="hl-1"> { </span><span class="hl-6">work</span><span class="hl-1"> } = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">measure</span><span class="hl-1">(() </span><span class="hl-5">=&gt;</span><span class="hl-1"> </span><span class="hl-0">transform</span><span class="hl-1">(</span><span class="hl-4">tinyimg</span><span class="hl-1">, </span><span class="hl-4">source</span><span class="hl-1">, { </span><span class="hl-4">width:</span><span class="hl-1"> </span><span class="hl-8">200</span><span class="hl-1"> }));</span><br/><br/><span class="hl-4">work</span><span class="hl-1">.</span><span class="hl-4">samplesPerTransform</span><span class="hl-1">; </span><span class="hl-9">// 1 at an eighth scale, 4 at a quarter, 64 at full</span><br/><span class="hl-4">work</span><span class="hl-1">.</span><span class="hl-4">decodedSamples</span><span class="hl-1"> / </span><span class="hl-4">work</span><span class="hl-1">.</span><span class="hl-4">sourceSamples</span><span class="hl-1">; </span><span class="hl-9">// what the reduction was worth</span><br/><span class="hl-4">work</span><span class="hl-1">.</span><span class="hl-4">filtered</span><span class="hl-1">; </span><span class="hl-9">// macroblocks a region did not skip</span>
 </code><button type="button">Copy</button></pre>
 
-<p><code>samplesPerTransform</code> is the one that matters most: a decode transforming whole blocks and averaging
-them away reads 64 whatever its name is.</p>
+<p><code>samplesPerTransform</code> is the one to read for a scaled decode: a decode transforming whole blocks and
+averaging them away reads 64 whatever its name is.</p>
 <h2 id="blobs" class="tsd-anchor-link">Blobs<a href="#blobs" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <p>Three kinds of data load at runtime rather than shipping in the module: fonts, ICC profiles and
-detection cascades. Two delivery modes, and no code change between them.</p>
-<pre><code class="ts"><span class="hl-9">// from a bucket: one subrequest, no bundle bytes</span><br/><span class="hl-5">const</span><span class="hl-1"> </span><span class="hl-6">cascade</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">env</span><span class="hl-1">.</span><span class="hl-6">BLOBS</span><span class="hl-1">.</span><span class="hl-0">get</span><span class="hl-1">(</span><span class="hl-2">&#39;cascades/lbp-frontalface.bin&#39;</span><span class="hl-1">);</span><br/><span class="hl-3">if</span><span class="hl-1"> (</span><span class="hl-4">cascade</span><span class="hl-1">) </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">loadBlob</span><span class="hl-1">(</span><span class="hl-2">&#39;cascade&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;frontal&#39;</span><span class="hl-1">, </span><span class="hl-4">cascade</span><span class="hl-1">.</span><span class="hl-4">body</span><span class="hl-1">);</span>
+detection cascades. <code>loadBlob</code> takes bytes from anywhere, so there are three ways to deliver them and
+no code change between them.</p>
+<p>The prebuilt set is published at <code>https://cdn.gmitch215.dev/tinyimg/</code>, with
+<code>https://cdn.gmitch215.xyz/tinyimg/</code> and <code>https://cdn.gmitch215.blog/tinyimg/</code> as mirrors.
+<code>blobs.json</code> sits at that prefix and each entry's <code>path</code> resolves against it, so one URL is enough to
+find the rest. A plain <code>fetch</code> needs no binding and costs one subrequest:</p>
+<pre><code class="ts"><span class="hl-5">const</span><span class="hl-1"> </span><span class="hl-6">font</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-0">fetch</span><span class="hl-1">(</span><span class="hl-2">&#39;https://cdn.gmitch215.dev/tinyimg/fonts/DejaVuSans.ttf&#39;</span><span class="hl-1">);</span><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">loadBlob</span><span class="hl-1">(</span><span class="hl-2">&#39;font&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;sans&#39;</span><span class="hl-1">, </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">font</span><span class="hl-1">.</span><span class="hl-0">arrayBuffer</span><span class="hl-1">());</span>
 </code><button type="button">Copy</button></pre>
 
-<pre><code class="ts"><span class="hl-9">// as a wrangler Data module: bundle bytes, no latency</span><br/><span class="hl-3">import</span><span class="hl-1"> </span><span class="hl-4">cascade</span><span class="hl-1"> </span><span class="hl-3">from</span><span class="hl-1"> </span><span class="hl-2">&#39;./lbp-frontalface.bin&#39;</span><span class="hl-1">;</span><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">loadBlob</span><span class="hl-1">(</span><span class="hl-2">&#39;cascade&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;frontal&#39;</span><span class="hl-1">, </span><span class="hl-4">cascade</span><span class="hl-1">);</span>
+<p>A binding costs the same one subrequest and keeps the bytes on your own account. <code>BLOBS</code> below is an
+R2 bucket you have uploaded <code>blobs/</code> to, and an Assets binding works the same way:</p>
+<pre><code class="ts"><span class="hl-5">const</span><span class="hl-1"> </span><span class="hl-6">cascade</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">env</span><span class="hl-1">.</span><span class="hl-6">BLOBS</span><span class="hl-1">.</span><span class="hl-0">get</span><span class="hl-1">(</span><span class="hl-2">&#39;cascades/lbp-frontalface.bin&#39;</span><span class="hl-1">);</span><br/><span class="hl-3">if</span><span class="hl-1"> (</span><span class="hl-4">cascade</span><span class="hl-1">) </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">loadBlob</span><span class="hl-1">(</span><span class="hl-2">&#39;cascade&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;frontal&#39;</span><span class="hl-1">, </span><span class="hl-4">cascade</span><span class="hl-1">.</span><span class="hl-4">body</span><span class="hl-1">);</span>
 </code><button type="button">Copy</button></pre>
 
 <pre><code class="jsonc"><span class="hl-1">{</span><br/><span class="hl-1">	</span><span class="hl-10">&quot;r2_buckets&quot;</span><span class="hl-1">: [{ </span><span class="hl-10">&quot;binding&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;BLOBS&quot;</span><span class="hl-1">, </span><span class="hl-10">&quot;bucket_name&quot;</span><span class="hl-1">: </span><span class="hl-2">&quot;tinyimg-blobs&quot;</span><span class="hl-1"> }]</span><br/><span class="hl-1">}</span>
 </code><button type="button">Copy</button></pre>
 
+<p>Or bundle one as a wrangler Data module, which costs bundle bytes and no latency:</p>
+<pre><code class="ts"><span class="hl-3">import</span><span class="hl-1"> </span><span class="hl-4">cascade</span><span class="hl-1"> </span><span class="hl-3">from</span><span class="hl-1"> </span><span class="hl-2">&#39;./lbp-frontalface.bin&#39;</span><span class="hl-1">;</span><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">loadBlob</span><span class="hl-1">(</span><span class="hl-2">&#39;cascade&#39;</span><span class="hl-1">, </span><span class="hl-2">&#39;frontal&#39;</span><span class="hl-1">, </span><span class="hl-4">cascade</span><span class="hl-1">);</span>
+</code><button type="button">Copy</button></pre>
+
 <p>Eight blobs can be resident at once. <code>freeBlob</code> releases one and <code>freeBlobs</code> releases all. A cascade
-is parsed at load, so a bad one is a startup failure rather than a search that finds nothing.</p>
+is parsed at load, so a bad one fails at startup instead of becoming a search that finds nothing.</p>
 <h2 id="error-handling" class="tsd-anchor-link">Error Handling<a href="#error-handling" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <p>Every failure carries the module's own error code and its stable name, so a caller branches on the
 code rather than on a message.</p>
@@ -921,6 +975,9 @@ they refuted.</p>
 <li><a href="#text"><span>Text</span></a></li>
 <li><a href="#face-detection"><span>Face <wbr/>Detection</span></a></li>
 <li><a href="#color-management"><span>Color <wbr/>Management</span></a></li>
+<li>
+<ul>
+<li><a href="#reading-the-db-figures"><span>Reading the d<wbr/>B <wbr/>Figures</span></a></li></ul></li>
 <li><a href="#budget-and-effort"><span>Budget and <wbr/>Effort</span></a></li>
 <li><a href="#caching"><span>Caching</span></a></li>
 <li><a href="#work-counters"><span>Work <wbr/>Counters</span></a></li>
