@@ -339,6 +339,174 @@ function readString(pointer) {
 	return new TextDecoder().decode(memory.subarray(pointer, end));
 }
 
+function writeString(value) {
+	const bytes = new TextEncoder().encode(value);
+	const pointer = api.tiny_alloc(bytes.byteLength + 1);
+	if (pointer === 0) return 0;
+
+	const memory = new Uint8Array(api.memory.buffer);
+	memory.set(bytes, pointer);
+	memory[pointer + bytes.byteLength] = 0;
+
+	return pointer;
+}
+
+/**
+ * Hands a blob to the module, the way a Worker does after fetching one from a bucket.
+ *
+ * The module takes the bytes, so `data` is not freed here. This is the whole reason the blob seam
+ * exists: nothing is linked in, and the host decides where the bytes came from.
+ */
+function loadBlob(kind, id, bytes) {
+	const data = copyIn(bytes);
+	if (data === 0) return { error: 'alloc' };
+
+	const name = writeString(id);
+	const result = api.tiny_blob_load(kind, name, data, bytes.byteLength);
+
+	api.tiny_free(name);
+
+	if (kind !== 2) return { result };
+
+	// a cascade is checked at load, so a bad blob is a startup failure rather than a search that
+	// silently finds nothing
+	const check = writeString(id);
+	const parses = api.tiny_cascade_check(check);
+	api.tiny_free(check);
+
+	return { result, parses };
+}
+
+/** Draws text onto a fresh image and reports the metrics and a digest of the pixels. */
+async function drawText(options) {
+	const font = api.tiny_alloc(api.tiny_font_sizeof());
+	const style = api.tiny_alloc(api.tiny_text_style_sizeof());
+	const metrics = api.tiny_alloc(api.tiny_text_metrics_sizeof());
+	const image = api.tiny_alloc(api.tiny_image_sizeof());
+	const id = writeString(options.font);
+	const text = writeString(options.text);
+	const color = copyIn(new Uint8Array([255, 255, 255, 255]));
+
+	const report = { result: api.tiny_font_load(font, id) };
+
+	if (report.result === 0) {
+		api.tiny_text_style(style, options.size);
+
+		report.result = api.tiny_image_create(image, options.width, options.height, 1);
+	}
+
+	if (report.result === 0) {
+		report.result = options.wrap
+			? api.tiny_text_measure_wrapped(font, text, options.wrap, style, metrics)
+			: api.tiny_text_measure(font, text, style, metrics);
+	}
+
+	if (report.result === 0) {
+		const view = new DataView(api.memory.buffer);
+
+		report.width = view.getFloat32(metrics, true);
+		report.height = view.getFloat32(metrics + 4, true);
+		report.ascent = view.getFloat32(metrics + 8, true);
+		report.lines = view.getUint32(metrics + 20, true);
+		report.glyphs = view.getUint32(metrics + 24, true);
+		report.missing = view.getUint32(metrics + 28, true);
+
+		report.result = options.wrap
+			? api.tiny_image_draw_text_box(
+					image,
+					font,
+					text,
+					0,
+					0,
+					options.wrap,
+					0,
+					style,
+					options.align ?? 0,
+					color
+				)
+			: api.tiny_image_draw_text(image, font, text, 0, 0, style, color);
+	}
+
+	if (report.result === 0) {
+		const size = api.tiny_image_getsize(image);
+		const pixels = new Uint8Array(api.memory.buffer, api.tiny_image_getdata(image), size);
+
+		report.digest = hex(await crypto.subtle.digest('SHA-256', pixels.slice()));
+		report.ink = pixels.reduce((sum, value) => sum + value, 0);
+
+		api.tiny_image_destroy(image);
+		api.tiny_font_free(font);
+	}
+
+	api.tiny_free(color);
+	api.tiny_free(text);
+	api.tiny_free(id);
+	api.tiny_free(image);
+	api.tiny_free(metrics);
+	api.tiny_free(style);
+	api.tiny_free(font);
+
+	return report;
+}
+
+/** Decodes an image and reports the faces in it. */
+function detectFaces(bytes, options) {
+	const capacity = 16;
+	const buffer = copyIn(bytes);
+	if (buffer === 0) return { error: 'alloc' };
+
+	const image = api.tiny_alloc(api.tiny_image_sizeof());
+	const boxes = api.tiny_alloc(api.tiny_face_box_sizeof() * capacity);
+	const count = api.tiny_alloc(4);
+	const opts = api.tiny_alloc(api.tiny_detect_opts_sizeof());
+
+	const report = { result: api.tiny_image_load(image, buffer, bytes.byteLength) };
+
+	if (report.result === 0) {
+		report.sourceWidth = api.tiny_image_getwidth(image);
+		report.sourceHeight = api.tiny_image_getheight(image);
+
+		if (options.minSize !== undefined) {
+			api.tiny_detect_opts(opts);
+
+			const view = new DataView(api.memory.buffer);
+			view.setUint32(opts, options.minSize, true);
+			view.setUint32(opts + 12, options.minNeighbors ?? 3, true);
+
+			report.result = api.tiny_image_detect_faces_ex(image, opts, boxes, capacity, count);
+		} else {
+			report.result = api.tiny_image_detect_faces(image, boxes, capacity, count);
+		}
+	}
+
+	if (report.result === 0) {
+		const view = new DataView(api.memory.buffer);
+		const found = view.getUint32(count, true);
+
+		report.faces = [];
+
+		for (let i = 0; i < found; i++) {
+			const at = boxes + i * 20;
+			report.faces.push({
+				x: view.getUint32(at, true),
+				y: view.getUint32(at + 4, true),
+				width: view.getUint32(at + 8, true),
+				height: view.getUint32(at + 12, true),
+				neighbors: view.getUint32(at + 16, true)
+			});
+		}
+	}
+
+	api.tiny_image_destroy(image);
+	api.tiny_free(opts);
+	api.tiny_free(count);
+	api.tiny_free(boxes);
+	api.tiny_free(image);
+	api.tiny_free(buffer);
+
+	return report;
+}
+
 /**
  * Asks for more than the free space can possibly hold, so growth is forced no matter what earlier
  * requests left behind.
@@ -380,7 +548,46 @@ export default {
 			return Response.json({ pointer: api.tiny_alloc(200 * 1024 * 1024) });
 		}
 
+		if (url.searchParams.has('unload')) {
+			api.tiny_blob_free_all();
+			return Response.json({ result: 0 });
+		}
+
 		const bytes = new Uint8Array(await request.arrayBuffer());
+
+		if (url.searchParams.has('blob')) {
+			const [kind, id] = url.searchParams.get('blob').split(':');
+			return Response.json(loadBlob(Number(kind), id, bytes));
+		}
+
+		if (url.searchParams.has('text')) {
+			const wrap = url.searchParams.get('wrap');
+			const align = url.searchParams.get('align');
+
+			return Response.json(
+				await drawText({
+					font: url.searchParams.get('font') ?? 'latin',
+					text: url.searchParams.get('text'),
+					size: Number(url.searchParams.get('size') ?? 32),
+					width: Number(url.searchParams.get('width') ?? 300),
+					height: Number(url.searchParams.get('height') ?? 80),
+					wrap: wrap ? Number(wrap) : 0,
+					align: align ? Number(align) : 0
+				})
+			);
+		}
+
+		if (url.searchParams.has('faces')) {
+			const minSize = url.searchParams.get('minSize');
+			const minNeighbors = url.searchParams.get('minNeighbors');
+
+			return Response.json(
+				detectFaces(bytes, {
+					minSize: minSize === null ? undefined : Number(minSize),
+					minNeighbors: minNeighbors === null ? undefined : Number(minNeighbors)
+				})
+			);
+		}
 
 		if (url.searchParams.has('plan')) {
 			return Response.json(
