@@ -4,6 +4,7 @@
 #include "tinyimg/detect.h"
 #include "tinyimg/memory.h"
 #include "tinyimg/util.h"
+#include "tinyimg/work.h"
 
 #pragma region operations
 
@@ -29,7 +30,7 @@ TinyPlanOpClass tiny_plan_op_class(TinyPlanOpKind kind) {
         case TINYIMG_OP_GAMMA:
         case TINYIMG_OP_CURVE: return TINYIMG_OP_CLASS_COLOR_LUT;
         case TINYIMG_OP_BLUR:
-        case TINYIMG_OP_EFFECT: return TINYIMG_OP_CLASS_NEIGHBOURHOOD;
+        case TINYIMG_OP_EFFECT: return TINYIMG_OP_CLASS_NEIGHBORHOOD;
         default: return TINYIMG_OP_CLASS_GEOMETRY;
     }
 }
@@ -101,6 +102,15 @@ int tiny_plan_set_fusion(TinyPlan* plan, int enabled) {
     if (!plan) return TINYIMG_ERR_NULL;
 
     plan->fusion = enabled ? 1u : 0u;
+    return TINYIMG_OK;
+}
+
+TINYIMG_EXPORT("tiny_plan_set_effort")
+int tiny_plan_set_effort(TinyPlan* plan, uint8_t effort) {
+    if (!plan) return TINYIMG_ERR_NULL;
+    if (effort > TINYIMG_EFFORT_FAST) return TINYIMG_ERR_RANGE;
+
+    plan->effort = effort;
     return TINYIMG_OK;
 }
 
@@ -404,7 +414,7 @@ uint32_t tiny_plan_field(
 /**
  * @brief A flip or a turn, as a signed permutation of the two axes.
  *
- * Row major, acting on coordinates measured from each axis' centre so that a
+ * Row major, acting on coordinates measured from each axis' center so that a
  * mirror is a sign change and nothing else. That is what makes composition a
  * 2x2 multiply: eight orientations, one matrix, no case analysis and no chain
  * of intermediate images.
@@ -452,7 +462,7 @@ static int orient_is_identity(Orient orient) {
 /**
  * @brief Maps an output coordinate back to the coordinate it reads.
  *
- * The doubling is what keeps this exact in integers: centred coordinates of an
+ * The doubling is what keeps this exact in integers: centered coordinates of an
  * even extent are half integers, so everything is computed at twice scale and
  * halved once at the end, where the sum is always even.
  *
@@ -574,12 +584,12 @@ static uint32_t gravity_offset(
 
     uint32_t slack = available - want;
 
-    // a resolved focus centres the kept rectangle on it and then slides it back
+    // a resolved focus centers the kept rectangle on it and then slides it back
     // inside, which is what keeps a face near an edge fully in frame rather
     // than half cropped
     if (focus >= 0.0f) {
-        double centre = (double) focus * (double) available;
-        double left = centre - (double) want / 2.0;
+        double center = (double) focus * (double) available;
+        double left = center - (double) want / 2.0;
 
         if (left < 0.0) left = 0.0;
         if (left > (double) slack) left = (double) slack;
@@ -960,9 +970,9 @@ static int op_is_identity(
 /**
  * @brief The next operation a geometry rule may pair with.
  *
- * Colour operations read one pixel and never move it, so a geometry pair is
+ * Color operations read one pixel and never move it, so a geometry pair is
  * still a pair with any number of them in between and the merge is exact. A
- * neighbourhood operation is not, so the scan stops there.
+ * neighborhood operation is not, so the scan stops there.
  *
  * @param ops The operations.
  * @param count How many there are.
@@ -976,13 +986,13 @@ static int32_t next_geometry(
         TinyPlanOpClass cls = tiny_plan_op_class(ops[i].kind);
 
         if (cls == TINYIMG_OP_CLASS_GEOMETRY) return (int32_t) i;
-        if (cls == TINYIMG_OP_CLASS_NEIGHBOURHOOD) return -1;
+        if (cls == TINYIMG_OP_CLASS_NEIGHBORHOOD) return -1;
     }
 
     return -1;
 }
 
-/** The next colour operation, skipping the geometry it commutes with. */
+/** The next color operation, skipping the geometry it commutes with. */
 static int32_t next_color(
     const TinyPlanOp* ops, uint32_t count, uint32_t from
 ) {
@@ -993,7 +1003,7 @@ static int32_t next_color(
             cls == TINYIMG_OP_CLASS_COLOR_LUT) {
             return (int32_t) i;
         }
-        if (cls == TINYIMG_OP_CLASS_NEIGHBOURHOOD) return -1;
+        if (cls == TINYIMG_OP_CLASS_NEIGHBORHOOD) return -1;
     }
 
     return -1;
@@ -1424,14 +1434,14 @@ static int geometry_apply(Geometry* g, const TinyPlanOp* op) {
 /**
  * @brief Walks operations into one pass' geometry.
  *
- * Stops at the first operation the pass cannot absorb: a neighbourhood
+ * Stops at the first operation the pass cannot absorb: a neighborhood
  * operation, or any geometry after a pad, since the padding has to exist before
  * anything can move it.
  *
  * @param ops The operations.
  * @param count How many there are.
  * @param g The accumulator, already started.
- * @param channels Source channel count, updated by a greyscale.
+ * @param channels Source channel count, updated by a grayscale.
  * @param consumed Receives how many operations this pass covers.
  * @return int TINYIMG_OK or a negative TinyImageError.
  */
@@ -1442,7 +1452,7 @@ static int geometry_walk(
     for (uint32_t i = 0; i < count; i++) {
         TinyPlanOpClass cls = tiny_plan_op_class(ops[i].kind);
 
-        if (cls == TINYIMG_OP_CLASS_NEIGHBOURHOOD) {
+        if (cls == TINYIMG_OP_CLASS_NEIGHBORHOOD) {
             *consumed = i;
             return TINYIMG_OK;
         }
@@ -1470,7 +1480,7 @@ static int color_walk(
     uint32_t capacity, uint32_t* count, uint32_t* before
 );
 
-/** Whether a chain's only colour operation is a single greyscale. */
+/** Whether a chain's only color operation is a single grayscale. */
 static int only_grayscale(const TinyPlanOp* ops, uint32_t count) {
     uint32_t seen = 0;
 
@@ -1564,13 +1574,14 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
     resolution->decode.height = region_height;
     resolution->decode.scale_den = den;
     resolution->decode.channels = 0;
+    resolution->decode.effort = plan->effort;
 
     resolution->decode_width = (region_width + den - 1u) / den;
     resolution->decode_height = (region_height + den - 1u) / den;
 
     if (only_grayscale(resolution->op, resolution->ops) &&
         plan->source_channels > 2u) {
-        // the decoders reduce to luminance through the same weights the colour
+        // the decoders reduce to luminance through the same weights the color
         // stage would use, so asking them for it is exact and makes every later
         // pass single channel
         resolution->decode.channels = channels;
@@ -1600,8 +1611,9 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
     resolution->offset_y = geometry.padded ? geometry.pad_y : 0u;
     resolution->channels = channels;
 
-    if ((uint64_t) resolution->width * resolution->height >
-        TINYIMG_MAX_PIXELS) {
+    uint64_t out_pixels = (uint64_t) resolution->width * resolution->height;
+    if (out_pixels > TINYIMG_MAX_PIXELS ||
+        out_pixels * channels > TINYIMG_MAX_IMAGE_BYTES) {
         return TINYIMG_ERR_TOO_LARGE;
     }
 
@@ -1614,12 +1626,28 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
     resolution->filter_y = geometry.filter;
 
     if (geometry.filter == TINYIMG_FILTER_AUTO) {
+        /*
+         * Enlarging is the only direction effort can change, because a
+         * reduction already picks the cheap filter: box is 13x the speed of the
+         * cubic there and within half a dB of it, since an area average is what
+         * a reduction wants in the first place.
+         *
+         * Enlarging cannot use box, which is 35.7 dB and visibly blocky. So
+         * FAST steps down one filter rather than to the bottom: bilinear is
+         * 3.2x the cubic's speed at 45.7 dB, and soft rather than blocky.
+         *
+         * An explicitly requested filter is never overridden. Effort says how
+         * hard to work at what the caller left open, not what to do instead of
+         * what they asked for.
+         */
+        TinyResampleFilter up = plan->effort == TINYIMG_EFFORT_FAST
+                                    ? TINYIMG_FILTER_BILINEAR
+                                    : TINYIMG_FILTER_CATMULL_ROM;
+
         // at exactly one the box is the identity and the cubic is sixteen taps
         // that reproduce their own input, so the boundary belongs on this side
-        resolution->filter_x =
-            step_x >= 1.0 ? TINYIMG_FILTER_BOX : TINYIMG_FILTER_CATMULL_ROM;
-        resolution->filter_y =
-            step_y >= 1.0 ? TINYIMG_FILTER_BOX : TINYIMG_FILTER_CATMULL_ROM;
+        resolution->filter_x = step_x >= 1.0 ? TINYIMG_FILTER_BOX : up;
+        resolution->filter_y = step_y >= 1.0 ? TINYIMG_FILTER_BOX : up;
     }
 
     // one source pixel per output pixel, in order, is a copy however it got
@@ -1662,7 +1690,7 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
     if (stages > 0) resolution->kernels |= TINYIMG_KERNEL_COLOR;
 
     if (resolution->consumed < resolution->ops) {
-        resolution->kernels |= TINYIMG_KERNEL_NEIGHBOURHOOD;
+        resolution->kernels |= TINYIMG_KERNEL_NEIGHBORHOOD;
     }
     if (resolution->kernels == 0 ||
         resolution->kernels == TINYIMG_KERNEL_GRAY_DECODE) {
@@ -1672,7 +1700,7 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
     resolution->passes = 1;
     for (uint32_t i = resolution->consumed; i < resolution->ops; i++) {
         if (tiny_plan_op_class(resolution->op[i].kind) ==
-            TINYIMG_OP_CLASS_NEIGHBOURHOOD) {
+            TINYIMG_OP_CLASS_NEIGHBORHOOD) {
             resolution->passes++;
         }
     }
@@ -1682,9 +1710,9 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
 
 #pragma endregion
 
-#pragma region colour stages
+#pragma region color stages
 
-/** 1.0 in the fixed point the colour matrices are held in. */
+/** 1.0 in the fixed point the color matrices are held in. */
 #define COLOR_ONE 65536
 
 /** Rec. 709 luminance weights, the same ones tiny_luma is built from. */
@@ -1700,7 +1728,7 @@ static void matrix_identity(int32_t* m) {
 }
 
 /**
- * @brief Composes two affine colour matrices.
+ * @brief Composes two affine color matrices.
  *
  * @param out Receives `second` applied after `first`. May alias neither.
  * @param first The matrix applied first.
@@ -1735,7 +1763,7 @@ static int32_t to_fixed(double value) {
 }
 
 /**
- * @brief Builds the matrix for one affine colour operation.
+ * @brief Builds the matrix for one affine color operation.
  *
  * @param op The operation.
  * @param m Receives a row major 3x4 in 16.16.
@@ -1849,7 +1877,7 @@ static void curve_of(uint8_t* lut, TinyCurveKind kind, const float* p) {
             case TINYIMG_CURVE_POSTERIZE: {
                 // the levels are the endpoints of the range, so the darkest
                 // and the lightest input both survive and a two level
-                // posterize is black and white rather than black and grey
+                // posterize is black and white rather than black and gray
                 float levels = p[0] - 1.0f;
                 float step = 255.0f / levels;
                 out = tiny_roundf(v / step) * step;
@@ -1907,7 +1935,7 @@ static void curve_of(uint8_t* lut, TinyCurveKind kind, const float* p) {
 }
 
 /**
- * @brief Walks a resolved plan's colour operations into stages.
+ * @brief Walks a resolved plan's color operations into stages.
  *
  * The one implementation of the collapse. Passing NULL for `stages` counts them
  * without building them, which is what the resolution reports, so the count a
@@ -2025,7 +2053,7 @@ int tiny_plan_color_stages(
  * A pixel with fewer than three channels is treated as one whose channels are
  * all equal, and the result is taken as its luminance. That is the same answer
  * as widening to RGB, applying the stage and reducing again, without the two
- * conversions: it keeps a hue rotation of a grey image grey, which taking the
+ * conversions: it keeps a hue rotation of a gray image gray, which taking the
  * first row alone would not.
  *
  * @param stage The stage.
@@ -2113,7 +2141,7 @@ typedef struct {
 /**
  * @brief The triangle kernel, which is what bilinear interpolation is.
  *
- * @param t Distance from the centre, in filter units.
+ * @param t Distance from the center, in filter units.
  * @return double The weight.
  */
 static double kernel_triangle(double t) {
@@ -2124,7 +2152,7 @@ static double kernel_triangle(double t) {
 /**
  * @brief The Catmull-Rom cubic, the interpolating member of its family.
  *
- * @param t Distance from the centre, in filter units.
+ * @param t Distance from the center, in filter units.
  * @return double The weight, which is negative between one and two and is what
  * gives the filter its edge.
  */
@@ -2173,7 +2201,7 @@ static uint32_t taps_bound(TinyResampleFilter filter, double step) {
  * @param sample The source sample's index.
  * @param center Where the output sample sits, in source pixels.
  * @param scale Source pixels per output pixel, never below one.
- * @return double The weight, before normalisation.
+ * @return double The weight, before normalization.
  */
 static double tap_weight(
     TinyResampleFilter filter, int32_t sample, double center, double scale
@@ -2232,7 +2260,7 @@ static void taps_build(
     uint32_t stride = taps_bound(filter, step);
 
     /*
-     * A filter reaches past the sample it is centred on, and what it finds
+     * A filter reaches past the sample it is centered on, and what it finds
      * there has to be the window's own edge rather than whatever the decode
      * happens to have next to it. Otherwise a crop followed by an enlargement
      * reads pixels the crop removed, which is how a watermark cropped out of an
@@ -2278,7 +2306,7 @@ static void taps_build(
         }
 
         // a run at the window's edge is clipped, so its weights do not sum to
-        // one until they are normalised, and normalising is also what turns the
+        // one until they are normalized, and normalizing is also what turns the
         // clipping into edge extension
         if (sum <= 0.0) sum = 1.0;
 
@@ -2359,7 +2387,7 @@ typedef struct {
     uint8_t out_channels;
 } Pass;
 
-/** Reads one source pixel with the pass' leading colour stages applied. */
+/** Reads one source pixel with the pass' leading color stages applied. */
 static void pass_read(
     const Pass* pass, uint32_t x, uint32_t y, uint8_t* pixel
 ) {
@@ -2420,8 +2448,8 @@ static void pass_sample(
             for (uint32_t c = 0; c < channels; c++) {
                 int32_t value = pixel[c];
 
-                // colour is premultiplied so a transparent pixel cannot bleed
-                // into its neighbours; alpha itself is already the weight
+                // color is premultiplied so a transparent pixel cannot bleed
+                // into its neighbors; alpha itself is already the weight
                 if (pass->premultiply && c != alpha_at) {
                     value = value * scale / 255;
                 }
@@ -2435,7 +2463,7 @@ static void pass_sample(
         }
     }
 
-    // every axis' weights are normalised to one, so the divisor is always two
+    // every axis' weights are normalized to one, so the divisor is always two
     // to the thirty second and this is a shift rather than a sixty four bit
     // divide per channel
     for (uint32_t c = 0; c < channels; c++) {
@@ -2472,7 +2500,7 @@ static void pass_run(
      * The special cases the planner reports, taken. Anything that reads one
      * source pixel per output pixel in order needs no sample map, no weights
      * and no divide, and the whole row is one call: a plan that only decodes,
-     * one that only crops, and one that only changes colour all land here. The
+     * one that only crops, and one that only changes color all land here. The
      * general path below is a hundred and twenty nanoseconds a pixel and this
      * is the memory bandwidth, so it is worth the twenty lines.
      */
@@ -2637,7 +2665,7 @@ static int blur_box(TinyImage* image, uint32_t radius) {
 }
 
 /**
- * @brief Applies a blur operation to a materialised image.
+ * @brief Applies a blur operation to a materialized image.
  *
  * @param image The image.
  * @param op The operation.
@@ -2687,8 +2715,8 @@ int tiny_plan_replace(TinyImage* image, TinyPlan* plan) {
     return TINYIMG_OK;
 }
 
-/** The one place a neighbourhood operation runs, whichever one it is. */
-static int neighbourhood_apply(TinyImage* image, const TinyPlanOp* op) {
+/** The one place a neighborhood operation runs, whichever one it is. */
+static int neighborhood_apply(TinyImage* image, const TinyPlanOp* op) {
     if (op->kind == TINYIMG_OP_EFFECT) return tiny_effect_apply(image, op);
     return blur_apply(image, op);
 }
@@ -2714,8 +2742,8 @@ static int run_remainder(
     while (at < resolution->ops) {
         const TinyPlanOp* op = &resolution->op[at];
 
-        if (tiny_plan_op_class(op->kind) == TINYIMG_OP_CLASS_NEIGHBOURHOOD) {
-            int result = neighbourhood_apply(image, op);
+        if (tiny_plan_op_class(op->kind) == TINYIMG_OP_CLASS_NEIGHBORHOOD) {
+            int result = neighborhood_apply(image, op);
             if (result != TINYIMG_OK) return result;
 
             at++;
@@ -2733,7 +2761,7 @@ static int run_remainder(
 
         while (at < resolution->ops &&
                tiny_plan_op_class(resolution->op[at].kind) !=
-                   TINYIMG_OP_CLASS_NEIGHBOURHOOD) {
+                   TINYIMG_OP_CLASS_NEIGHBORHOOD) {
             rest.ops[rest.count++] = resolution->op[at++];
         }
 
@@ -2785,8 +2813,8 @@ static int run_eager(
     for (uint32_t i = 0; i < plan->count; i++) {
         const TinyPlanOp* op = &plan->ops[i];
 
-        if (tiny_plan_op_class(op->kind) == TINYIMG_OP_CLASS_NEIGHBOURHOOD) {
-            result = neighbourhood_apply(&current, op);
+        if (tiny_plan_op_class(op->kind) == TINYIMG_OP_CLASS_NEIGHBORHOOD) {
+            result = neighborhood_apply(&current, op);
             if (result != TINYIMG_OK) break;
             continue;
         }
@@ -2923,7 +2951,7 @@ static int run_fused(
         uint8_t background[4];
         for (uint32_t c = 0; c < 4u; c++) background[c] = plan->background[c];
 
-        // a colour operation the caller put after the fit applies to the
+        // a color operation the caller put after the fit applies to the
         // padding as well, because eagerly it would have
         if (stage_count > resolution->color_stages_before) {
             stages_apply(
@@ -3096,9 +3124,14 @@ int tiny_plan_run(const TinyPlan* plan, TinyImage* out) {
     const TinyImage* source = plan->image;
 
     if (!source) {
+        // effort is orthogonal to fusion, so the unfused arm still honors it:
+        // its point is to decode whole and run one pass per operation, not to
+        // ignore what the caller asked the decoder for
+        TinyDecodeOpts whole = {0, 0, 0, 0, 1, 0, plan->effort};
+
         result = tiny_image_decode(
             &decoded, plan->buffer, plan->size,
-            plan->fusion ? &resolution.decode : 0
+            plan->fusion ? &resolution.decode : &whole
         );
         if (result != TINYIMG_OK) return result;
 
@@ -3117,9 +3150,167 @@ int tiny_plan_run(const TinyPlan* plan, TinyImage* out) {
         result = run_eager(plan, source, out);
     }
 
+    if (result == TINYIMG_OK) {
+        tiny_work_add(TINYIMG_WORK_RESAMPLED, out->width * out->height);
+        tiny_work_add(
+            TINYIMG_WORK_PASSES, plan->fusion ? resolution.passes : plan->count
+        );
+    }
+
     if (source == &decoded) tiny_image_destroy(&decoded);
     return result;
 }
+
+#pragma endregion
+
+#pragma region cost
+
+/*
+ * Rates from scripts/measure/calibrate.ts, run against bin/tinyimg.wasm in bun
+ * on darwin-arm64. Microseconds per million samples, so the arithmetic stays
+ * integral and a rate reads as its own microseconds-per-megapixel figure.
+ *
+ * Each was measured in isolation rather than fitted across a mixed workload,
+ * because a fit spreads one stage's error over every other stage's constant.
+ * Re-run the script to recalibrate; a machine of a different speed wants every
+ * constant scaled by the same factor, and nothing else changes.
+ */
+#define COST_DECODE_BMP 6868u
+#define COST_DECODE_GIF 9319u
+#define COST_DECODE_JPEG 12622u
+#define COST_DECODE_PNG 15202u
+#define COST_DECODE_WEBP 16467u
+#define COST_DECODE_TIFF 21952u
+
+#define COST_ENCODE_BMP 7900u
+#define COST_ENCODE_JPEG 17000u
+#define COST_ENCODE_GIF 50000u
+#define COST_ENCODE_WEBP 74000u
+#define COST_ENCODE_TIFF 240000u
+#define COST_ENCODE_PNG 480000u
+
+#define COST_SAMPLE_NEAREST 33600u
+#define COST_SAMPLE_BOX 39100u
+#define COST_SAMPLE_BILINEAR 81600u
+#define COST_SAMPLE_CATMULL 207700u
+
+#define COST_COLOR_FIRST 5200u
+#define COST_COLOR_MORE 700u
+#define COST_NEIGHBORHOOD 42400u
+
+/*
+ * A scaled decode does not cost its share of the output samples, because a
+ * block's transform still takes eight column passes to write four samples per
+ * row and the entropy decode does not shrink at all. These are the measured
+ * fractions of a full decode, in thousandths, which are exact at the four
+ * denominators a codec offers and need nothing the planner has to guess.
+ */
+static uint32_t scale_fraction(uint8_t den) {
+    switch (den) {
+        case 2: return 561u;
+        case 4: return 425u;
+        case 8: return 278u;
+        default: return 1000u;
+    }
+}
+
+static uint32_t decode_rate(TinyImageFormat format) {
+    switch (format) {
+        case TINYIMG_FORMAT_BMP: return COST_DECODE_BMP;
+        case TINYIMG_FORMAT_GIF: return COST_DECODE_GIF;
+        case TINYIMG_FORMAT_JPEG: return COST_DECODE_JPEG;
+        case TINYIMG_FORMAT_PNG: return COST_DECODE_PNG;
+        case TINYIMG_FORMAT_WEBP: return COST_DECODE_WEBP;
+        case TINYIMG_FORMAT_TIFF: return COST_DECODE_TIFF;
+        default: return 0u;
+    }
+}
+
+static uint32_t sample_rate(TinyResampleFilter filter) {
+    switch (filter) {
+        case TINYIMG_FILTER_NEAREST: return COST_SAMPLE_NEAREST;
+        case TINYIMG_FILTER_BILINEAR: return COST_SAMPLE_BILINEAR;
+        case TINYIMG_FILTER_CATMULL_ROM: return COST_SAMPLE_CATMULL;
+        default: return COST_SAMPLE_BOX;
+    }
+}
+
+/** Microseconds for `samples` at a rate given per million of them. */
+static uint32_t at_rate(uint64_t samples, uint32_t rate) {
+    return (uint32_t) ((samples * (uint64_t) rate) / 1000000u);
+}
+
+TINYIMG_EXPORT("tiny_encode_cost")
+uint32_t tiny_encode_cost(
+    TinyImageFormat format, uint32_t width, uint32_t height
+) {
+    uint32_t rate = 0;
+
+    switch (format) {
+        case TINYIMG_FORMAT_BMP: rate = COST_ENCODE_BMP; break;
+        case TINYIMG_FORMAT_JPEG: rate = COST_ENCODE_JPEG; break;
+        case TINYIMG_FORMAT_GIF: rate = COST_ENCODE_GIF; break;
+        case TINYIMG_FORMAT_WEBP: rate = COST_ENCODE_WEBP; break;
+        case TINYIMG_FORMAT_TIFF: rate = COST_ENCODE_TIFF; break;
+        case TINYIMG_FORMAT_PNG: rate = COST_ENCODE_PNG; break;
+        default: return 0u;
+    }
+
+    return at_rate((uint64_t) width * height, rate);
+}
+
+TINYIMG_EXPORT("tiny_plan_cost")
+uint32_t tiny_plan_cost(const TinyPlan* plan) {
+    if (!plan) return 0u;
+
+    TinyPlanResolution resolution;
+    if (tiny_plan_resolve(plan, &resolution) != TINYIMG_OK) return 0u;
+
+    uint32_t total = 0;
+
+    if (!plan->image) {
+        TinyImageInfo info;
+
+        if (tiny_image_probe(plan->buffer, plan->size, &info) != TINYIMG_OK) {
+            return 0u;
+        }
+
+        uint64_t source = (uint64_t) info.width * info.height;
+        uint32_t rate = decode_rate(info.format);
+
+        total += at_rate(source, rate) *
+                 scale_fraction(resolution.decode.scale_den) / 1000u;
+    }
+
+    uint64_t out = (uint64_t) resolution.width * resolution.height;
+
+    if ((resolution.kernels & TINYIMG_KERNEL_RESAMPLE) != 0) {
+        // the two axes may take different filters, so price the dearer one
+        uint32_t x = sample_rate(resolution.filter_x);
+        uint32_t y = sample_rate(resolution.filter_y);
+
+        total += at_rate(out, x > y ? x : y);
+    }
+
+    if (resolution.color_stages > 0) {
+        total += at_rate(out, COST_COLOR_FIRST);
+        total += at_rate(out, COST_COLOR_MORE * (resolution.color_stages - 1u));
+    }
+
+    // a neighborhood operation ends a fused pass and runs over the whole image
+    for (uint32_t i = 0; i < resolution.ops; i++) {
+        if (tiny_plan_op_class(resolution.op[i].kind) ==
+            TINYIMG_OP_CLASS_NEIGHBORHOOD) {
+            total += at_rate(out, COST_NEIGHBORHOOD);
+        }
+    }
+
+    return total;
+}
+
+#pragma endregion
+
+#pragma region encoding
 
 TINYIMG_EXPORT("tiny_plan_encode")
 int tiny_plan_encode(
