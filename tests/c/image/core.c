@@ -12,13 +12,34 @@ int main(void) {
     r |= assertEquals(tiny_image_create(&image, 4, 4, 0), TINYIMG_ERR_RANGE);
     r |= assertEquals(tiny_image_create(&image, 4, 4, 5), TINYIMG_ERR_RANGE);
 
-    // past the pixel budget the answer is TOO_LARGE rather than MEMORY, because
+    // past either budget the answer is TOO_LARGE rather than MEMORY, because
     // the remedy is a scaled decode and not a bigger heap
     r |= assertEquals(
         tiny_image_create(&image, 5000, 4000, 3), TINYIMG_ERR_TOO_LARGE
     );
-    r |= assertEquals(tiny_image_create(&image, 4000, 4000, 3), TINYIMG_OK);
+
+    /*
+     * Two caps, and each one is checked on the channel count that reaches it.
+     *
+     * Bytes bind first at every width above one channel, so RGB never gets
+     * near the pixel cap: 3344 squared is 33,548,928 bytes against the 32 MiB
+     * limit and one pixel wider is over it. A 4000x4000 RGB image was asserted
+     * here as allowed until the ceiling was measured; it wants 48 MB out of a
+     * 64 MiB heap and no source could have been decoded into it.
+     */
+    r |= assertEquals(tiny_image_create(&image, 3344, 3344, 3), TINYIMG_OK);
     r |= assertEquals(tiny_image_destroy(&image), TINYIMG_OK);
+    r |= assertEquals(
+        tiny_image_create(&image, 3345, 3345, 3), TINYIMG_ERR_TOO_LARGE
+    );
+
+    // grayscale is the only channel count the pixel cap binds on, so it is the
+    // only one that can show that guard fires at all
+    r |= assertEquals(tiny_image_create(&image, 4000, 4000, 1), TINYIMG_OK);
+    r |= assertEquals(tiny_image_destroy(&image), TINYIMG_OK);
+    r |= assertEquals(
+        tiny_image_create(&image, 4001, 4000, 1), TINYIMG_ERR_TOO_LARGE
+    );
 
     // width * height must not be allowed to wrap before the check
     r |= assertEquals(
