@@ -553,6 +553,23 @@ const uint8_t* tiny_blob_get(TinyBlobKind kind, const char* id, size_t* size) {
     return slot->data;
 }
 
+const uint8_t* tiny_blob_at(
+    TinyBlobKind kind, uint32_t index, const char** id, size_t* size
+) {
+    uint32_t seen = 0;
+
+    for (uint32_t i = 0; i < TINYIMG_MAX_BLOBS; i++) {
+        if (!blobs[i].data || blobs[i].kind != kind) continue;
+        if (seen++ != index) continue;
+
+        if (id) *id = blobs[i].id;
+        if (size) *size = blobs[i].size;
+        return blobs[i].data;
+    }
+
+    return 0;
+}
+
 TINYIMG_EXPORT("tiny_blob_free")
 int tiny_blob_free(TinyBlobKind kind, const char* id) {
     TinyBlobSlot* slot = blob_find(kind, id);
