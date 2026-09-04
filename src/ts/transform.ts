@@ -92,7 +92,8 @@ export function apply(image: Image, options: TransformOptions): Image {
 		// operation that says how. one extent alone has no mismatch to absorb
 		image.fit(width, height, {
 			fit: options.fit ?? 'cover',
-			...(options.gravity === undefined ? {} : { gravity: options.gravity })
+			...(options.gravity === undefined ? {} : { gravity: options.gravity }),
+			...(options.filter === undefined ? {} : { filter: options.filter })
 		});
 	} else if (width !== undefined || height !== undefined) {
 		image.resize(width ?? 0, height ?? 0, options.filter ?? 'auto');
