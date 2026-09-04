@@ -1,5 +1,8 @@
 build/
 build-native/
+build-cov*/
+build-san*/
+build-ablate-*/
 bin/
 dist/
 blobs/

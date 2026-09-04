@@ -12,6 +12,7 @@ build-ubsan*/
 build-linux*/
 build-san*/
 build-ablate-*/
+build-cov*/
 *.a
 
 node_modules/
