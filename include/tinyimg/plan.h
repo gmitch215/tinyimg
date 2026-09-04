@@ -58,7 +58,7 @@ typedef enum TinyPlanOpKind
     TINYIMG_OP_ROTATE = 6,
     /** Scale every channel by a factor. */
     TINYIMG_OP_BRIGHTNESS = 7,
-    /** Scale every channel about mid grey. */
+    /** Scale every channel about mid gray. */
     TINYIMG_OP_CONTRAST = 8,
     /** Move every channel toward or away from its luminance. */
     TINYIMG_OP_SATURATION = 9,
@@ -70,20 +70,20 @@ typedef enum TinyPlanOpKind
     TINYIMG_OP_INVERT = 12,
     /** Raise every channel to a power. */
     TINYIMG_OP_GAMMA = 13,
-    /** Average each pixel with its neighbours. */
+    /** Average each pixel with its neighbors. */
     TINYIMG_OP_BLUR = 14,
-    /** Apply a caller-supplied 3x4 colour matrix. */
+    /** Apply a caller-supplied 3x4 color matrix. */
     TINYIMG_OP_MATRIX = 15,
     /** Apply a named tone curve, per channel. */
     TINYIMG_OP_CURVE = 16,
-    /** Apply a named neighbourhood effect. */
+    /** Apply a named neighborhood effect. */
     TINYIMG_OP_EFFECT = 17,
 } TinyPlanOpKind;
 
 /**
  * @brief The tone curves TINYIMG_OP_CURVE can carry.
  *
- * A curve is named and parameterised rather than carried as a table, because a
+ * A curve is named and parameterized rather than carried as a table, because a
  * 768 byte table inline would make one operation larger than the whole rest of
  * a plan and a plan is a structure a caller keeps on the stack. A caller's own
  * table is still reachable: tiny_image_apply_lut takes one and runs it as a
@@ -112,7 +112,7 @@ typedef enum TinyCurveKind
     TINYIMG_CURVE_FILL_LIGHT = 6,
     /** Multiply by `p[0]`. */
     TINYIMG_CURVE_GAIN = 7,
-    /** An S-curve of strength `p[0]` about mid grey. */
+    /** An S-curve of strength `p[0]` about mid gray. */
     TINYIMG_CURVE_SIGMOID = 8,
     /** Subtract from full scale. */
     TINYIMG_CURVE_NEGATE = 9,
@@ -123,14 +123,14 @@ typedef enum TinyCurveKind
      * highlights by `p[2]`, each weighted by how much of the pixel is in that
      * band.
      *
-     * One channel of a colour balance. The three bands overlap, so a shift
+     * One channel of a color balance. The three bands overlap, so a shift
      * applied to one of them does not leave a step where it meets the next.
      */
     TINYIMG_CURVE_BALANCE = 11,
 } TinyCurveKind;
 
 /**
- * @brief The neighbourhood effects TINYIMG_OP_EFFECT can carry.
+ * @brief The neighborhood effects TINYIMG_OP_EFFECT can carry.
  *
  * Every one of these reads more than one pixel, so they share the class that
  * ends a fused pass. What separates them is the kernel and the parameters, not
@@ -149,7 +149,7 @@ typedef enum TinyEffectKind
     TINYIMG_FX_EMBOSS = 3,
     /** Average over `p[0]` by `p[0]` blocks. */
     TINYIMG_FX_PIXELATE = 4,
-    /** Replace each pixel with the median of its 3x3 neighbourhood. */
+    /** Replace each pixel with the median of its 3x3 neighborhood. */
     TINYIMG_FX_MEDIAN = 5,
     /** Maximum over a `p[0]` radius. */
     TINYIMG_FX_DILATE = 6,
@@ -159,9 +159,9 @@ typedef enum TinyEffectKind
     TINYIMG_FX_OUTLINE = 8,
     /** Average along `p[0]` pixels at `p[1]` degrees. */
     TINYIMG_FX_MOTION_BLUR = 9,
-    /** Average along arcs about the centre; `p[0]` is the strength. */
+    /** Average along arcs about the center; `p[0]` is the strength. */
     TINYIMG_FX_RADIAL_BLUR = 10,
-    /** Average along rays from the centre; `p[0]` is the strength. */
+    /** Average along rays from the center; `p[0]` is the strength. */
     TINYIMG_FX_ZOOM_BLUR = 11,
     /** A blur that grows away from a band; `p[0]` sigma, `p[1]` band. */
     TINYIMG_FX_TILT_SHIFT = 12,
@@ -199,25 +199,25 @@ typedef enum TinyPlanOpClass
     /**
      * @brief Reads one pixel and is affine in its channels.
      *
-     * Composes with its neighbours by matrix multiplication, so any number of
+     * Composes with its neighbors by matrix multiplication, so any number of
      * these cost one matrix between them.
      */
     TINYIMG_OP_CLASS_COLOR_MATRIX = 1,
     /**
      * @brief Reads one pixel and is not affine in its channels.
      *
-     * Composes with its neighbours through the lookup table, so any number of
+     * Composes with its neighbors through the lookup table, so any number of
      * these cost one table between them.
      */
     TINYIMG_OP_CLASS_COLOR_LUT = 2,
     /**
-     * @brief Reads a neighbourhood around each pixel.
+     * @brief Reads a neighborhood around each pixel.
      *
      * Cannot fold into a sample map, so it ends a fused pass and its input is
-     * materialised. It is also what stops resolution propagation, unless a
+     * materialized. It is also what stops resolution propagation, unless a
      * rewrite has already moved it after the downscale.
      */
-    TINYIMG_OP_CLASS_NEIGHBOURHOOD = 3,
+    TINYIMG_OP_CLASS_NEIGHBORHOOD = 3,
 } TinyPlanOpClass;
 
 /**
@@ -297,7 +297,7 @@ typedef struct {
              * function of the plan alone: the question "where are the faces"
              * needs pixels, and resolution happens before any pixel is read, so
              * tiny_plan_run answers it first and writes the answer here. A fit
-             * op that reaches resolution without one falls back to the centre.
+             * op that reaches resolution without one falls back to the center.
              */
             float focus_x;
             /** The vertical position; see `focus_x`. */
@@ -401,6 +401,8 @@ typedef struct {
 
     /** Zero to run one operation per pass; see tiny_plan_set_fusion. */
     uint8_t fusion;
+    /** How much work the decode may spend; see tiny_plan_set_effort. */
+    uint8_t effort;
     /** What padding is filled with, as many channels as the output has. */
     uint8_t background[4];
 
@@ -418,7 +420,7 @@ typedef struct {
  * @brief Special cases the planner took, reported as a bitmask.
  *
  * Every bit is an assertion a test can make about a plan rather than about its
- * pixels, which is the only way to tell a plan that was optimised from one that
+ * pixels, which is the only way to tell a plan that was optimized from one that
  * happened to produce the same image.
  */
 typedef enum TinyPlanKernel
@@ -433,14 +435,14 @@ typedef enum TinyPlanKernel
     TINYIMG_KERNEL_RESAMPLE = 1 << 3,
     /** A flip or a quarter turn runs, folded into the output addressing. */
     TINYIMG_KERNEL_ORIENT = 1 << 4,
-    /** At least one colour stage runs. */
+    /** At least one color stage runs. */
     TINYIMG_KERNEL_COLOR = 1 << 5,
     /** The output is larger than the resampled image and the rest is filled. */
     TINYIMG_KERNEL_PAD = 1 << 6,
-    /** The decoder produced the luminance, so no colour stage was needed. */
+    /** The decoder produced the luminance, so no color stage was needed. */
     TINYIMG_KERNEL_GRAY_DECODE = 1 << 7,
-    /** A neighbourhood operation runs on a materialised image. */
-    TINYIMG_KERNEL_NEIGHBOURHOOD = 1 << 8,
+    /** A neighborhood operation runs on a materialized image. */
+    TINYIMG_KERNEL_NEIGHBORHOOD = 1 << 8,
 } TinyPlanKernel;
 
 /**
@@ -488,7 +490,7 @@ typedef struct {
      * @brief The composed flip and quarter turn, as a signed permutation.
      *
      * Row major, mapping output coordinates to sample coordinates about each
-     * axis' centre. Composition of any number of flips and turns is one matrix
+     * axis' center. Composition of any number of flips and turns is one matrix
      * multiply, so the eight orientations cost one pass between them.
      */
     int8_t orientation[4];
@@ -512,13 +514,13 @@ typedef struct {
     uint32_t eliminated;
     /** Operations a pair rule merged into another. */
     uint32_t collapsed;
-    /** Colour stages the operations collapsed into. */
+    /** Color stages the operations collapsed into. */
     uint32_t color_stages;
     /**
      * @brief How many of those run on the source samples rather than the output
      * ones.
      *
-     * Which is decided by where the caller put them: a colour operation written
+     * Which is decided by where the caller put them: a color operation written
      * before a resize runs before the resample. Moving one to the output side
      * would be cheaper on a reduction and is not the same image, because the
      * clamp that follows an affine function does not survive being averaged.
@@ -533,9 +535,9 @@ typedef struct {
 } TinyPlanResolution;
 
 /**
- * @brief One collapsed colour operation.
+ * @brief One collapsed color operation.
  *
- * A chain of colour operations becomes a list of these, and adjacent entries of
+ * A chain of color operations becomes a list of these, and adjacent entries of
  * the same kind are merged into one, so the worked chain of a brightness, a
  * contrast, a saturation and a gamma is one matrix and one table.
  */
@@ -548,7 +550,7 @@ typedef struct {
      * @brief Row major 3x4 in 16.16 fixed point, applied to RGB.
      *
      * Each row is three channel weights and a constant. Alpha is not read and
-     * not written; no colour operation in the library touches it.
+     * not written; no color operation in the library touches it.
      */
     int32_t matrix[12];
     /** One 256 entry table per channel. */
@@ -581,7 +583,7 @@ uint32_t tiny_plan_resolution_sizeof(void);
  * is decoded until tiny_plan_run, which is what lets the planner choose the
  * decode. The buffer is borrowed and must outlive the plan.
  *
- * @param plan The plan to initialise.
+ * @param plan The plan to initialize.
  * @param buffer The encoded image.
  * @param size Number of bytes.
  * @return int TINYIMG_OK, TINYIMG_ERR_UNKNOWN_FORMAT, or a negative
@@ -597,7 +599,7 @@ int tiny_plan_init(TinyPlan* plan, const uint8_t* buffer, size_t size);
  * have nothing to do; every other rewrite still runs. The image is borrowed and
  * is never written to.
  *
- * @param plan The plan to initialise.
+ * @param plan The plan to initialize.
  * @param image The source pixels.
  * @return int TINYIMG_OK or TINYIMG_ERR_NULL.
  */
@@ -610,7 +612,7 @@ int tiny_plan_init_image(TinyPlan* plan, const TinyImage* image);
  * operations allow.
  *
  * Off, nothing is rewritten, the source is decoded whole, and every operation
- * as appended runs as its own pass over a materialised image. That is what the
+ * as appended runs as its own pass over a materialized image. That is what the
  * fused path is measured against, and it is the benchmark's planner-off arm.
  * Both paths share one resampler, so a difference between them is a fault in
  * the rewrites, the collapse or the region arithmetic, and cannot be a fault in
@@ -621,6 +623,25 @@ int tiny_plan_init_image(TinyPlan* plan, const TinyImage* image);
  * @return int TINYIMG_OK or TINYIMG_ERR_NULL.
  */
 int tiny_plan_set_fusion(TinyPlan* plan, int enabled);
+
+/**
+ * @brief Chooses how much work the plan's decode may spend.
+ *
+ * TINYIMG_EFFORT_FANCY, the default, decodes to the bitstream's definition.
+ * TINYIMG_EFFORT_FAST lets a lossy decoder drop its smoothing pass: VP8 skips
+ * deblocking and JPEG replicates chroma rather than interpolating it. A
+ * lossless format has nothing to drop and is unaffected.
+ *
+ * Separate from the encoder's effort, which is set on TinyEncodeOpts, because a
+ * request can want one and not the other: a thumbnail small enough to hide a
+ * decode approximation may still want a carefully searched encode.
+ *
+ * @param plan The plan.
+ * @param effort A TinyEffort.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL, or TINYIMG_ERR_RANGE for a value
+ * that is not a TinyEffort.
+ */
+int tiny_plan_set_effort(TinyPlan* plan, uint8_t effort);
 
 /**
  * @brief Sets what padding is filled with.
@@ -743,7 +764,7 @@ int tiny_plan_contrast(TinyPlan* plan, float factor);
  * @brief Appends a saturation change.
  *
  * @param plan The plan.
- * @param factor 1.0 changes nothing and is eliminated; 0.0 is a greyscale that
+ * @param factor 1.0 changes nothing and is eliminated; 0.0 is a grayscale that
  * keeps three channels.
  * @return int TINYIMG_OK, TINYIMG_ERR_NULL, TINYIMG_ERR_RANGE for a negative
  * factor, or TINYIMG_ERR_PLAN.
@@ -814,10 +835,10 @@ int tiny_plan_blur(TinyPlan* plan, float radius);
 int tiny_plan_gaussian_blur(TinyPlan* plan, float sigma);
 
 /**
- * @brief Appends a colour matrix.
+ * @brief Appends a color matrix.
  *
- * The generic form of every affine colour operation in the library. Sepia, a
- * channel mixer, a white balance and a colourblind simulation are all one of
+ * The generic form of every affine color operation in the library. Sepia, a
+ * channel mixer, a white balance and a colorblind simulation are all one of
  * these, so they compose with each other and with brightness, contrast,
  * saturation and hue into the single matrix the executor applies.
  *
@@ -831,7 +852,7 @@ int tiny_plan_matrix(TinyPlan* plan, const float* matrix);
 /**
  * @brief Appends a tone curve.
  *
- * The generic form of every colour operation that is not affine. Adjacent
+ * The generic form of every color operation that is not affine. Adjacent
  * curves compose through the table, so any number of them cost one table.
  *
  * @param plan The plan.
@@ -848,7 +869,7 @@ int tiny_plan_curve(
 );
 
 /**
- * @brief Appends a neighbourhood effect.
+ * @brief Appends a neighborhood effect.
  *
  * @param plan The plan.
  * @param kind Which effect.
@@ -859,7 +880,7 @@ int tiny_plan_curve(
 int tiny_plan_effect(TinyPlan* plan, TinyEffectKind kind, const float* params);
 
 /**
- * @brief Appends a neighbourhood effect confined to a rectangle.
+ * @brief Appends a neighborhood effect confined to a rectangle.
  *
  * @param plan The plan.
  * @param kind Which effect.
@@ -908,6 +929,108 @@ int tiny_plan_op_at(const TinyPlan* plan, uint32_t index, TinyPlanOp* op);
 TinyPlanOpClass tiny_plan_op_class(TinyPlanOpKind kind);
 
 /**
+ * @brief What running this plan is expected to cost, in microseconds.
+ *
+ * For deciding whether a request fits a CPU budget before spending any of it.
+ * The plan is resolved, which reads the source header and no pixels, so this
+ * costs about as much as tiny_plan_resolve and nothing like the plan itself.
+ *
+ * **This is an estimate and says so.** The rates come from
+ * `scripts/measure/calibrate.ts` on one machine, and a machine of a different
+ * speed wants all of them scaled. Measured against real transforms it lands
+ * within about 20%, which is the accuracy a budget question needs when the
+ * question is whether 7 milliseconds of work will fit inside 10. It is not a
+ * substitute for measuring: a caller that needs to know what a request cost
+ * should read the work counters afterwards.
+ *
+ * The encoder is not included, because a plan does not carry one. Add
+ * tiny_encode_cost for the format being written.
+ *
+ * @param plan The plan to price.
+ * @return uint32_t Microseconds, or 0 when the plan cannot be resolved or its
+ * source header cannot be read.
+ */
+uint32_t tiny_plan_cost(const TinyPlan* plan);
+
+/**
+ * @brief What encoding an image of this extent is expected to cost.
+ *
+ * Separate from tiny_plan_cost so a caller choosing between formats can price
+ * each one without building a plan per candidate. The spread is the reason the
+ * function exists: at the rates measured, PNG costs 29 times JPEG per sample
+ * and WebP costs 4, so a request that does not fit as WebP may fit as JPEG.
+ *
+ * @param format The format to write.
+ * @param width Output width.
+ * @param height Output height.
+ * @return uint32_t Microseconds, or 0 for a format this build cannot write.
+ */
+uint32_t tiny_encode_cost(
+    TinyImageFormat format, uint32_t width, uint32_t height
+);
+
+/**
+ * @brief A field of a TinyPlanResolution, named rather than offset.
+ *
+ * TinyPlanResolution's layout is not part of the ABI, so a host that read it by
+ * computing offsets would be reading whatever the C compiler chose that day.
+ * The awkward part is not the prefix, which is fixed; it is that
+ * `TinyPlanOp op[TINYIMG_PLAN_MAX_OPS]` sits in the middle, so every counter
+ * after it moves whenever an operand grows. Naming the fields is what makes the
+ * decision readable from the outside without pinning the structure.
+ */
+typedef enum TinyPlanField
+{
+    /** Left edge of the region the decoder is asked for, in source pixels. */
+    TINYIMG_FIELD_REGION_X = 0,
+    /** Top edge of that region. */
+    TINYIMG_FIELD_REGION_Y = 1,
+    /** Width of that region. */
+    TINYIMG_FIELD_REGION_WIDTH = 2,
+    /** Height of that region. */
+    TINYIMG_FIELD_REGION_HEIGHT = 3,
+    /** Subsampling denominator the decoder is asked for: 1, 2, 4 or 8. */
+    TINYIMG_FIELD_SCALE = 4,
+    /** Width the decode produces. */
+    TINYIMG_FIELD_DECODE_WIDTH = 5,
+    /** Height the decode produces. */
+    TINYIMG_FIELD_DECODE_HEIGHT = 6,
+    /** Width of the final image. */
+    TINYIMG_FIELD_WIDTH = 7,
+    /** Height of the final image. */
+    TINYIMG_FIELD_HEIGHT = 8,
+    /** Channels of the final image. */
+    TINYIMG_FIELD_CHANNELS = 9,
+    /** Operations left after the rewrites. */
+    TINYIMG_FIELD_OPS = 10,
+    /** Operations an identity or annihilation rule removed. */
+    TINYIMG_FIELD_ELIMINATED = 11,
+    /** Operations a pair rule merged into another. */
+    TINYIMG_FIELD_COLLAPSED = 12,
+    /** Color stages the operations collapsed into. */
+    TINYIMG_FIELD_COLOR_STAGES = 13,
+    /** Fused passes tiny_plan_run will make. */
+    TINYIMG_FIELD_PASSES = 14,
+    /** A bitmask of TinyPlanKernel. */
+    TINYIMG_FIELD_KERNELS = 15,
+} TinyPlanField;
+
+/**
+ * @brief Reads one named field of a resolution.
+ *
+ * One accessor rather than sixteen, because every field a host wants is an
+ * unsigned integer and sixteen exports would cost more module bytes than the
+ * switch does.
+ *
+ * @param resolution A resolution from tiny_plan_resolve.
+ * @param field Which field.
+ * @return uint32_t Its value, or 0 for a NULL resolution or an unknown field.
+ */
+uint32_t tiny_plan_field(
+    const TinyPlanResolution* resolution, TinyPlanField field
+);
+
+/**
  * @brief Runs the rewrites and the propagation, touching no pixels.
  *
  * Everything the planner decides is here: which operations survived, what
@@ -920,12 +1043,14 @@ TinyPlanOpClass tiny_plan_op_class(TinyPlanOpKind kind);
  * @param resolution Receives the decision.
  * @return int TINYIMG_OK, TINYIMG_ERR_NULL, TINYIMG_ERR_RANGE for an operation
  * that leaves nothing to produce, or TINYIMG_ERR_TOO_LARGE past
- * TINYIMG_MAX_PIXELS.
+ * TINYIMG_MAX_PIXELS or TINYIMG_MAX_IMAGE_BYTES. Both caps are checked here
+ * rather than left to the executor, so a plan that resolves is a plan that can
+ * allocate its output.
  */
 int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution);
 
 /**
- * @brief Collapses a resolved plan's colour operations into stages.
+ * @brief Collapses a resolved plan's color operations into stages.
  *
  * @internal Not part of the public surface; the executor calls it, and it is
  * declared here so a test can assert the composed matrix and table directly
@@ -953,16 +1078,16 @@ int tiny_plan_color_stages(
  * than being freed with the image it came from.
  *
  * @param image The image, replaced by the result. Must be the plan's source.
- * @param plan A plan initialised over `image`.
+ * @param plan A plan initialized over `image`.
  * @return int TINYIMG_OK or a negative TinyImageError.
  */
 int tiny_plan_replace(TinyImage* image, TinyPlan* plan);
 
 /**
- * @brief Runs one TINYIMG_OP_EFFECT operation over a materialised image.
+ * @brief Runs one TINYIMG_OP_EFFECT operation over a materialized image.
  *
  * @internal The seam between the planner and the effects. The planner decides
- * where a neighbourhood operation runs and what it reads; what the kernel does
+ * where a neighborhood operation runs and what it reads; what the kernel does
  * is none of its business, so the whole of it lives in effects.c and this is
  * the only thing plan.c calls.
  *
@@ -1004,7 +1129,7 @@ int tiny_plan_run(const TinyPlan* plan, TinyImage* out);
  * @param plan The plan.
  * @param format The container to write.
  * @param opts Quality and related settings, or NULL for the defaults.
- * @param writer An initialised TinyWriter to append to.
+ * @param writer An initialized TinyWriter to append to.
  * @return int TINYIMG_OK or a negative TinyImageError.
  */
 int tiny_plan_encode(
