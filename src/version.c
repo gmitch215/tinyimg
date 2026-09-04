@@ -1,4 +1,4 @@
-#include "tinyimg.h"
+#include "tinyimg/tinyimg.h"
 
 TINYIMG_EXPORT("tiny_version")
 uint32_t tiny_version(void) {
