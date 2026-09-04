@@ -19,8 +19,8 @@ extern "C" {
 /**
  * @brief The GIF codec.
  *
- * Decodes the first frame of either version, with a global or a local colour
- * table, interlaced or not, and honours the graphic control extension's
+ * Decodes the first frame of either version, with a global or a local color
+ * table, interlaced or not, and honors the graphic control extension's
  * transparent index. `probe` reports how many frames the file holds, so an
  * animation is identifiable without decoding it; composing or re-timing frames
  * is out of scope.
@@ -30,10 +30,10 @@ extern "C" {
  * viewer shows. A file with a transparent index decodes to four channels and
  * one without to three.
  *
- * Encoding writes a single frame with one global colour table. An image already
- * inside 256 colours keeps them exactly, so a logo or a flat illustration round
- * trips without loss; anything wider goes through an octree quantiser with
- * Floyd-Steinberg error diffusion, which is applied when and only when colours
+ * Encoding writes a single frame with one global color table. An image already
+ * inside 256 colors keeps them exactly, so a logo or a flat illustration round
+ * trips without loss; anything wider goes through an octree quantizer with
+ * Floyd-Steinberg error diffusion, which is applied when and only when colors
  * had to be discarded. A source with alpha spends one palette entry on a
  * transparent index, since the format has no partial transparency to spend it
  * on.

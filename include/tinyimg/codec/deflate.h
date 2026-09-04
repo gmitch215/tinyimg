@@ -164,7 +164,7 @@ int tiny_inflate_finish(TinyInflate* state);
  * @param data The compressed bytes.
  * @param size Number of bytes.
  * @param zlib Non-zero for a zlib wrapper.
- * @param out An initialised sink to append to.
+ * @param out An initialized sink to append to.
  * @return int TINYIMG_OK or a negative TinyImageError.
  */
 int tiny_inflate_all(
@@ -218,7 +218,7 @@ typedef enum TinyDeflateLevel
  * @param size Number of bytes.
  * @param level How hard to look for matches.
  * @param zlib Non-zero to write a zlib header and Adler-32 trailer.
- * @param out An initialised sink to append to.
+ * @param out An initialized sink to append to.
  * @return int TINYIMG_OK or a negative TinyImageError.
  */
 int tiny_deflate(

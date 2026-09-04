@@ -276,7 +276,7 @@ typedef enum TinyTextAlign
 {
     /** Against the left edge. */
     TINYIMG_ALIGN_LEFT = 0,
-    /** Centred in the width. */
+    /** Centered in the width. */
     TINYIMG_ALIGN_CENTER = 1,
     /** Against the right edge. */
     TINYIMG_ALIGN_RIGHT = 2,
@@ -308,7 +308,7 @@ void tiny_text_style(TinyTextStyle* style, float size);
  * @param x Left edge of the line box; may be negative.
  * @param y Top edge of the line box; may be negative.
  * @param style How to set it, or NULL for the defaults at the face's own size.
- * @param color The colour, as many channels as the image has.
+ * @param color The color, as many channels as the image has.
  * @return int TINYIMG_OK, TINYIMG_ERR_BLOB_MISSING for an unloaded face, or a
  * negative TinyImageError.
  */
@@ -335,7 +335,7 @@ int tiny_image_draw_text(
  * @param height Height to fill. Zero means no limit.
  * @param style How to set it, or NULL for the defaults.
  * @param align Where each line sits inside `width`.
- * @param color The colour, as many channels as the image has.
+ * @param color The color, as many channels as the image has.
  * @return int TINYIMG_OK or a negative TinyImageError.
  */
 int tiny_image_draw_text_box(

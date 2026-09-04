@@ -159,11 +159,11 @@ typedef enum TinyImageError
      */
     TINYIMG_ERR_TOO_LARGE = -5,
     /**
-     * @brief The buffer did not match any format tinyimg recognises.
+     * @brief The buffer did not match any format tinyimg recognizes.
      */
     TINYIMG_ERR_UNKNOWN_FORMAT = -6,
     /**
-     * @brief The format was recognised but this build cannot decode or encode
+     * @brief The format was recognized but this build cannot decode or encode
      * it. AVIF and HEIF always report this.
      */
     TINYIMG_ERR_UNSUPPORTED_CODEC = -7,
@@ -172,7 +172,7 @@ typedef enum TinyImageError
      */
     TINYIMG_ERR_CORRUPT = -8,
     /**
-     * @brief The format is recognised and supported, but this particular
+     * @brief The format is recognized and supported, but this particular
      * variant of it is not (a 12-bit JPEG, an arithmetic-coded scan, a
      * LUT-based ICC profile).
      */
@@ -207,7 +207,7 @@ typedef enum TinyImageError
  * @brief Retrieves a short, stable name for an error code.
  *
  * Intended for logs and for the message the host wrapper throws; the text is
- * not localised and is not meant to be shown to an end user.
+ * not localized and is not meant to be shown to an end user.
  *
  * @param error The error code to describe.
  * @return const char* A NUL-terminated ASCII name, or "unknown" if the code is

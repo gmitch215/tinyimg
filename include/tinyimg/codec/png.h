@@ -19,12 +19,12 @@ extern "C" {
 /**
  * @brief The PNG codec.
  *
- * Decodes every colour type at every bit depth the format defines: greyscale
- * and palette at 1, 2, 4 and 8 bits, truecolour at 8 and 16, either of the
- * latter with an alpha channel, and palette or greyscale transparency through
+ * Decodes every color type at every bit depth the format defines: grayscale
+ * and palette at 1, 2, 4 and 8 bits, truecolor at 8 and 16, either of the
+ * latter with an alpha channel, and palette or grayscale transparency through
  * tRNS. Sixteen bit samples are reduced to eight by taking the high byte, which
- * is what every viewer does. Encodes 8 bit greyscale, greyscale with alpha,
- * truecolour and truecolour with alpha, choosing a row filter per row by the
+ * is what every viewer does. Encodes 8 bit grayscale, grayscale with alpha,
+ * truecolor and truecolor with alpha, choosing a row filter per row by the
  * minimum sum of absolute differences and compressing with the shared DEFLATE
  * unit.
  *

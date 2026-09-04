@@ -26,7 +26,7 @@ extern "C" {
  * identifiable without decoding it; composing or re-timing frames is out of
  * scope, as it is for GIF.
  *
- * Lossless is complete: all four transforms, the colour cache, meta Huffman
+ * Lossless is complete: all four transforms, the color cache, meta Huffman
  * groups and LZ77 backward references. Lossy decodes an intra coded frame,
  * which is every still image the format holds, with both loop filters. An
  * `ALPH` chunk is read whether it is stored raw or through the lossless coder,
@@ -42,7 +42,7 @@ extern "C" {
  * cannot start in the middle of one or skip a part of it: lossless predicts
  * from the pixel above and to the left and copies from anywhere already
  * written, and lossy's intra prediction chains the same way. `TinyDecodeOpts`
- * is honoured by decoding the frame and then taking the region, which is what
+ * is honored by decoding the frame and then taking the region, which is what
  * the contract permits and what a progressive JPEG does for the same reason.
  */
 extern const TinyCodec tiny_codec_webp;

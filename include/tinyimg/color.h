@@ -13,6 +13,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "tinyimg/image.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -270,8 +272,9 @@ int tiny_interpolate_hsl(
  * a given number of steps.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an RGB color in the format 0xRRGGBB. The caller is
- * responsible for freeing the allocated memory.
+ * integer holds one RGB color as 0xRRGGBB. The memory comes from the arena, so
+ * tiny_arena_reset() or a matching tiny_arena_release() reclaims it and
+ * nothing frees it individually.
  *
  * @param r1 Red component of the starting color (0-255)
  * @param g1 Green component of the starting color (0-255)
@@ -293,8 +296,9 @@ int* tiny_gradient_rgb(
  * a given number of steps.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an RGBA color in the format 0xRRGGBBAA. The caller is
- * responsible for freeing the allocated memory.
+ * integer holds one RGBA color as 0xRRGGBBAA. The memory comes from the arena,
+ * so tiny_arena_reset() or a matching tiny_arena_release() reclaims it and
+ * nothing frees it individually.
  *
  * @param r1 Red component of the starting color (0-255)
  * @param g1 Green component of the starting color (0-255)
@@ -318,8 +322,9 @@ int* tiny_gradient_rgba(
  * a given number of steps.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an HSV color in the format 0xHHSSVV. The caller is
- * responsible for freeing the allocated memory.
+ * entry is three floats: hue, saturation and value. The memory comes from the
+ * arena, so tiny_arena_reset() or a matching tiny_arena_release() reclaims it
+ * and nothing frees it individually.
  *
  * @param h1 Hue of the starting color (0-360)
  * @param s1 Saturation of the starting color (0-1)
@@ -328,10 +333,9 @@ int* tiny_gradient_rgba(
  * @param s2 Saturation of the ending color (0-1)
  * @param v2 Value (Brightness) of the ending color (0-1)
  * @param steps Number of steps in the gradient (must be greater than 1)
- * @return int* Pointer to an array of integers representing the gradient
- * colors, or NULL on failure (e.g., if steps is less than 2).
+ * @return float* The gradient, or NULL when steps is below two.
  */
-int* tiny_gradient_hsv(
+float* tiny_gradient_hsv(
     float h1, float s1, float v1, float h2, float s2, float v2, size_t steps
 );
 
@@ -340,8 +344,9 @@ int* tiny_gradient_hsv(
  * a given number of steps.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an HSL color in the format 0xHHSSLL. The caller is
- * responsible for freeing the allocated memory.
+ * entry is three floats: hue, saturation and lightness. The memory comes from
+ * the arena, so tiny_arena_reset() or a matching tiny_arena_release() reclaims
+ * it and nothing frees it individually.
  *
  * @param h1 Hue of the starting color (0-360)
  * @param s1 Saturation of the starting color (0-1)
@@ -350,10 +355,9 @@ int* tiny_gradient_hsv(
  * @param s2 Saturation of the ending color (0-1)
  * @param l2 Lightness of the ending color (0-1)
  * @param steps Number of steps in the gradient (must be greater than 1)
- * @return int* Pointer to an array of integers representing the gradient
- * colors, or NULL on failure (e.g., if steps is less than 2).
+ * @return float* The gradient, or NULL when steps is below two.
  */
-int* tiny_gradient_hsl(
+float* tiny_gradient_hsl(
     float h1, float s1, float l1, float h2, float s2, float l2, size_t steps
 );
 
@@ -362,8 +366,9 @@ int* tiny_gradient_hsl(
  * a given number of steps.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents a CMYK color in the format 0xCCMMYYKK. The caller is
- * responsible for freeing the allocated memory.
+ * entry is four floats: cyan, magenta, yellow and key. The memory comes from
+ * the arena, so tiny_arena_reset() or a matching tiny_arena_release() reclaims
+ * it and nothing frees it individually.
  *
  * @param c1 Cyan of the starting color (0-1)
  * @param m1 Magenta of the starting color (0-1)
@@ -374,10 +379,9 @@ int* tiny_gradient_hsl(
  * @param y2 Yellow of the ending color (0-1)
  * @param k2 Key/Black of the ending color (0-1)
  * @param steps Number of steps in the gradient (must be greater than 1)
- * @return int* Pointer to an array of integers representing the gradient
- * colors, or NULL on failure (e.g., if steps is less than 2).
+ * @return float* The gradient, or NULL when steps is below two.
  */
-int* tiny_gradient_cmyk(
+float* tiny_gradient_cmyk(
     float c1, float m1, float y1, float k1, float c2, float m2, float y2,
     float k2, size_t steps
 );
@@ -388,8 +392,9 @@ int* tiny_gradient_cmyk(
  * colors.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an RGB color in the format 0xRRGGBB. The caller is
- * responsible for freeing the allocated memory.
+ * integer holds one RGB color as 0xRRGGBB. The memory comes from the arena, so
+ * tiny_arena_reset() or a matching tiny_arena_release() reclaims it and
+ * nothing frees it individually.
  *
  * @param colors Pointer to an array of uint8_t values representing the input
  * colors. Each color should be represented by three consecutive values (R, G,
@@ -406,11 +411,12 @@ int* tiny_multigradient_rgb(uint8_t* colors, size_t num_colors, size_t steps);
 /**
  * @brief Generates a multi-gradient of RGB colors based on an array of input
  * colors and a specified number of steps distributed based on
- * `color_distribution_out`.
+ * `color_distribution`.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an RGB color in the format 0xRRGGBB. The caller is
- * responsible for freeing the allocated memory.
+ * integer holds one RGB color as 0xRRGGBB. The memory comes from the arena, so
+ * tiny_arena_reset() or a matching tiny_arena_release() reclaims it and
+ * nothing frees it individually.
  *
  * @param colors Pointer to an array of uint8_t values representing the input
  * colors. Each color should be represented by three consecutive values (R, G,
@@ -418,18 +424,16 @@ int* tiny_multigradient_rgb(uint8_t* colors, size_t num_colors, size_t steps);
  * @param num_colors The number of colors in the input array.
  * @param steps The total number of steps in the multi-gradient (must be greater
  * than 1).
- * @param color_distribution_out Pointer to an array of size `num_colors - 1`
- * that specifies the distribution percentage of each color transition. Each
- * value should be a float between 0.0 and 1.0, and the sum of all values should
- * equal 1.0.
+ * @param color_distribution One weight per transition, so `num_colors - 1`
+ * of them, each between 0.0 and 1.0 and together summing to 1.0. A transition
+ * given a larger weight takes up more of the gradient.
  * @return int* Pointer to an array of integers representing the multi-gradient
  * colors, or NULL on failure (e.g., if num_colors is less than 2 or if steps
- * is less than 2; if color_distribution_out is NULL, does not have the correct
+ * is less than 2; if color_distribution is NULL, does not have the correct
  * size, or adds up to 1.0).
  */
 int* tiny_multigradient_rgb_sized(
-    uint8_t* colors, size_t num_colors, size_t steps,
-    float* color_distribution_out
+    uint8_t* colors, size_t num_colors, size_t steps, float* color_distribution
 );
 
 /**
@@ -438,8 +442,9 @@ int* tiny_multigradient_rgb_sized(
  * colors.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an RGBA color in the format 0xRRGGBBAA. The caller is
- * responsible for freeing the allocated memory.
+ * integer holds one RGBA color as 0xRRGGBBAA. The memory comes from the arena,
+ * so tiny_arena_reset() or a matching tiny_arena_release() reclaims it and
+ * nothing frees it individually.
  *
  * @param colors Pointer to an array of uint8_t values representing the input
  * colors. Each color should be represented by four consecutive values (R, G,
@@ -456,11 +461,12 @@ int* tiny_multigradient_rgba(uint8_t* colors, size_t num_colors, size_t steps);
 /**
  * @brief Generates a multi-gradient of RGBA colors based on an array of input
  * colors and a specified number of steps distributed based on
- * `color_distribution_out`.
+ * `color_distribution`.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an RGBA color in the format 0xRRGGBBAA. The caller is
- * responsible for freeing the allocated memory.
+ * integer holds one RGBA color as 0xRRGGBBAA. The memory comes from the arena,
+ * so tiny_arena_reset() or a matching tiny_arena_release() reclaims it and
+ * nothing frees it individually.
  *
  * @param colors Pointer to an array of uint8_t values representing the input
  * colors. Each color should be represented by four consecutive values (R, G,
@@ -468,18 +474,16 @@ int* tiny_multigradient_rgba(uint8_t* colors, size_t num_colors, size_t steps);
  * @param num_colors The number of colors in the input array.
  * @param steps The total number of steps in the multi-gradient (must be greater
  * than 1).
- * @param color_distribution_out Pointer to an array of size `num_colors - 1`
- * that specifies the distribution percentage of each color transition. Each
- * value should be a float between 0.0 and 1.0, and the sum of all values should
- * equal 1.0.
+ * @param color_distribution One weight per transition, so `num_colors - 1`
+ * of them, each between 0.0 and 1.0 and together summing to 1.0. A transition
+ * given a larger weight takes up more of the gradient.
  * @return int* Pointer to an array of integers representing the multi-gradient
  * colors, or NULL on failure (e.g., if num_colors is less than 2 or if steps
- * is less than 2; if color_distribution_out is NULL, does not have the correct
+ * is less than 2; if color_distribution is NULL, does not have the correct
  * size, or adds up to 1.0).
  */
 int* tiny_multigradient_rgba_sized(
-    uint8_t* colors, size_t num_colors, size_t steps,
-    float* color_distribution_out
+    uint8_t* colors, size_t num_colors, size_t steps, float* color_distribution
 );
 
 /**
@@ -488,8 +492,9 @@ int* tiny_multigradient_rgba_sized(
  * colors.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an HSV color in the format 0xHHSSVV. The caller is
- * responsible for freeing the allocated memory.
+ * entry is three floats: hue, saturation and value. The memory comes from the
+ * arena, so tiny_arena_reset() or a matching tiny_arena_release() reclaims it
+ * and nothing frees it individually.
  *
  * @param colors Pointer to an array of float values representing the input
  * colors. Each color should be represented by three consecutive values (H, S,
@@ -497,20 +502,19 @@ int* tiny_multigradient_rgba_sized(
  * @param num_colors The number of colors in the input array.
  * @param steps The total number of steps in the multi-gradient (must be greater
  * than 1).
- * @return int* Pointer to an array of integers representing the multi-gradient
- * colors, or NULL on failure (e.g., if num_colors is less than 2 or if steps
- * is less than 2).
+ * @return float* The gradient, or NULL on failure.
  */
-int* tiny_multigradient_hsv(float* colors, size_t num_colors, size_t steps);
+float* tiny_multigradient_hsv(float* colors, size_t num_colors, size_t steps);
 
 /**
  * @brief Generates a multi-gradient of HSV colors based on an array of input
  * colors and a specified number of steps distributed based on
- * `color_distribution_out`.
+ * `color_distribution`.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an HSV color in the format 0xHHSSVV. The caller is
- * responsible for freeing the allocated memory.
+ * entry is three floats: hue, saturation and value. The memory comes from the
+ * arena, so tiny_arena_reset() or a matching tiny_arena_release() reclaims it
+ * and nothing frees it individually.
  *
  * @param colors Pointer to an array of float values representing the input
  * colors. Each color should be represented by three consecutive values (H, S,
@@ -518,18 +522,13 @@ int* tiny_multigradient_hsv(float* colors, size_t num_colors, size_t steps);
  * @param num_colors The number of colors in the input array.
  * @param steps The total number of steps in the multi-gradient (must be greater
  * than 1).
- * @param color_distribution_out Pointer to an array of size `num_colors - 1`
- * that specifies the distribution percentage of each color transition. Each
- * value should be a float between 0.0 and 1.0, and the sum of all values should
- * equal 1.0.
- * @return int* Pointer to an array of integers representing the multi-gradient
- * colors, or NULL on failure (e.g., if num_colors is less than 2 or if steps
- * is less than 2; if color_distribution_out is NULL, does not have the correct
- * size, or adds up to 1.0).
+ * @param color_distribution One weight per transition, so `num_colors - 1`
+ * of them, each between 0.0 and 1.0 and together summing to 1.0. A transition
+ * given a larger weight takes up more of the gradient.
+ * @return float* The gradient, or NULL on failure.
  */
-int* tiny_multigradient_hsv_sized(
-    float* colors, size_t num_colors, size_t steps,
-    float* color_distribution_out
+float* tiny_multigradient_hsv_sized(
+    float* colors, size_t num_colors, size_t steps, float* color_distribution
 );
 
 /**
@@ -538,8 +537,9 @@ int* tiny_multigradient_hsv_sized(
  * colors.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an HSL color in the format 0xHHSSLL. The caller is
- * responsible for freeing the allocated memory.
+ * entry is three floats: hue, saturation and lightness. The memory comes from
+ * the arena, so tiny_arena_reset() or a matching tiny_arena_release() reclaims
+ * it and nothing frees it individually.
  *
  * @param colors Pointer to an array of float values representing the input
  * colors. Each color should be represented by three consecutive values (H, S,
@@ -547,20 +547,19 @@ int* tiny_multigradient_hsv_sized(
  * @param num_colors The number of colors in the input array.
  * @param steps The total number of steps in the multi-gradient (must be greater
  * than 1).
- * @return int* Pointer to an array of integers representing the multi-gradient
- * colors, or NULL on failure (e.g., if num_colors is less than 2 or if steps
- * is less than 2).
+ * @return float* The gradient, or NULL on failure.
  */
-int* tiny_multigradient_hsl(float* colors, size_t num_colors, size_t steps);
+float* tiny_multigradient_hsl(float* colors, size_t num_colors, size_t steps);
 
 /**
  * @brief Generates a multi-gradient of HSL colors based on an array of input
  * colors and a specified number of steps distributed based on
- * `color_distribution_out`.
+ * `color_distribution`.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents an HSL color in the format 0xHHSSLL. The caller is
- * responsible for freeing the allocated memory.
+ * entry is three floats: hue, saturation and lightness. The memory comes from
+ * the arena, so tiny_arena_reset() or a matching tiny_arena_release() reclaims
+ * it and nothing frees it individually.
  *
  * @param colors Pointer to an array of float values representing the input
  * colors. Each color should be represented by three consecutive values (H, S,
@@ -568,18 +567,13 @@ int* tiny_multigradient_hsl(float* colors, size_t num_colors, size_t steps);
  * @param num_colors The number of colors in the input array.
  * @param steps The total number of steps in the multi-gradient (must be greater
  * than 1).
- * @param color_distribution_out Pointer to an array of size `num_colors - 1`
- * that specifies the distribution percentage of each color transition. Each
- * value should be a float between 0.0 and 1.0, and the sum of all values should
- * equal 1.0.
- * @return int* Pointer to an array of integers representing the multi-gradient
- * colors, or NULL on failure (e.g., if num_colors is less than 2 or if steps
- * is less than 2; if color_distribution_out is NULL, does not have the correct
- * size, or adds up to 1.0).
+ * @param color_distribution One weight per transition, so `num_colors - 1`
+ * of them, each between 0.0 and 1.0 and together summing to 1.0. A transition
+ * given a larger weight takes up more of the gradient.
+ * @return float* The gradient, or NULL on failure.
  */
-int* tiny_multigradient_hsl_sized(
-    float* colors, size_t num_colors, size_t steps,
-    float* color_distribution_out
+float* tiny_multigradient_hsl_sized(
+    float* colors, size_t num_colors, size_t steps, float* color_distribution
 );
 
 /**
@@ -588,8 +582,9 @@ int* tiny_multigradient_hsl_sized(
  * colors.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents a CMYK color in the format 0xCCMMYYKK. The caller is
- * responsible for freeing the allocated memory.
+ * entry is four floats: cyan, magenta, yellow and key. The memory comes from
+ * the arena, so tiny_arena_reset() or a matching tiny_arena_release() reclaims
+ * it and nothing frees it individually.
  *
  * @param colors Pointer to an array of float values representing the input
  * colors. Each color should be represented by four consecutive values (C, M,
@@ -597,20 +592,19 @@ int* tiny_multigradient_hsl_sized(
  * @param num_colors The number of colors in the input array.
  * @param steps The total number of steps in the multi-gradient (must be greater
  * than 1).
- * @return int* Pointer to an array of integers representing the multi-gradient
- * colors, or NULL on failure (e.g., if num_colors is less than 2 or if steps
- * is less than 2).
+ * @return float* The gradient, or NULL on failure.
  */
-int* tiny_multigradient_cmyk(float* colors, size_t num_colors, size_t steps);
+float* tiny_multigradient_cmyk(float* colors, size_t num_colors, size_t steps);
 
 /**
  * @brief Generates a multi-gradient of CMYK colors based on an array of input
  * colors and a specified number of steps distributed based on
- * `color_distribution_out`.
+ * `color_distribution`.
  *
  * The function returns a dynamically allocated array of integers, where each
- * integer represents a CMYK color in the format 0xCCMMYYKK. The caller is
- * responsible for freeing the allocated memory.
+ * entry is four floats: cyan, magenta, yellow and key. The memory comes from
+ * the arena, so tiny_arena_reset() or a matching tiny_arena_release() reclaims
+ * it and nothing frees it individually.
  *
  * @param colors Pointer to an array of float values representing the input
  * colors. Each color should be represented by four consecutive values (C, M,
@@ -618,18 +612,98 @@ int* tiny_multigradient_cmyk(float* colors, size_t num_colors, size_t steps);
  * @param num_colors The number of colors in the input array.
  * @param steps The total number of steps in the multi-gradient (must be greater
  * than 1).
- * @param color_distribution_out Pointer to an array of size `num_colors - 1`
- * that specifies the distribution percentage of each color transition. Each
- * value should be a float between 0.0 and 1.0, and the sum of all values should
- * equal 1.0.
- * @return int* Pointer to an array of integers representing the multi-gradient
- * colors, or NULL on failure (e.g., if num_colors is less than 2 or if steps
- * is less than 2; if color_distribution_out is NULL, does not have the correct
- * size, or adds up to 1.0).
+ * @param color_distribution One weight per transition, so `num_colors - 1`
+ * of them, each between 0.0 and 1.0 and together summing to 1.0. A transition
+ * given a larger weight takes up more of the gradient.
+ * @return float* The gradient, or NULL on failure.
  */
-int* tiny_multigradient_cmyk_sized(
-    float* colors, size_t num_colors, size_t steps,
-    float* color_distribution_out
+float* tiny_multigradient_cmyk_sized(
+    float* colors, size_t num_colors, size_t steps, float* color_distribution
+);
+
+#pragma endregion
+
+#pragma region icc
+
+/**
+ * @brief A parsed matrix and TRC profile.
+ *
+ * The only kind of ICC profile this reads, and between them these cover sRGB,
+ * Display P3, Adobe RGB and Rec. 2020, which is what web images carry. A
+ * profile whose transform is a lookup table instead is rejected with
+ * TINYIMG_ERR_UNSUPPORTED_VARIANT rather than approximated, because an
+ * approximation of a printer profile is a wrong color that looks like a right
+ * one.
+ */
+typedef struct {
+    /**
+     * @brief Columns of the RGB to XYZ matrix, row major.
+     *
+     * Already adapted to whatever white point the profile's `chad` tag names,
+     * so this maps the profile's RGB straight to D50 connection space.
+     */
+    float to_xyz[9];
+    /** The white point the profile records, as XYZ. */
+    float white[3];
+    /** One tone curve per channel, linear light out, sampled at 256 points. */
+    float curve[3][256];
+    /** Non-zero when every channel's curve is the identity. */
+    uint8_t linear;
+} TinyIccProfile;
+
+/**
+ * @brief Reads a matrix and TRC profile.
+ *
+ * @param profile Receives the parsed profile.
+ * @param data The profile bytes.
+ * @param size How many bytes.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL, TINYIMG_ERR_CORRUPT for a profile
+ * that does not parse, or TINYIMG_ERR_UNSUPPORTED_VARIANT for one whose
+ * transform is a lookup table rather than a matrix.
+ */
+int tiny_icc_parse(TinyIccProfile* profile, const uint8_t* data, size_t size);
+
+/**
+ * @brief The sRGB profile, without needing a file for it.
+ *
+ * @param profile Receives it.
+ * @return int TINYIMG_OK or TINYIMG_ERR_NULL.
+ */
+int tiny_icc_srgb(TinyIccProfile* profile);
+
+/**
+ * @brief Converts one color from a profile's space to sRGB.
+ *
+ * @param profile The source profile.
+ * @param in Three channels in the profile's space.
+ * @param out Receives three channels of sRGB.
+ * @return int TINYIMG_OK or TINYIMG_ERR_NULL.
+ */
+int tiny_icc_to_srgb(
+    const TinyIccProfile* profile, const uint8_t* in, uint8_t* out
+);
+
+/**
+ * @brief Converts a whole image from a profile's space to sRGB.
+ *
+ * @param image The image to convert.
+ * @param profile The profile its pixels are in.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL, or TINYIMG_ERR_NO_CHANNEL when the
+ * image has fewer than three channels.
+ */
+int tiny_icc_convert_image(TinyImage* image, const TinyIccProfile* profile);
+
+/**
+ * @brief The matrix taking one profile's RGB to another's.
+ *
+ * @param out Receives nine weights, row major.
+ * @param from The source profile.
+ * @param to The destination profile.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL, or TINYIMG_ERR_RANGE when the
+ * destination's matrix cannot be inverted.
+ */
+int tiny_icc_matrix_between(
+    float* out, const TinyIccProfile* from, const TinyIccProfile* to
 );
 
 #pragma endregion

@@ -19,8 +19,8 @@ extern "C" {
 /**
  * @brief The TIFF codec.
  *
- * Decodes the baseline: either byte order, strip organised, chunky pixels at
- * eight bits per sample, greyscale in either polarity, palette, RGB and RGB
+ * Decodes the baseline: either byte order, strip organized, chunky pixels at
+ * eight bits per sample, grayscale in either polarity, palette, RGB and RGB
  * with an alpha channel, uncompressed or through PackBits, LZW or Deflate, with
  * or without the horizontal differencing predictor. LZW comes from the unit the
  * GIF codec shares and Deflate from the one the PNG codec shares, so this file
@@ -37,7 +37,7 @@ extern "C" {
  * samples and JPEG-in-TIFF are reported as an unsupported variant rather than
  * as corrupt. They are all legal and none of them is baseline.
  *
- * Encoding writes one little endian, strip organised, Deflate compressed page
+ * Encoding writes one little endian, strip organized, Deflate compressed page
  * with the horizontal predictor, which is the combination that compresses best
  * across the fixtures and is read by everything that reads TIFF at all.
  */

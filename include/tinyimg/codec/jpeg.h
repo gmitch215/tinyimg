@@ -21,13 +21,13 @@ extern "C" {
  *
  * Decodes baseline and extended sequential Huffman streams and progressive
  * ones, at any sampling factors, with restart markers, and for one, three or
- * four components: greyscale, YCbCr, and CMYK or YCCK through the Adobe APP14
- * transform. Arithmetic coded and lossless streams are recognised and reported
+ * four components: grayscale, YCbCr, and CMYK or YCCK through the Adobe APP14
+ * transform. Arithmetic coded and lossless streams are recognized and reported
  * as an unsupported variant rather than as corrupt.
  *
  * Chroma is upsampled with the triangle filter libjpeg calls fancy upsampling
  * for the 2x cases and by replication otherwise, so the output matches what
- * `djpeg` produces rather than being a nearest neighbour approximation of it.
+ * `djpeg` produces rather than being a nearest neighbor approximation of it.
  *
  * A scaled decode is done in the DCT domain: the top left NxN coefficients of
  * each block go through an N point inverse transform, which is both smaller and
@@ -54,7 +54,7 @@ extern "C" {
  * Encoding writes baseline or progressive streams with Huffman tables built
  * from the image's own symbol frequencies rather than the Annex K examples,
  * which costs one extra pass over the coefficients and is worth 2 to 6 percent.
- * Quantisation tables are the Annex K ones scaled by the libjpeg quality
+ * Quantization tables are the Annex K ones scaled by the libjpeg quality
  * mapping.
  */
 extern const TinyCodec tiny_codec_jpeg;

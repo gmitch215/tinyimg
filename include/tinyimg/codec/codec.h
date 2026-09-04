@@ -48,12 +48,12 @@ typedef int (*TinyProbeFn)(
 );
 
 /**
- * @brief Decodes pixels, honouring the region, scale and channel count asked
+ * @brief Decodes pixels, honoring the region, scale and channel count asked
  * for.
  *
  * A decoder is free to ignore `scale_den` and decode at full resolution, in
  * which case it must still return an image of the size the options imply; the
- * planner treats scale as an optimisation, not a promise.
+ * planner treats scale as an optimization, not a promise.
  *
  * @param image Receives the decoded image.
  * @param buffer The bytes.
@@ -83,7 +83,7 @@ typedef int (*TinyEncodeFn)(
 /**
  * @brief One container format's implementation.
  *
- * A NULL decode or encode means the format is recognised but that direction is
+ * A NULL decode or encode means the format is recognized but that direction is
  * not implemented, which callers see as TINYIMG_ERR_UNSUPPORTED_CODEC rather
  * than as an unknown format.
  */
