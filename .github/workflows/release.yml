@@ -1,0 +1,161 @@
+name: Release Project
+
+on:
+  workflow_dispatch:
+    inputs:
+      changelog:
+        type: string
+        description: 'Changelog to replace the auto-generated one'
+      suffix:
+        type: string
+        description: 'Suffix to append to the version'
+        default: ''
+      skip_publish:
+        type: boolean
+        description: 'Skip publishing to npm and GitHub Packages'
+        default: false
+
+jobs:
+  build:
+    name: Build Release Artifacts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld binaryen wabt
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+      - name: Build Project
+        run: bun run build
+      - name: Size Report
+        run: bun scripts/size-report.ts --json=dist/size.json --markdown=dist/size.md
+      - name: Size to Job Summary
+        run: cat dist/size.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Test Project
+        run: |
+          bun run test:c
+          bun run test:node
+          bun run test:workers
+      - name: Pack Tarball
+        run: |
+          mkdir -p release
+          bun pm pack --destination release
+      - name: Archive Release Artifacts
+        id: archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: tinyimg-release-${{ github.sha }}
+          path: |
+            release/*.tgz
+            bin/tinyimg.wasm
+            dist/size.json
+            dist/size.md
+          if-no-files-found: error
+      - name: Attest Build Artifacts
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: tinyimg-release-${{ github.sha }}
+          subject-digest: sha256:${{ steps.archive.outputs.artifact-digest }}
+
+  publish:
+    name: Publish to Registries
+    needs: build
+    if: ${{ !inputs.skip_publish }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld binaryen
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+      - name: Build Project
+        run: bun run build
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
+      - name: Set up Node for GitHub Packages
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          registry-url: 'https://npm.pkg.github.com'
+      - name: Publish to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Extract Version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Extracted Version: $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Retrieve Latest Tag
+        run: echo "LATEST_TAG=$(git describe --tags --abbrev=0 2> /dev/null || echo '')" >> "$GITHUB_ENV"
+      - name: Download Release Artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: tinyimg-release-*
+          path: release
+          merge-multiple: true
+      - name: Generate Changelog
+        if: ${{ inputs.changelog == '' }}
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v6
+        with:
+          configuration: '.github/release.json'
+          mode: 'HYBRID'
+          fromTag: ${{ env.LATEST_TAG }}
+          toTag: 'master'
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: release/**/*
+          tag_name: v${{ env.VERSION }}${{ inputs.suffix }}
+          name: tinyimg v${{ env.VERSION }}${{ inputs.suffix }}
+          body: ${{ steps.changelog.outputs.changelog || inputs.changelog }}
+          draft: false
+          prerelease: ${{ inputs.suffix != '' }}

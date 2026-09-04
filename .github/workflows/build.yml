@@ -1,0 +1,262 @@
+name: Build Project
+
+on:
+  push:
+    branches: [master, ver/*]
+  pull_request:
+    branches: [master, ver/*]
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  format:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Clang Tools
+        run: |
+          pip install clang-tools
+          clang-tools --install 21 --tool clang-format
+          clang-format --version
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+      - name: Check C Formatting
+        run: bash check-format.sh
+      - name: Check Prettier Formatting
+        run: bunx prettier --check .
+
+  wasm:
+    name: Build WASM
+    needs: format
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld binaryen wabt
+          clang --version
+          wasm-opt --version
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+      - name: Configure Project
+        run: cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/wasm32.cmake -DDOCS_TINYIMG=OFF
+      - name: Build Project
+        run: cmake --build build
+      - name: Size Report
+        run: bun scripts/size-report.ts --json=dist/size.json --markdown=dist/size.md
+      - name: Size to Job Summary
+        if: ${{ !cancelled() }}
+        run: cat dist/size.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Archive Module
+        id: archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: tinyimg-wasm-${{ github.sha }}
+          path: |
+            bin/tinyimg.wasm
+            dist/size.json
+            dist/size.md
+          if-no-files-found: error
+      - name: Attest Build Artifacts
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: tinyimg-wasm-${{ github.sha }}
+          subject-digest: sha256:${{ steps.archive.outputs.artifact-digest }}
+
+  ctest:
+    name: Test C (${{ matrix.os }})
+    needs: format
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure Project
+        run: cmake -S . -B build-native -DDOCS_TINYIMG=OFF -DTINYIMG_COVERAGE=ON
+      - name: Build Project
+        run: cmake --build build-native
+      - name: Test Project
+        run: |
+          mkdir -p coverage
+          ctest --test-dir build-native --output-on-failure --parallel 4 --output-junit "$PWD/coverage/ctest.junit.xml"
+      - name: Set up Bun
+        if: ${{ matrix.os == 'ubuntu-24.04' && !cancelled() }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install gcovr
+        if: ${{ matrix.os == 'ubuntu-24.04' && !cancelled() }}
+        run: pip install gcovr
+      - name: Collect Coverage
+        if: ${{ matrix.os == 'ubuntu-24.04' && !cancelled() }}
+        run: bun scripts/coverage-c.ts --build build-native --skip-build
+      - name: Coverage to Job Summary
+        if: ${{ matrix.os == 'ubuntu-24.04' && !cancelled() }}
+        run: |
+          echo '## C Coverage' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat coverage/c.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload C Coverage to Codecov
+        if: ${{ matrix.os == 'ubuntu-24.04' && !cancelled() }}
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: gmitch215/tinyimg
+          fail_ci_if_error: false
+          report_type: coverage
+          flags: c
+          files: coverage/c.xml
+      - name: Upload C Test Results to Codecov
+        if: ${{ matrix.os == 'ubuntu-24.04' && !cancelled() }}
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: gmitch215/tinyimg
+          fail_ci_if_error: false
+          report_type: test_results
+          flags: c
+          files: coverage/ctest.junit.xml
+      - name: Archive Test Reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: tinyimg-ctest-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            build-native/Testing/*
+            coverage/*
+          if-no-files-found: ignore
+
+  sanitizers:
+    name: Sanitizers (${{ matrix.sanitize }})
+    needs: format
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitize: ['address,undefined']
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure Project
+        run: cmake -S . -B build-san -DDOCS_TINYIMG=OFF -DSANITIZE_TINYIMG=${{ matrix.sanitize }}
+      - name: Build Project
+        run: cmake --build build-san
+      - name: Test Project
+        run: ctest --test-dir build-san --output-on-failure --parallel 2
+
+  vitest:
+    name: Test TypeScript
+    needs: wasm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld binaryen
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+      - name: Build WASM
+        run: bun run build:wasm
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Test Node
+        run: bun run test:node:coverage
+      - name: Upload Node Coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: gmitch215/tinyimg
+          fail_ci_if_error: false
+          report_type: coverage
+          flags: node
+          files: coverage/node/lcov.info
+      - name: Upload Node Test Results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: gmitch215/tinyimg
+          fail_ci_if_error: false
+          report_type: test_results
+          flags: node
+          files: coverage/node.junit.xml
+      - name: Test Workers
+        run: bun run test:workers:coverage
+      - name: Upload Workers Coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: gmitch215/tinyimg
+          fail_ci_if_error: false
+          report_type: coverage
+          flags: workers
+          files: coverage/workers/lcov.info
+      - name: Upload Workers Test Results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: gmitch215/tinyimg
+          fail_ci_if_error: false
+          report_type: test_results
+          flags: workers
+          files: coverage/workers.junit.xml
+      - name: Archive Coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: tinyimg-ts-coverage-${{ github.sha }}
+          path: coverage/*
+          if-no-files-found: ignore

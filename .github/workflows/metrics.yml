@@ -1,0 +1,90 @@
+name: Metrics
+
+on:
+  schedule:
+    - cron: '40 4 * * *'
+  push:
+    branches: [master]
+    paths-ignore: ['**/*.md', 'docs/**']
+  pull_request:
+    branches: [master]
+    paths-ignore: ['**/*.md', 'docs/**']
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  collect:
+    name: Collect and Report
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld binaryen wabt
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+      - name: Build WASM
+        run: bun run build:wasm
+      - name: Fetch the Baseline from the Last Passing Master Run
+        id: baseline
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/measure/fetch-baseline.ts --out=baseline/size.json
+      - name: Collect the Size
+        run: |
+          mkdir -p dist
+          bun scripts/size-report.ts --json=dist/size.json --markdown=dist/metrics.md --baseline=baseline/size.json
+      - name: Build the No-SIMD Arm
+        if: ${{ hashFiles('bench/run.ts') != '' }}
+        run: |
+          cmake -S . -B build-nosimd -DCMAKE_TOOLCHAIN_FILE=cmake/wasm32.cmake \
+            -DTINYIMG_SIMD=OFF -DDOCS_TINYIMG=OFF -DTINYIMG_BIN_DIR="$PWD/bench/arms"
+          cmake --build build-nosimd
+      - name: Collect the Benchmarks
+        if: ${{ hashFiles('bench/run.ts') != '' }}
+        run: bun bench/run.ts --markdown=dist/bench.md --json=dist/bench.json
+      - name: Combine the Report
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f dist/bench.md ]; then
+            cat dist/bench.md >> dist/metrics.md
+          fi
+      - name: Archive the Metrics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: metrics
+          path: |
+            dist/size.json
+            dist/metrics.md
+            dist/bench.json
+          retention-days: 90
+          if-no-files-found: warn
+      - name: Metrics to Job Summary
+        if: ${{ !cancelled() && hashFiles('dist/metrics.md') != '' }}
+        run: cat dist/metrics.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Reply on the Pull Request
+        if: >-
+          ${{ !cancelled() && github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          hashFiles('dist/metrics.md') != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr comment "$PR" --body-file dist/metrics.md --edit-last --create-if-none
