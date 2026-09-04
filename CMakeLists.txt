@@ -130,6 +130,14 @@ else()
 			-Wshadow
 			-Wconversion
 			-Wsign-conversion
+
+			# wasm32 has no scalar fma instruction, and -nostdlib means an fmaf libcall would be
+			# an undefined symbol, so the shipped module never contracts a multiply-add. A host
+			# compiler that does contract measures arithmetic the product does not have: it
+			# reported tiny_sinf at 8.2e-08 where the wasm build is 9.6e-07, an 11x flattery, and
+			# the accuracy tests were written against the wrong number until both Ubuntu runners
+			# disagreed with macOS.
+			-ffp-contract=off
 		)
 		target_link_libraries(tinyimg PRIVATE m)
 

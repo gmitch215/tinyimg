@@ -76,9 +76,21 @@ int main(void) {
     r |= assertFloatEquals(tiny_fmodf(-7.5f, 2.0f), -1.5f, 1e-6f);
     r |= assertFloatEquals(tiny_fmodf(370.0f, 360.0f), 10.0f, 1e-4f);
 
-    // the bounds each function's header states. float eps is 1.2e-7, so these
-    // are two to twelve units in the last place: correct single precision, and
-    // low enough that the 0-255 quantization that follows swamps them
+    /*
+     * The bounds each function's header states. Float eps is 1.2e-7, so these
+     * are two to nine units in the last place: correct single precision, and
+     * low enough that the 0-255 quantization that follows swamps them.
+     *
+     * Measured with -ffp-contract=off, which CMakeLists pins for this library
+     * because wasm32 has no scalar fma and the shipped module therefore cannot
+     * contract a multiply-add. A host that does contract reports tiny_sinf at
+     * 8.2e-08 against the 9.6e-07 the wasm build actually achieves, so these
+     * bounds were an 11x overstatement until both Ubuntu runners disagreed with
+     * macOS about them.
+     *
+     * Worst measured, in the same order: 2.3e-07, 2.1e-07, 2.1e-07, 1.1e-07,
+     * 1.0e-06, 9.6e-07, 7.3e-07, 8.4e-07, 2.2e-07, 2.5e-07.
+     */
     r |= assertLessThan(
         worstRelative(tiny_expf, exp, -30.0f, 30.0f, 6001), 3e-7
     );
@@ -86,15 +98,23 @@ int main(void) {
     r |= assertLessThan(worstRelative(tiny_logf, log, 1e-6f, 1.0f, 4001), 5e-7);
     r |= assertLessThan(worstRelative(tiny_logf, log, 1.0f, 1e6f, 4001), 5e-7);
 
-    // absolute is the measure that means something for a log, whose relative
-    // error is unbounded as the result approaches zero at x = 1
-    r |= assertLessThan(worstAbsolute(tiny_logf, log, 1e-6f, 1e6f, 8001), 1e-6);
-
+    /*
+     * Absolute is the measure that means something for a log, whose relative
+     * error is unbounded as the result approaches zero at x = 1.
+     *
+     * Sine and cosine are held to the same bound rather than a tighter one,
+     * because both spend their error in the same place: reducing an argument up
+     * to 20 radians costs precision in proportion to how many multiples of pi
+     * come off it, and that reduction is shared.
+     */
     r |= assertLessThan(
-        worstAbsolute(tiny_sinf, sin, -20.0f, 20.0f, 8001), 2e-7
+        worstAbsolute(tiny_logf, log, 1e-6f, 1e6f, 8001), 1.5e-6
     );
     r |= assertLessThan(
-        worstAbsolute(tiny_cosf, cos, -20.0f, 20.0f, 8001), 2e-7
+        worstAbsolute(tiny_sinf, sin, -20.0f, 20.0f, 8001), 1.5e-6
+    );
+    r |= assertLessThan(
+        worstAbsolute(tiny_cosf, cos, -20.0f, 20.0f, 8001), 1.5e-6
     );
 
     // pow carries log's error multiplied by the exponent, which is why its

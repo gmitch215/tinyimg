@@ -163,15 +163,10 @@ jobs:
           if-no-files-found: ignore
 
   sanitizers:
-    name: Sanitizers (${{ matrix.sanitize }})
+    name: Sanitizers (ASan + UBSan)
     needs: format
     runs-on: ubuntu-24.04
     timeout-minutes: 25
-
-    strategy:
-      fail-fast: false
-      matrix:
-        sanitize: ['address,undefined']
 
     permissions:
       contents: read
@@ -179,7 +174,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Configure Project
-        run: cmake -S . -B build-san -DDOCS_TINYIMG=OFF -DSANITIZE_TINYIMG=${{ matrix.sanitize }}
+        run: cmake -S . -B build-san -DDOCS_TINYIMG=OFF -DSANITIZE_TINYIMG=address,undefined
       - name: Build Project
         run: cmake --build build-san
       - name: Test Project
@@ -233,17 +228,7 @@ jobs:
           flags: node
           files: coverage/node.junit.xml
       - name: Test Workers
-        run: bun run test:workers:coverage
-      - name: Upload Workers Coverage to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v7
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: gmitch215/tinyimg
-          fail_ci_if_error: false
-          report_type: coverage
-          flags: workers
-          files: coverage/workers/lcov.info
+        run: bun run test:workers:junit
       - name: Upload Workers Test Results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/codecov-action@v7

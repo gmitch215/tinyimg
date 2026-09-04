@@ -68,8 +68,23 @@ const wrapper = {
 export default defineConfig({
 	test: {
 		coverage: {
-			// v8 for the node lane. The workers lane passes --coverage.provider=istanbul, because
-			// workerd does not implement node:inspector and the v8 provider needs a Session
+			/*
+			 * The node lane is the only one coverage can measure, for two reasons that stack.
+			 *
+			 * This provider cannot collect anything under workerd: it reads counters through
+			 * `node:inspector`, which workerd does not implement, so the workers lane reports 0%
+			 * even for a function the test imports and calls directly. Measured, not assumed.
+			 *
+			 * Switching that lane to `istanbul`, which instruments at transform time and needs no
+			 * inspector, lifts it to 1.87% of 481 statements and no further. Those tests reach the
+			 * library through `env.PROBE`, `env.CODEC` and `env.WRAPPER`: service bindings to
+			 * separate workers that miniflare instantiates from file paths, in their own isolates,
+			 * with no transform applied. Nothing under test is in the instrumented module graph.
+			 *
+			 * So the workers lane is a behavior check on the package a caller installs, and it
+			 * emits JUnit results and no coverage; see `test:workers:junit`. A 2% report on a lane
+			 * that exercises the whole package end to end is worse than none.
+			 */
 			provider: 'v8',
 			reporter: ['text', 'lcov'],
 			reportsDirectory: './coverage/node',

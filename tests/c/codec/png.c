@@ -39,6 +39,9 @@ int main(void) {
     r |= assertEquals((long) info.frames, 1L);
     r |= assertEquals((long) info.format, (long) TINYIMG_FORMAT_PNG);
 
+    // the probe is the last read of this buffer; the helpers below own theirs
+    free(bytes);
+
     // #endregion
 
     // #region the same picture through every representation
