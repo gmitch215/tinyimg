@@ -27,7 +27,7 @@
 		"build:wasm": "cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/wasm32.cmake -DDOCS_TINYIMG=OFF && cmake --build build",
 		"build:ts": "tsc -p tsconfig.build.json --emitDeclarationOnly && tsc -p tsconfig.build.json --removeComments --declaration false --declarationMap false && bun scripts/copy-wasm.ts",
 		"build:native": "cmake -S . -B build-native && cmake --build build-native",
-		"clean": "rm -rf build build-native bin dist coverage typedoc",
+		"clean": "rm -rf build build-native bin dist coverage build-typedoc typedoc",
 		"test": "bun run test:c && bun run test:node && bun run test:workers",
 		"test:c": "bun run build:native && ctest --test-dir build-native --output-on-failure",
 		"test:c:coverage": "cmake -S . -B build-native -DTINYIMG_COVERAGE=ON && cmake --build build-native && ctest --test-dir build-native --output-on-failure && gcovr --root . --filter 'src/' --xml-pretty -o coverage/c.xml --txt",

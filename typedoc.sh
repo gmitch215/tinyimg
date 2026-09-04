@@ -4,7 +4,11 @@ set -euo pipefail
 # Publishes the TypeDoc output into gh-pages/typedoc, leaving the sibling Doxygen set alone.
 # Usage: bash typedoc.sh <short-sha>
 
-HTML_DIR="${TYPEDOC_HTML_DIR:-typedoc}"
+# build-typedoc rather than typedoc: gh-pages tracks a published `typedoc/`, so a sibling script's
+# `git switch -f gh-pages` would check that over the fresh build and make it tracked, and switching
+# back would delete it as a file the target branch does not have. The local build directory has to be
+# a name gh-pages never carries.
+HTML_DIR="${TYPEDOC_HTML_DIR:-build-typedoc}"
 
 if [[ ! -d $HTML_DIR ]]; then
 	echo "no TypeDoc output at $HTML_DIR; run 'bun run docs:build' first" >&2

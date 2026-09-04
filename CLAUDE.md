@@ -41,15 +41,26 @@ documentation locally use `bun run docs:c` or `bun run docs:build`; the two scri
 
 Each publishes into its own subdirectory, `/doxygen` and `/typedoc`, with the README-derived
 `index.html` and the `CNAME` at the root. That is what lets the two coexist on one branch: each
-removes only the directory it owns and stages a scoped `git add -A -- <its paths>`. `doxygen.sh`
-used to wipe the branch root with
-`find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +`, which deleted the sibling's
-build output mid-job and made the second deploy fail every time.
+removes only the directory it owns and stages a scoped `git add -A -- <its paths>`. Both stage into a
+temporary directory before switching and restore the original branch from an `EXIT` trap, so the one
+that runs second still has its sources.
 
-Both stage into a temporary directory before switching and restore the original branch from an
-`EXIT` trap, so the one that runs second still has its sources. They also used to run
-`git config --local user.name "GitHub Action"`, which persists in `.git/config` and silently
-reattributes every later commit in the clone. They now pass the identity per-command with `git -c`.
+Two rules keep the pair from destroying each other's work, and both came from a broken deploy.
+
+**Neither may build into a directory named after a published one.** Doxygen builds into
+`build-native/docs/html` and TypeDoc into `build-typedoc/`. TypeDoc used to build into `typedoc/`,
+which gh-pages tracks: the sibling's `git switch -f gh-pages` checked the published copy out over the
+fresh build and made it tracked, and the trap switching back to `master` then deleted it as a file
+that branch does not carry. The first deploy passed because there was no `gh-pages` to check out yet,
+so this failed only on the second one.
+
+**Neither may clear the branch root.** `doxygen.sh` used to run
+`find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +` after switching, which deleted the
+sibling's build output mid-job.
+
+They also used to run `git config --local user.name "GitHub Action"`, which persists in
+`.git/config` and silently reattributes every later commit in the clone. They now pass the identity
+per-command with `git -c`.
 
 ## Layout
 
@@ -230,7 +241,7 @@ mtime against `src/` and `include/` and refuses to report rather than print that
 ## Git
 
 Work stays uncommitted on `master` unless asked. Never `--no-verify`; if a hook fails, fix the cause.
-No secrets. `blobs/`, `bench/arms/`, `bench/results/`, `dist/`, `typedoc/` and `coverage/` are
+No secrets. `blobs/`, `bench/arms/`, `bench/results/`, `dist/`, `build-typedoc/` and `coverage/` are
 generated and gitignored.
 
 Commit message prefixes are the ones `.github/release.json` sorts into categories: `feat:`, `fix:`,
