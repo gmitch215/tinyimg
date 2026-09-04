@@ -6,13 +6,7 @@ dist/
 Testing/
 .cmake/
 .DS_Store
-build-asan*/
-build-tsan*/
-build-ubsan*/
-build-linux*/
-build-san*/
-build-ablate-*/
-build-cov*/
+build-*/
 *.a
 
 node_modules/
@@ -20,6 +14,8 @@ coverage/
 typedoc/
 docs/index.html
 bench/results/
+# a second module built with -DTINYIMG_SIMD=OFF, for the bench's SIMD arm
+bench/arms/
 *.tsbuildinfo
 
 # hooks live in .githooks; this is left over from a husky install and is unused
