@@ -24,7 +24,7 @@ jobs:
       - name: Install Toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld binaryen
+          sudo apt-get install -y clang lld llvm binaryen
       - name: Install Doxygen
         uses: ssciwr/doxygen-install@v2
       - name: Set up Bun

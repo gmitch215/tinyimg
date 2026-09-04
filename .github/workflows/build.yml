@@ -26,7 +26,7 @@ jobs:
       - name: Install Clang Tools
         run: |
           pip install clang-tools
-          clang-tools --install 21 --tool clang-format
+          clang-tools install clang-format --version 21
           clang-format --version
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -55,8 +55,9 @@ jobs:
       - name: Install Toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld binaryen wabt
+          sudo apt-get install -y clang lld llvm binaryen wabt
           clang --version
+          llvm-ar --version
           wasm-opt --version
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -198,7 +199,7 @@ jobs:
       - name: Install Toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld binaryen
+          sudo apt-get install -y clang lld llvm binaryen
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:

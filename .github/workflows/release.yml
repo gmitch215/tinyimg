@@ -10,9 +10,13 @@ on:
         type: string
         description: 'Suffix to append to the version'
         default: ''
-      skip_publish:
+      skip_npm:
         type: boolean
-        description: 'Skip publishing to npm and GitHub Packages'
+        description: 'Skip npmjs'
+        default: false
+      skip_github_npm:
+        type: boolean
+        description: 'Skip GitHub Packages (npm)'
         default: false
 
 jobs:
@@ -31,7 +35,7 @@ jobs:
       - name: Install Toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld binaryen wabt
+          sudo apt-get install -y clang lld llvm binaryen wabt
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -73,7 +77,6 @@ jobs:
   publish:
     name: Publish to Registries
     needs: build
-    if: ${{ !inputs.skip_publish }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -87,7 +90,7 @@ jobs:
       - name: Install Toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld binaryen
+          sudo apt-get install -y clang lld llvm binaryen
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -102,15 +105,18 @@ jobs:
       - name: Build Project
         run: bun run build
       - name: Publish to npm
+        if: ${{ !inputs.skip_npm }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
       - name: Set up Node for GitHub Packages
+        if: ${{ !inputs.skip_github_npm }}
         uses: actions/setup-node@v7
         with:
           node-version: '24'
           registry-url: 'https://npm.pkg.github.com'
       - name: Publish to GitHub Packages
+        if: ${{ !inputs.skip_github_npm }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm publish
