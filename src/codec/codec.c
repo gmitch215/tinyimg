@@ -1,6 +1,7 @@
 #include "tinyimg/codec/codec.h"
 
 #include "tinyimg/memory.h"
+#include "tinyimg/work.h"
 
 #if !defined(TINYIMG_NO_AVIF)
     #include "tinyimg/codec/avif.h"
@@ -130,6 +131,13 @@ int tiny_decode_resolve(
     *out_width = resolved_width;
     *out_height = resolved_height;
 
+    // every codec resolves before it decodes, so this is the one place both
+    // numbers are known and the ratio between them is the reduction's claim
+    tiny_work_add(TINYIMG_WORK_SOURCE_SAMPLES, width * height);
+    tiny_work_add(
+        TINYIMG_WORK_DECODED_SAMPLES, resolved_width * resolved_height
+    );
+
     return TINYIMG_OK;
 }
 
@@ -163,7 +171,7 @@ void tiny_pixel_convert(
 
     switch (dest_channels) {
         case 1:
-            // the weights sum to exactly 65536, so a grey source round trips
+            // the weights sum to exactly 65536, so a gray source round trips
             dest[0] = tiny_luma(r, g, b);
             break;
         case 2:
