@@ -9,8 +9,20 @@
  * (`A2B0`, mostly CMYK printer profiles) is a different structure and tinyimg rejects those.
  */
 
-/** A tone response curve, sampled into a 1024-entry table. */
-export type Transfer = (linear: number) => number;
+/**
+ * A tone response curve, sampled into a 1024-entry table.
+ *
+ * Device value in, linear light out. That direction is what an ICC `rTRC` means: in a matrix and
+ * TRC profile the transform runs device -> curve -> linear -> matrix -> PCS, so the curve is the
+ * EOTF and not the OETF a color space is usually quoted by.
+ *
+ * Writing the OETF instead produces a profile that parses, converts, and round-trips against
+ * itself, so neither an identity check nor a plausible-looking conversion percentage can see it.
+ * The number that can is the curve read back at a known input and compared against a profile
+ * somebody else wrote: a real sRGB profile's `rTRC` at 128/255 is 0.2159, and the OETF gives
+ * 0.7353.
+ */
+export type Transfer = (value: number) => number;
 
 export interface ColorSpace {
 	/** Four-character profile description, used for the file name and the `desc` tag. */
@@ -25,15 +37,17 @@ export interface ColorSpace {
 }
 
 /** IEC 61966-2-1 piecewise curve, used by sRGB and Display P3. */
-const srgbTransfer: Transfer = (c) =>
-	c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+const srgbTransfer: Transfer = (v) =>
+	v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
 
 /** Adobe RGB (1998) uses a pure 563/256 gamma. */
-const adobeTransfer: Transfer = (c) => Math.pow(c, 256 / 563);
+const adobeTransfer: Transfer = (v) => Math.pow(v, 563 / 256);
 
-/** Rec.2020's OETF, in its 10-bit form. */
-const rec2020Transfer: Transfer = (c) =>
-	c < 0.018053968510807 ? 4.5 * c : 1.09929682680944 * Math.pow(c, 0.45) - 0.09929682680944;
+/** Rec.2020's EOTF, the inverse of its 10-bit OETF. */
+const rec2020Transfer: Transfer = (v) =>
+	v < 4.5 * 0.018053968510807
+		? v / 4.5
+		: Math.pow((v + 0.09929682680944) / 1.09929682680944, 1 / 0.45);
 
 const D65: [number, number] = [0.3127, 0.329];
 
@@ -84,7 +98,7 @@ export const SPACES: ColorSpace[] = [
 	}
 ];
 
-// #region colour math
+// #region color math
 
 type Matrix = [number, number, number, number, number, number, number, number, number];
 type Vector = [number, number, number];
@@ -127,7 +141,7 @@ function invert(m: Matrix): Matrix {
 	];
 }
 
-/** xy chromaticity to an XYZ vector normalised to Y = 1. */
+/** xy chromaticity to an XYZ vector normalized to Y = 1. */
 function whiteXYZ(xy: [number, number]): Vector {
 	const [x, y] = xy;
 	return [x / y, 1, (1 - x - y) / y];
@@ -196,7 +210,7 @@ function chromaticAdaptation(from: Vector): Matrix {
 
 // #endregion
 
-// #region icc serialisation
+// #region icc serialization
 
 function s15Fixed16(value: number): number {
 	return Math.round(value * 65536);
@@ -228,8 +242,8 @@ function curveTag(transfer: Transfer, points = 1024): Buffer {
 	body.writeUInt32BE(points, 8);
 
 	for (let i = 0; i < points; i++) {
-		const encoded = transfer(i / (points - 1));
-		const clamped = Math.min(1, Math.max(0, encoded));
+		const linear = transfer(i / (points - 1));
+		const clamped = Math.min(1, Math.max(0, linear));
 		body.writeUInt16BE(Math.round(clamped * 65535), 12 + i * 2);
 	}
 	return body;
@@ -265,7 +279,7 @@ function chadTag(m: Matrix): Buffer {
 /**
  * Assembles a complete matrix and TRC ICC profile.
  *
- * @param space The colour space to describe.
+ * @param space The color space to describe.
  * @return Buffer The profile bytes, ready to write or embed.
  */
 export function buildProfile(space: ColorSpace): Buffer {

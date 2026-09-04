@@ -143,7 +143,7 @@ static const uint8_t vp8_bmode_probs[10][10][9] = ${nest(read('bmodeProbs'), [10
  *
  * The generated header sits under `src/` and so is formatted along with everything else, which
  * would otherwise make `--check` fail the moment `format.sh` ran. Formatting here rather than
- * excluding the file keeps it looking like its neighbours and keeps the two in agreement by
+ * excluding the file keeps it looking like its neighbors and keeps the two in agreement by
  * construction. `--assume-filename` is what picks up the repo's `.clang-format`.
  */
 function formatted(text: string): string {

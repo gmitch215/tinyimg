@@ -82,6 +82,8 @@ function report(dir: string) {
 		'.',
 		'--filter',
 		'src/',
+		// gcov reports impossible hit counts for a function called billions of times, which is a tool bug (GCC #68080)
+		'--gcov-ignore-parse-errors=suspicious_hits.warn_once_per_file',
 		'--cobertura',
 		REPORT,
 		'--cobertura-pretty',
