@@ -27,7 +27,7 @@ typedef struct {
     uint32_t width;
     uint32_t height;
     uint8_t depth;
-    uint8_t colour;
+    uint8_t color;
     uint8_t interlace;
     uint8_t channels;
     uint32_t bits_per_pixel;
@@ -102,7 +102,7 @@ static int png_parse(const uint8_t* buffer, size_t size, PngHeader* header) {
                 header->width = read_be32(data);
                 header->height = read_be32(data + 4);
                 header->depth = data[8];
-                header->colour = data[9];
+                header->color = data[9];
                 header->interlace = data[12];
 
                 // the only compression method and filter method the format
@@ -142,7 +142,7 @@ static int png_parse(const uint8_t* buffer, size_t size, PngHeader* header) {
     if (!seen_header) return TINYIMG_ERR_CORRUPT;
     if (header->width == 0 || header->height == 0) return TINYIMG_ERR_CORRUPT;
 
-    switch (header->colour) {
+    switch (header->color) {
         case PNG_GRAY:
             header->channels = 1;
             if (header->depth != 1 && header->depth != 2 &&
@@ -188,16 +188,16 @@ static int png_parse(const uint8_t* buffer, size_t size, PngHeader* header) {
     header->bits_per_pixel = (uint32_t) header->channels * header->depth;
     header->stride = ((size_t) header->width * header->bits_per_pixel + 7) / 8;
 
-    // the filter's left neighbour is a whole pixel back, or one byte when a
+    // the filter's left neighbor is a whole pixel back, or one byte when a
     // pixel is narrower
     header->filter_step =
         (uint8_t) (header->bits_per_pixel >= 8 ? header->bits_per_pixel / 8
                                                : 1);
 
-    header->has_alpha = header->colour == PNG_GRAY_ALPHA ||
-                        header->colour == PNG_RGBA || header->transparency != 0;
+    header->has_alpha = header->color == PNG_GRAY_ALPHA ||
+                        header->color == PNG_RGBA || header->transparency != 0;
 
-    if (header->colour == PNG_GRAY || header->colour == PNG_GRAY_ALPHA) {
+    if (header->color == PNG_GRAY || header->color == PNG_GRAY_ALPHA) {
         header->out_channels = header->has_alpha ? 2 : 1;
     }
     else {
@@ -248,7 +248,7 @@ static inline uint8_t paeth(uint8_t a, uint8_t b, uint8_t c) {
  * @param row The filtered bytes, which become the unfiltered ones.
  * @param previous The row above, already unfiltered, or NULL for the first row.
  * @param size Bytes in the row.
- * @param step Bytes to the left neighbour.
+ * @param step Bytes to the left neighbor.
  * @param filter Which filter the row was written with.
  * @return int TINYIMG_OK, or TINYIMG_ERR_CORRUPT for a filter the format does
  * not define.
@@ -331,9 +331,9 @@ static inline uint8_t scale_sample(uint32_t value, uint8_t depth) {
 }
 
 /**
- * Expands one source pixel into RGBA, whatever the colour type and depth.
+ * Expands one source pixel into RGBA, whatever the color type and depth.
  *
- * Every path goes through here, so the twelve combinations of colour type,
+ * Every path goes through here, so the twelve combinations of color type,
  * depth and transparency are interpreted in one place.
  */
 static void expand_pixel(
@@ -342,14 +342,14 @@ static void expand_pixel(
     {
         pixel[3] = 255;
 
-        switch (header->colour) {
+        switch (header->color) {
             case PNG_GRAY: {
                 uint32_t raw = sample_at(row, x, header->depth);
-                uint8_t grey = scale_sample(raw, header->depth);
+                uint8_t gray = scale_sample(raw, header->depth);
 
-                pixel[0] = grey;
-                pixel[1] = grey;
-                pixel[2] = grey;
+                pixel[0] = gray;
+                pixel[1] = gray;
+                pixel[2] = gray;
 
                 if (header->transparency_size >= 2 &&
                     raw == read_be16(header->transparency)) {
@@ -395,13 +395,13 @@ static void expand_pixel(
             }
 
             case PNG_GRAY_ALPHA: {
-                uint8_t grey = scale_sample(
+                uint8_t gray = scale_sample(
                     sample_at(row, x * 2, header->depth), header->depth
                 );
 
-                pixel[0] = grey;
-                pixel[1] = grey;
-                pixel[2] = grey;
+                pixel[0] = gray;
+                pixel[1] = gray;
+                pixel[2] = gray;
                 pixel[3] = scale_sample(
                     sample_at(row, x * 2 + 1, header->depth), header->depth
                 );
@@ -441,9 +441,9 @@ static void convert_row(
 ) {
     // when the file already holds exactly what was asked for, the row is the
     // answer. a palette never qualifies: its one byte per pixel is an index,
-    // not a sample, so copying it would write the indices out as grey
+    // not a sample, so copying it would write the indices out as gray
     if (header->depth == 8 && !header->transparency &&
-        header->colour != PNG_PALETTE && channels == header->channels) {
+        header->color != PNG_PALETTE && channels == header->channels) {
         tiny_memcpy(
             dest, row + (size_t) x0 * channels, (size_t) width * channels
         );
@@ -969,11 +969,11 @@ static int png_encode(
     if (image->width == 0 || image->height == 0) return TINYIMG_ERR_RANGE;
     if (image->channels == 0 || image->channels > 4) return TINYIMG_ERR_RANGE;
 
-    static const uint8_t colour_for[5] = {
+    static const uint8_t color_for[5] = {
         0, PNG_GRAY, PNG_GRAY_ALPHA, PNG_RGB, PNG_RGBA
     };
 
-    uint8_t colour = colour_for[image->channels];
+    uint8_t color = color_for[image->channels];
 
     static const uint8_t signature[8] = {0x89, 'P',  'N',  'G',
                                          0x0D, 0x0A, 0x1A, 0x0A};
@@ -989,7 +989,7 @@ static int png_encode(
     ihdr[6] = (uint8_t) (image->height >> 8);
     ihdr[7] = (uint8_t) image->height;
     ihdr[8] = 8;
-    ihdr[9] = colour;
+    ihdr[9] = color;
     ihdr[10] = 0;
     ihdr[11] = 0;
     ihdr[12] = 0;
@@ -1003,7 +1003,7 @@ static int png_encode(
     // both candidates are compressed and the smaller is kept. the per row
     // filter heuristic scores a row by how close its bytes are to zero, which
     // estimates entropy but says nothing about whether LZ77 could have matched
-    // the row against its neighbours. on flat artwork that is the wrong
+    // the row against its neighbors. on flat artwork that is the wrong
     // question and leaving every row unfiltered comes out up to 40% smaller; on
     // a photograph it is the right one and unfiltered is 17% worse. measured on
     // both, with no signal short of compressing that separates them, so both
