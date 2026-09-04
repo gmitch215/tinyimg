@@ -377,8 +377,8 @@ static int gif_decode(
                     expand_index(&header, palette, entries, index, rgba);
                 }
                 else {
-                    // averaging in colour rather than in index space, since
-                    // neighbouring indices name unrelated colours
+                    // averaging in color rather than in index space, since
+                    // neighboring indices name unrelated colors
                     uint32_t sums[4] = {0, 0, 0, 0};
                     uint32_t counted = 0;
 
@@ -444,9 +444,9 @@ static int gif_decode(
 #define GIF_CUBE_CELLS (GIF_CUBE_SIDE * GIF_CUBE_SIDE * GIF_CUBE_SIDE)
 
 /**
- * The image's colours, counted into a five bit per channel cube.
+ * The image's colors, counted into a five bit per channel cube.
  *
- * Eight bit sums are kept alongside the counts so a box's colour is the mean of
+ * Eight bit sums are kept alongside the counts so a box's color is the mean of
  * what it actually held rather than the middle of the cells it spans, which for
  * a box covering one cell is worth up to four levels per channel. A cell's sum
  * cannot overflow: TINYIMG_MAX_PIXELS times 255 is 4.08e9, inside a 32 bit
@@ -565,7 +565,7 @@ static int box_split(GifBox* box, GifBox* out, const GifHistogram* histogram) {
 }
 
 /**
- * Chooses `wanted` colours by repeatedly splitting the most populous box.
+ * Chooses `wanted` colors by repeatedly splitting the most populous box.
  *
  * Median cut rather than the octree the plan named, and the reason is measured
  * against that octree with the same lookup and the same metric: on the
@@ -648,10 +648,10 @@ static uint32_t median_cut(
 #define GIF_LOOKUP_CELLS (GIF_LOOKUP_SIDE * GIF_LOOKUP_SIDE * GIF_LOOKUP_SIDE)
 
 /**
- * A remembered nearest palette entry per cell of a six bit colour cube.
+ * A remembered nearest palette entry per cell of a six bit color cube.
  *
  * Two things this is not, both tried and measured. It is not a descent of the
- * quantiser's own tree to the colour's octant, which returns that octant's mean
+ * quantizer's own tree to the color's octant, which returns that octant's mean
  * rather than the nearest entry. And it is not a table filled in up front,
  * which at this resolution is 67 million distance computations for the few
  * thousand cells an image actually asks about.
@@ -668,12 +668,12 @@ typedef struct {
 
 static uint32_t inverse_lookup(
     GifInverse* inverse, const uint8_t* palette, uint32_t count, uint32_t skip,
-    const uint8_t* colour
+    const uint8_t* color
 ) {
     uint32_t shift = 8u - GIF_LOOKUP_BITS;
-    uint32_t cell = ((uint32_t) (colour[0] >> shift) << (2 * GIF_LOOKUP_BITS)) |
-                    ((uint32_t) (colour[1] >> shift) << GIF_LOOKUP_BITS) |
-                    (uint32_t) (colour[2] >> shift);
+    uint32_t cell = ((uint32_t) (color[0] >> shift) << (2 * GIF_LOOKUP_BITS)) |
+                    ((uint32_t) (color[1] >> shift) << GIF_LOOKUP_BITS) |
+                    (uint32_t) (color[2] >> shift);
 
     if (inverse->index[cell] >= 0) return (uint32_t) inverse->index[cell];
 
@@ -681,13 +681,13 @@ static uint32_t inverse_lookup(
     int32_t closest = 0x7FFFFFFF;
 
     for (uint32_t i = 0; i < count; i++) {
-        // the transparent entry is a hole in the palette rather than a colour,
+        // the transparent entry is a hole in the palette rather than a color,
         // so nothing may be mapped onto it
         if (i == skip) continue;
 
-        int32_t dr = (int32_t) colour[0] - palette[i * 3 + 0];
-        int32_t dg = (int32_t) colour[1] - palette[i * 3 + 1];
-        int32_t db = (int32_t) colour[2] - palette[i * 3 + 2];
+        int32_t dr = (int32_t) color[0] - palette[i * 3 + 0];
+        int32_t dg = (int32_t) color[1] - palette[i * 3 + 1];
+        int32_t db = (int32_t) color[2] - palette[i * 3 + 2];
         int32_t distance = dr * dr + dg * dg + db * db;
 
         if (distance < closest) {
@@ -858,7 +858,7 @@ static void lzw_compress(
 
 #pragma region encode
 
-/** A colour to palette index map for the case where nothing was discarded. */
+/** A color to palette index map for the case where nothing was discarded. */
 #define GIF_EXACT_SLOTS 1024u
 
 typedef struct {
@@ -868,7 +868,7 @@ typedef struct {
 } GifExact;
 
 static uint32_t exact_slot(uint32_t key) {
-    // the low bits of a colour are the ones that vary, so they are the ones
+    // the low bits of a color are the ones that vary, so they are the ones
     // mixed upward before the table is indexed
     key ^= key >> 13;
     key *= 0x9E3779B1u;
@@ -913,7 +913,7 @@ static void exact_insert(GifExact* map, uint32_t key, uint32_t index) {
 typedef struct {
     uint8_t palette[256 * 3];
     uint32_t count;
-    /** Set when the palette holds every colour the image had. */
+    /** Set when the palette holds every color the image had. */
     uint8_t exact;
     /** The index reserved for transparency, or 256 when there is none. */
     uint32_t transparent;
@@ -938,11 +938,11 @@ static void source_pixel(
 }
 
 /**
- * Chooses the palette, keeping every colour when they fit.
+ * Chooses the palette, keeping every color when they fit.
  *
- * An image already inside the format's limit is not quantised at all, which is
+ * An image already inside the format's limit is not quantized at all, which is
  * what lets a logo or a flat illustration round trip losslessly. Counting stops
- * as soon as one colour too many is seen, so the case that will be quantised
+ * as soon as one color too many is seen, so the case that will be quantized
  * pays almost nothing for the attempt.
  */
 static int choose_palette(
@@ -1064,7 +1064,7 @@ static int choose_palette(
 /**
  * Maps every pixel to a palette index, diffusing the error when there was any.
  *
- * Error diffusion is applied when and only when colours had to be discarded.
+ * Error diffusion is applied when and only when colors had to be discarded.
  * On an image that kept all of its own there is no error to diffuse, and adding
  * noise to a flat illustration that round tripped exactly would be a strange
  * thing to do.
