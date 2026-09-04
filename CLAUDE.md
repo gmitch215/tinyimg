@@ -35,14 +35,21 @@ bun run docs:build             # typedoc into typedoc/
 
 ## Never run these
 
-`./doxygen.sh` and `./typedoc.sh` publish to `gh-pages`. They `git switch` and then
-`find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +`, so **they delete uncommitted work
-in the working tree.** One of them has already cost a day of it. To build the documentation locally
-use `bun run docs:c` or `bun run docs:build`; the two scripts exist for CI.
+`./doxygen.sh` and `./typedoc.sh` publish to `gh-pages`. Both `git switch -f`, so **they discard
+uncommitted changes to tracked files.** One of them has already cost a day of work. To build the
+documentation locally use `bun run docs:c` or `bun run docs:build`; the two scripts exist for CI.
 
-They also used to run `git config --local user.name "GitHub Action"`, which persists in
-`.git/config` and silently reattributes every later commit in the clone. They now pass the identity
-per-command with `git -c`.
+Each publishes into its own subdirectory, `/doxygen` and `/typedoc`, with the README-derived
+`index.html` and the `CNAME` at the root. That is what lets the two coexist on one branch: each
+removes only the directory it owns and stages a scoped `git add -A -- <its paths>`. `doxygen.sh`
+used to wipe the branch root with
+`find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +`, which deleted the sibling's
+build output mid-job and made the second deploy fail every time.
+
+Both stage into a temporary directory before switching and restore the original branch from an
+`EXIT` trap, so the one that runs second still has its sources. They also used to run
+`git config --local user.name "GitHub Action"`, which persists in `.git/config` and silently
+reattributes every later commit in the clone. They now pass the identity per-command with `git -c`.
 
 ## Layout
 

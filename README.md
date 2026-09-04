@@ -655,7 +655,7 @@ absolute in `CMakeLists.txt`. Run `bun run build:wasm` afterwards to put the ful
 ## API Reference
 
 Generated documentation lives at [tinyimg.gmitch215.dev](https://tinyimg.gmitch215.dev): the
-TypeScript surface under `/typedoc`, and the C headers alongside it.
+TypeScript surface under `/typedoc`, and the C headers under `/doxygen`.
 
 ## Contributing
 

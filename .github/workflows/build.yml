@@ -26,7 +26,7 @@ jobs:
       - name: Install Clang Tools
         run: |
           pip install clang-tools
-          clang-tools install clang-format --version 21
+          clang-tools install clang-format --version 23
           clang-format --version
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
