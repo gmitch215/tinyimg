@@ -365,3 +365,140 @@ describe('the artifact key', () => {
 		expect(new URL(key).searchParams.get('width')).toBe('400');
 	});
 });
+
+/**
+ * Compares two encoded outputs by digest rather than by bytes.
+ *
+ * `toEqual` on a typed array builds a structural diff element by element when it fails, which on a
+ * 124 kB PNG took six minutes to report a mismatch that took milliseconds to find. A digest fails
+ * in constant time and says the same thing.
+ */
+function same(a: Uint8Array, b: Uint8Array): boolean {
+	if (a.length !== b.length) return false;
+
+	for (let i = 0; i < a.length; i++) {
+		if (a[i] !== b[i]) return false;
+	}
+
+	return true;
+}
+
+/**
+ * The effort option, on the side of it a caller can see from here.
+ *
+ * The per-stage measurements live in `tests/c/core/effort.c`, which can hold a decode against
+ * another decode. What belongs here is that one option reaches every stage and that the formats
+ * with nothing to trade are left alone, since that is the contract the option is documented with.
+ */
+describe('effort', () => {
+	let tinyimg: TinyImgModule;
+
+	beforeAll(async () => {
+		tinyimg = await TinyImgModule.load(new WebAssembly.Module(wasm));
+	});
+
+	it('reaches the decode, which is a stage the encode option cannot', async () => {
+		// a lossless re-encode, so the encoder cannot be the thing that differs: any difference in
+		// the output pixels has to have come from the decode
+		const source = fixture('toyota_racing.webp');
+
+		const fancy = await transform(tinyimg, source, {
+			width: 500,
+			format: 'png',
+			effort: 'fancy'
+		});
+		const fast = await transform(tinyimg, source, {
+			width: 500,
+			format: 'png',
+			effort: 'fast'
+		});
+
+		expect(same(fast.bytes(), fancy.bytes())).toBe(false);
+	});
+
+	it('leaves a lossless source alone, having nothing to drop', async () => {
+		// every step of a lossless decode is required to produce the defined pixels, so there is no
+		// approximation available and both arms have to agree exactly.
+		//
+		// 100 px is a reduction of all three, which is what isolates the decode: an enlargement
+		// would also move the resample filter, and dartmouth.tiff at 250 wide is small enough that
+		// a larger request would have measured that instead
+		for (const name of ['forest.png', 'ball_kick.gif', 'dartmouth.tiff']) {
+			const source = fixture(name);
+
+			const fancy = await transform(tinyimg, source, {
+				width: 100,
+				format: 'png',
+				effort: 'fancy'
+			});
+			const fast = await transform(tinyimg, source, {
+				width: 100,
+				format: 'png',
+				effort: 'fast'
+			});
+
+			expect(same(fast.bytes(), fancy.bytes()), name).toBe(true);
+		}
+	});
+
+	it('does not change a pass-through, which decodes nothing to approximate', async () => {
+		const source = fixture('sf-24.jpg');
+
+		for (const effort of ['fancy', 'fast'] as const) {
+			const out = await transform(tinyimg, source, { effort });
+			const { work } = await tinyimg.measure(() => transform(tinyimg, source, { effort }));
+
+			expect(out.bytes(), effort).toBe(source);
+			expect(work.decodedSamples, effort).toBe(0);
+		}
+	});
+
+	it('keeps the filter a caller named', async () => {
+		const source = fixture('derived/base.png');
+
+		/*
+		 * Both extents, because `width` alone is an upper bound: 640 against a 320 wide source is
+		 * already satisfied and passes through, so the one-extent form cannot reach an enlargement
+		 * at all. `fit` with both is what asks for the extent exactly.
+		 */
+		const enlarge = { width: 640, height: 360, fit: 'cover' } as const;
+
+		// effort decides what was left open; a named filter was not left open
+		const named = await Promise.all(
+			(['fancy', 'fast'] as const).map((effort) =>
+				transform(tinyimg, source, {
+					...enlarge,
+					filter: 'catmull-rom',
+					format: 'png',
+					effort
+				})
+			)
+		);
+
+		expect(same(named[1]!.bytes(), named[0]!.bytes())).toBe(true);
+
+		// and with the filter left to the library, enlarging is where the two diverge
+		const auto = await Promise.all(
+			(['fancy', 'fast'] as const).map((effort) =>
+				transform(tinyimg, source, { ...enlarge, format: 'png', effort })
+			)
+		);
+
+		expect(same(auto[1]!.bytes(), auto[0]!.bytes())).toBe(false);
+
+		// a reduction already picks the cheap filter, so it cannot diverge
+		const down = await Promise.all(
+			(['fancy', 'fast'] as const).map((effort) =>
+				transform(tinyimg, source, {
+					width: 160,
+					height: 90,
+					fit: 'cover',
+					format: 'png',
+					effort
+				})
+			)
+		);
+
+		expect(same(down[1]!.bytes(), down[0]!.bytes())).toBe(true);
+	});
+});
