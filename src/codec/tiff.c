@@ -15,7 +15,7 @@
 #define TIFF_TAG_STRIP_BYTES 279u
 #define TIFF_TAG_PLANAR 284u
 #define TIFF_TAG_PREDICTOR 317u
-#define TIFF_TAG_COLOUR_MAP 320u
+#define TIFF_TAG_COLOR_MAP 320u
 #define TIFF_TAG_TILE_WIDTH 322u
 #define TIFF_TAG_EXTRA_SAMPLES 338u
 #define TIFF_TAG_SAMPLE_FORMAT 339u
@@ -55,7 +55,7 @@ typedef struct {
     uint32_t counts_type;
     uint32_t counts_count;
 
-    /** The colour map, as an offset and an entry count per channel. */
+    /** The color map, as an offset and an entry count per channel. */
     size_t map_at;
     uint32_t map_entries;
 
@@ -248,7 +248,7 @@ static int tiff_parse(const uint8_t* buffer, size_t size, TiffHeader* header) {
                         header->counts_count = length;
                         break;
 
-                    case TIFF_TAG_COLOUR_MAP:
+                    case TIFF_TAG_COLOR_MAP:
                         header->map_at = value;
                         header->map_entries = length / 3;
                         break;
@@ -542,13 +542,13 @@ static void expand_pixel(
 
     switch (header->photometric) {
         case TIFF_WHITE_IS_ZERO: {
-            // the polarity is the whole difference from the other grey mode,
+            // the polarity is the whole difference from the other gray mode,
             // and a file that gets it wrong looks like a negative
-            uint8_t grey = (uint8_t) (255u - sample[0]);
+            uint8_t gray = (uint8_t) (255u - sample[0]);
 
-            pixel[0] = grey;
-            pixel[1] = grey;
-            pixel[2] = grey;
+            pixel[0] = gray;
+            pixel[1] = gray;
+            pixel[2] = gray;
             if (header->samples >= 2) pixel[3] = sample[1];
             break;
         }
@@ -573,7 +573,7 @@ static void expand_pixel(
 
                 // the correctly rounded reduction, not the high byte. PNG can
                 // take the high byte because its 16 bit samples are an 8 bit
-                // value times 257, so it comes back exactly; a colour map is
+                // value times 257, so it comes back exactly; a color map is
                 // scaled through whatever range the writer used, and truncating
                 // it loses a level on most entries
                 pixel[c] = (uint8_t) ((read16(header, at) + 128u) / 257u);
