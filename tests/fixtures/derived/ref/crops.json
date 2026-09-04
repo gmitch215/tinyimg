@@ -2,6 +2,14 @@
   "side": 128,
   "scaledLongSide": 256,
   "crops": {
+    "ball_kick.gif": {
+      "x": 266,
+      "y": 200,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 800,
+      "sourceHeight": 600
+    },
     "budapest.jpg": {
       "x": 666,
       "y": 1000,
@@ -9,6 +17,30 @@
       "height": 128,
       "sourceWidth": 2000,
       "sourceHeight": 3000
+    },
+    "dartmouth.jpg": {
+      "x": 83,
+      "y": 59,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 250,
+      "sourceHeight": 187
+    },
+    "dartmouth.tiff": {
+      "x": 83,
+      "y": 59,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 250,
+      "sourceHeight": 187
+    },
+    "digicam.jpg": {
+      "x": 1200,
+      "y": 900,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 3600,
+      "sourceHeight": 2700
     },
     "dog.jpg": {
       "x": 1000,
@@ -105,6 +137,14 @@
       "height": 128,
       "sourceWidth": 1470,
       "sourceHeight": 1920
+    },
+    "toyota_racing.webp": {
+      "x": 333,
+      "y": 222,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1000,
+      "sourceHeight": 666
     },
     "webassembly.png": {
       "x": 170,
