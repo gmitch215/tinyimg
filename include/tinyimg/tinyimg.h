@@ -151,7 +151,7 @@ typedef enum TinyImageError
      */
     TINYIMG_ERR_MEMORY = -4,
     /**
-     * @brief The image exceeds TINYIMG_MAX_PIXELS.
+     * @brief The image exceeds TINYIMG_MAX_PIXELS or TINYIMG_MAX_IMAGE_BYTES.
      *
      * Distinct from TINYIMG_ERR_MEMORY because the remedy is different: a
      * caller sees this and reaches for tiny_image_load_scaled instead of
