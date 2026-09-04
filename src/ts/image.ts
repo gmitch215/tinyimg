@@ -121,6 +121,8 @@ export interface FitOptions {
 	gravity?: Gravity;
 	/** Fills whatever a pad leaves empty. */
 	background?: Color;
+	/** Weights the fit's scale samples through. `auto` leaves the choice to the planner. */
+	filter?: ResampleFilter;
 }
 
 /**
@@ -264,18 +266,19 @@ export class Image {
 	 *
 	 * @param width Target width.
 	 * @param height Target height.
-	 * @param options `fit` defaults to `cover`; `gravity` to `center`.
+	 * @param options `fit` defaults to `cover`; `gravity` to `center`; `filter` to `auto`.
 	 */
 	fit(width: number, height: number, options: FitOptions & { fit?: Fit } = {}): this {
 		if (options.background !== undefined) this.background(options.background);
 
 		return this.#append(
-			this.#module.exports.tiny_plan_fit(
+			this.#module.exports.tiny_plan_fit_with(
 				this.#plan,
 				width,
 				height,
 				FITS[options.fit ?? 'cover'],
-				GRAVITIES[options.gravity ?? 'center']
+				GRAVITIES[options.gravity ?? 'center'],
+				FILTERS[options.filter ?? 'auto']
 			),
 			'fit'
 		);
@@ -483,6 +486,28 @@ export class Image {
 		return this.#append(
 			this.#module.exports.tiny_plan_set_fusion(this.#plan, enabled ? 1 : 0),
 			'fusion setting'
+		);
+	}
+
+	/**
+	 * Chooses how much work the decode may spend.
+	 *
+	 * `fancy`, the default, decodes to the bitstream's definition. `fast` lets a lossy decoder drop
+	 * its smoothing pass, which is 1.53x on a lossy WebP for 46.8 dB and 1.11x to 1.25x on a
+	 * subsampled JPEG for 43.6 to 59.5 dB.
+	 *
+	 * A lossless format has nothing to drop, because it defines its pixels exactly, so PNG, GIF,
+	 * TIFF and lossless WebP decode identically either way. So does a 4:4:4 JPEG, which has no
+	 * chroma to upsample.
+	 *
+	 * This is the decode side only. The encoder's effort is an argument to {@link bytes}.
+	 *
+	 * @param effort How hard to work.
+	 */
+	effort(effort: 'fancy' | 'fast'): this {
+		return this.#append(
+			this.#module.exports.tiny_plan_set_effort(this.#plan, effort === 'fast' ? 1 : 0),
+			'effort setting'
 		);
 	}
 
