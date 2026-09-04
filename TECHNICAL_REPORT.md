@@ -4,7 +4,7 @@ Measurements, and the approaches they refuted. Every number here came from the a
 (`bin/tinyimg.wasm`, built with `-Oz -flto`) or from a purpose-built arm; none is an estimate.
 
 Reproduce with `bun run size`, `bun bench/run.ts`, `bun run test`, and
-`bun scripts/coverage-c.ts`. Every compressed figure is `gzip -9`, which is what `bun run size`
+`bun scripts/coverage-c.ts`. Every compressed figure is `gzip -9`, the level `bun run size`
 uses; the default level reports about 1.4% larger, so a number here will not match a casual
 `gzip -c | wc -c`.
 
@@ -43,7 +43,7 @@ module, which is the difference between the last row and the current figure abov
 
 Per-codec marginal cost, measured by removing one at a time: JPEG +18.3 KiB, GIF +6.9, PNG +5.8,
 TIFF +5.2, BMP +3.2, WebP +37.9 (raw). PNG's figure fell from 13.9 once TIFF also used the DEFLATE
-unit, which is what marginal rather than additive means.
+unit, which is the difference between a marginal cost and an additive one.
 
 Removing three at once is not the sum of their arms, for the same reason. Dropping WebP, TIFF and
 GIF together gives **138,882 raw / 65,438 gzip**, a 27.6% reduction, and `tiny_features` reports the
@@ -145,7 +145,7 @@ honors the region and scale that neither WebP bitstream can decode itself, and i
 at a denominator of 1 every output pixel went through a one-pixel box average, which is four integer
 divisions by one to move four bytes. In wasm that was 29% of WebP decode.
 
-The third is worth reading with its spread rather than its headline. A block whose vertical AC
+The third has a spread wider than its headline. A block whose vertical AC
 coefficients are all zero leaves the eight intermediate rows identical, so the row pass computes the
 same eight samples eight times. How often that happens is a property of the picture:
 
@@ -575,7 +575,7 @@ first frame stays the answer, and the thing worth fixing was the case next to it
 `transform` refused to pass an animation through, on the reasoning that re-encoding it is a change.
 That had the sign backwards: a decode yields frame one, so a request with nothing to do was spending
 23 ms to turn 57 frames into a still, where handing the source back is both free and lossless. It
-now passes through whole, and a request that genuinely has work to do sets `flattened` on the result
+now passes through whole, and a request with real work to do sets `flattened` on the result
 rather than dropping 56 frames silently.
 
 ## Data, in three buckets
@@ -650,7 +650,7 @@ Differential comparisons against ImageMagick, with the floor each one is asserte
 Where a floor looks low, the reason is in the test rather than in the code. Text is compared against
 FreeType **with hinting on**, which moves stems onto pixel boundaries and rounds every advance to a
 whole pixel; the shape error is a fixed number of pixels and shrinks against the glyph as the glyph
-grows, from 29 dB at 32 px to 41 dB at 256. Comparing whole strings by PSNR is deliberately not done:
+grows, from 29 dB at 32 px to 41 dB at 256. Whole strings are not compared by PSNR:
 FreeType's integer advances accumulate, a twelve-glyph run drifts by a pixel or two, and the 17 dB
 that produces would measure hinting rather than anything in this library.
 
@@ -689,7 +689,7 @@ Recorded so nobody re-proposes them from a guess.
   3-4 KB of code: worse on every axis.
 - **Integral images for box blur and local mean.** Same reason. An integral image costs an extra
   full pass and 4-8 bytes per pixel of sums to replace something already linear. Kept only where
-  many overlapping rectangle sums are genuinely queried: the face cascade and smart-crop scoring.
+  many overlapping rectangle sums are queried: the face cascade and smart-crop scoring.
 - **Mipmaps for statistics.** Building a pyramid costs the O(n) pass the idea exists to avoid.
   `load_scaled` gives the same reduced representation for free, and for JPEG it falls out of the DCT.
 - **Octree palette quantization.** The plan named it. Merging up to eight children into one leaf
@@ -760,4 +760,4 @@ intrinsics, where the vectorized column pass would have been several hundred lin
 
 The objective survives and is narrower than it was: **pass 2, the row transform, is the SIMD target**,
 along with WebP's loop filter at 41.5%. Both are unconditional per-pixel work with no shortcut to
-exploit, which is what makes them worth widening.
+exploit, which is the shape a wider kernel suits.

@@ -25,6 +25,7 @@ own CPU budget.
 - [Text](#text)
 - [Face Detection](#face-detection)
 - [Color Management](#color-management)
+- [Reading the dB Figures](#reading-the-db-figures)
 - [Budget and Effort](#budget-and-effort)
 - [Caching](#caching)
 - [Work Counters](#work-counters)
@@ -403,11 +404,19 @@ measurement said. Kern pairs are applied when the face carries a `kern` table.
 ## Face Detection
 
 An LBP cascade over an integral image, multi-scale, with union-find grouping. The cascades are
-OpenCV's, repacked from XML to a flat binary.
+OpenCV's `lbpcascade_frontalface_improved.xml` and `lbpcascade_profileface.xml`.
+
+The module carries no cascade data and no XML parser, so a cascade arrives as bytes in a packed form
+that `scripts/fixtures.ts` builds from the OpenCV source: 7.4 kB for the frontal cascade against 54 kB
+of XML. `loadBlob` rejects one still in XML. Both packed cascades are published, and
+`bun run blobs` rebuilds them if you would rather host your own:
 
 ```ts
-await tinyimg.loadBlob('cascade', 'frontal', frontalBytes);
-await tinyimg.loadBlob('cascade', 'profile', profileBytes);
+const frontal = await fetch('https://cdn.gmitch215.dev/tinyimg/cascades/lbp-frontalface.bin');
+const profile = await fetch('https://cdn.gmitch215.dev/tinyimg/cascades/lbp-profileface.bin');
+
+await tinyimg.loadBlob('cascade', 'frontal', await frontal.arrayBuffer());
+await tinyimg.loadBlob('cascade', 'profile', await profile.arrayBuffer());
 
 const faces = await tinyimg.detectFaces(source);
 // [{ x, y, width, height, neighbors }]
@@ -426,9 +435,32 @@ ICC matrix-and-TRC profiles: the `rXYZ` / `gXYZ` / `bXYZ` primaries, `curv` and 
 tone curves, and Bradford chromatic adaptation folded into the matrix. Conversion between a tagged
 profile and sRGB agrees with ImageMagick at 49 dB.
 
+### Reading the dB Figures
+
+Every accuracy number here and in the technical report is PSNR against a stated reference:
+`10 * log10(255^2 / MSE)`, where the mean squared error runs over every channel sample of both
+images. It is a log scale, so 6 dB is one bit of precision and each 10 dB is a tenfold drop in
+squared error. Higher is closer, and infinity means the two images are byte-identical.
+
+Where the thresholds fall, for 8-bit images:
+
+| PSNR        | What it looks like                                                              |
+| ----------- | ------------------------------------------------------------------------------- |
+| above 50 dB | below one level of quantization; no viewer can distinguish the two              |
+| 40 to 50 dB | indistinguishable in normal viewing, and separable in a difference blend        |
+| 30 to 40 dB | artifacts findable if you look for them, around the quality of a JPEG at q75-85 |
+| below 30 dB | visible on inspection                                                           |
+
+Those bands are the conventional reading of the scale rather than something measured here, and PSNR
+scores per-sample error without regard to where the error sits. A few badly wrong pixels and a faint
+haze across the whole frame can score the same while looking nothing alike, which is why the codec
+tests assert a floor per fixture instead of one number for the library. The floors that matter are
+the ones the comparison is stated at: 49 dB for an ICC conversion is a rounding difference, and the
+24 dB floor on a glyph shape is a hinting difference measured against FreeType.
+
 LUT-based A2B and B2A profiles, which is mostly CMYK printer profiles, are rejected with a specific
 error rather than approximated. The matrix and TRC path covers sRGB, Display P3, Adobe RGB and
-Rec.2020, which is what web images carry.
+Rec.2020, the profiles web images carry.
 
 ## Budget and Effort
 
@@ -474,7 +506,7 @@ there is nothing for effort to spend.
 
 Encoded size can go either way under `fast`, because the per-subblock choice minimizes prediction
 error rather than rate: a diagonal mode can win on error and then cost more bits to code. Flat-color
-illustrations pay the most, which is what those modes are for.
+illustrations pay the most, and hard diagonal edges are what those modes exist for.
 
 **`decide().estimateMs` prices a plan before it runs, and `budgetMs` acts on it.** The encoders differ
 by roughly a factor of five per sample, so `format: 'auto'` with a budget takes WebP when it fits and
@@ -493,7 +525,7 @@ result.format; // 'webp' if it fits inside 7 ms, otherwise 'jpeg'
 
 A format you name is never substituted, however far over budget it is. The estimate is accurate to
 about 20% on the machine its rates were measured on, so give a budget below the limit rather than at
-it, and use [`measure`](#work-counters) when you need what a request actually cost.
+it, and use [`measure`](#work-counters) when you need what a request cost.
 
 ## Caching
 
@@ -519,7 +551,7 @@ return response;
 ## Work Counters
 
 Every reduction in this library is a claim that some work does not happen, and a label is not
-evidence. `measure` returns what the module actually did:
+evidence. `measure` returns what the module did:
 
 ```ts
 const { work } = await tinyimg.measure(() => transform(tinyimg, source, { width: 200 }));
@@ -529,24 +561,31 @@ work.decodedSamples / work.sourceSamples; // what the reduction was worth
 work.filtered; // macroblocks a region did not skip
 ```
 
-`samplesPerTransform` is the one that matters most: a decode transforming whole blocks and averaging
-them away reads 64 whatever its name is.
+`samplesPerTransform` is the one to read for a scaled decode: a decode transforming whole blocks and
+averaging them away reads 64 whatever its name is.
 
 ## Blobs
 
 Three kinds of data load at runtime rather than shipping in the module: fonts, ICC profiles and
-detection cascades. Two delivery modes, and no code change between them.
+detection cascades. `loadBlob` takes bytes from anywhere, so there are three ways to deliver them and
+no code change between them.
+
+The prebuilt set is published at `https://cdn.gmitch215.dev/tinyimg/`, with
+`https://cdn.gmitch215.xyz/tinyimg/` and `https://cdn.gmitch215.blog/tinyimg/` as mirrors.
+`blobs.json` sits at that prefix and each entry's `path` resolves against it, so one URL is enough to
+find the rest. A plain `fetch` needs no binding and costs one subrequest:
 
 ```ts
-// from a bucket: one subrequest, no bundle bytes
-const cascade = await env.BLOBS.get('cascades/lbp-frontalface.bin');
-if (cascade) await tinyimg.loadBlob('cascade', 'frontal', cascade.body);
+const font = await fetch('https://cdn.gmitch215.dev/tinyimg/fonts/DejaVuSans.ttf');
+await tinyimg.loadBlob('font', 'sans', await font.arrayBuffer());
 ```
 
+A binding costs the same one subrequest and keeps the bytes on your own account. `BLOBS` below is an
+R2 bucket you have uploaded `blobs/` to, and an Assets binding works the same way:
+
 ```ts
-// as a wrangler Data module: bundle bytes, no latency
-import cascade from './lbp-frontalface.bin';
-await tinyimg.loadBlob('cascade', 'frontal', cascade);
+const cascade = await env.BLOBS.get('cascades/lbp-frontalface.bin');
+if (cascade) await tinyimg.loadBlob('cascade', 'frontal', cascade.body);
 ```
 
 ```jsonc
@@ -555,8 +594,15 @@ await tinyimg.loadBlob('cascade', 'frontal', cascade);
 }
 ```
 
+Or bundle one as a wrangler Data module, which costs bundle bytes and no latency:
+
+```ts
+import cascade from './lbp-frontalface.bin';
+await tinyimg.loadBlob('cascade', 'frontal', cascade);
+```
+
 Eight blobs can be resident at once. `freeBlob` releases one and `freeBlobs` releases all. A cascade
-is parsed at load, so a bad one is a startup failure rather than a search that finds nothing.
+is parsed at load, so a bad one fails at startup instead of becoming a search that finds nothing.
 
 ## Error Handling
 
