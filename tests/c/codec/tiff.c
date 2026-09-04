@@ -34,7 +34,7 @@ static int probeFixture(const char* name, TinyImageInfo* info) {
 static int roundTrip(
     const TinyImage* source, TinyImage* back, uint8_t quality, size_t* bytes
 ) {
-    TinyEncodeOpts opts = {quality, 0, 0, 0};
+    TinyEncodeOpts opts = {quality, 0, 0, 0, 0};
     TinyWriter out;
 
     int result = tiny_writer_init(&out, 0);
@@ -122,7 +122,7 @@ int main(void) {
         tiny_image_destroy(&image);
     }
 
-    // the palette copy went through a 256 colour quantiser, so it only has to
+    // the palette copy went through a 256 color quantizer, so it only has to
     // be close
     r |= assertEquals(
         decodeFixture("derived/base-palette.tif", &image, 3), TINYIMG_OK
@@ -151,7 +151,7 @@ int main(void) {
     r |= assertTrue(clear > 0);
     tiny_image_destroy(&image);
 
-    // a greyscale file asked for one channel is the file's own samples
+    // a grayscale file asked for one channel is the file's own samples
     r |= assertEquals(
         decodeFixture("derived/base-gray.tif", &image, 1), TINYIMG_OK
     );

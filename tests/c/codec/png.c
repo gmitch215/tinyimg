@@ -71,7 +71,7 @@ int main(void) {
     r |= assertImageEquals(&image, &reference);
     tiny_image_destroy(&image);
 
-    // the palette copy went through a 256 colour quantiser, so it only has to
+    // the palette copy went through a 256 color quantizer, so it only has to
     // be close
     r |= assertEquals(
         decodeFixture("derived/base-palette.png", &image, 3), TINYIMG_OK
@@ -83,7 +83,7 @@ int main(void) {
 
     // #endregion
 
-    // #region colour types
+    // #region color types
 
     r |= assertEquals(
         decodeFixture("derived/base-gray8.png", &image, 0), TINYIMG_OK

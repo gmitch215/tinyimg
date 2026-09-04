@@ -168,7 +168,7 @@ static int distributions(void) {
     failures += check("heavy head, long tail", freq, 286, 15);
 
     // the largest alphabet in the library, which is WebP's green channel with a
-    // full colour cache
+    // full color cache
     for (uint32_t i = 0; i < 536u; i++) freq[i] = (i * 37u) % 101u;
     failures += check("536 symbols", freq, 536, 15);
 

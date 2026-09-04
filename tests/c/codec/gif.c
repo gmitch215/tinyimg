@@ -123,7 +123,7 @@ int main(void) {
     r |= assertImageEquals(&interlaced, &sequential);
     tiny_image_destroy(&interlaced);
 
-    // and both are close to the picture they were quantised from
+    // and both are close to the picture they were quantized from
     TinyImage source;
     r |=
         assertEquals(decodeFixture("derived/base.png", &source, 3), TINYIMG_OK);
@@ -135,7 +135,7 @@ int main(void) {
 
     // #region the palette is not the pixels
 
-    // two colours is the smallest palette a file can carry, and the minimum
+    // two colors is the smallest palette a file can carry, and the minimum
     // code size stays two whatever the palette holds
     r |= assertEquals(
         decodeFixture("derived/base-mono.gif", &image, 3), TINYIMG_OK
@@ -147,19 +147,19 @@ int main(void) {
     uint32_t distinct = 0;
 
     for (size_t at = 0; at < (size_t) 320 * 180; at++) {
-        uint32_t colour = ((uint32_t) image.data[at * 3] << 16) |
-                          ((uint32_t) image.data[at * 3 + 1] << 8) |
-                          image.data[at * 3 + 2];
+        uint32_t color = ((uint32_t) image.data[at * 3] << 16) |
+                         ((uint32_t) image.data[at * 3 + 1] << 8) |
+                         image.data[at * 3 + 2];
 
-        if (distinct > 0 && seen[0] == colour) continue;
-        if (distinct > 1 && seen[1] == colour) continue;
+        if (distinct > 0 && seen[0] == color) continue;
+        if (distinct > 1 && seen[1] == color) continue;
 
         if (distinct == 2) {
             only_two = 0;
             break;
         }
 
-        seen[distinct++] = colour;
+        seen[distinct++] = color;
     }
     r |= assertTrue(only_two);
     tiny_image_destroy(&image);
@@ -236,8 +236,8 @@ int main(void) {
      * lossless.
      *
      * This is the case worth being exact about: a logo or a flat illustration
-     * has fewer than 256 colours, and quantising it when nothing had to be
-     * discarded would lose colours for no reason.
+     * has fewer than 256 colors, and quantizing it when nothing had to be
+     * discarded would lose colors for no reason.
      */
     size_t written = 0;
     TinyImage back;
@@ -258,7 +258,7 @@ int main(void) {
     tiny_image_destroy(&back);
     tiny_image_destroy(&transparent);
 
-    // and through two colours, where the palette is smaller than the format's
+    // and through two colors, where the palette is smaller than the format's
     // minimum code size allows for
     TinyImage mono;
     r |= assertEquals(
@@ -269,7 +269,7 @@ int main(void) {
     tiny_image_destroy(&back);
     tiny_image_destroy(&mono);
 
-    // a photograph has to be quantised, so it comes back close rather than
+    // a photograph has to be quantized, so it comes back close rather than
     // equal
     TinyImage photo;
     r |= assertEquals(decodeFixture("sf-24.jpg", &photo, 3), TINYIMG_OK);
@@ -288,8 +288,8 @@ int main(void) {
     tiny_image_destroy(&photo);
 
     // dimensions that are not a whole number of anything. The single pixel is
-    // one colour so it round trips exactly; the odd one holds 655 and so has to
-    // be quantised, which is the distinction the exact path is drawn on
+    // one color so it round trips exactly; the odd one holds 655 and so has to
+    // be quantized, which is the distinction the exact path is drawn on
     static const struct {
         const char* name;
         int lossless;
@@ -319,7 +319,7 @@ int main(void) {
         tiny_image_destroy(&small);
     }
 
-    // enough colours to force the quantiser, from a source with an alpha
+    // enough colors to force the quantizer, from a source with an alpha
     // channel it has to spend an entry on
     TinyImage wide;
     r |= assertEquals(decodeFixture("forest.png", &wide, 4), TINYIMG_OK);

@@ -485,9 +485,9 @@ int main(void) {
     tiny_image_destroy(&covered);
 
     // a decoder asked for a channel count produces it without a second pass
-    TinyDecodeOpts grey = {0, 0, 0, 0, 1, 1};
+    TinyDecodeOpts gray = {0, 0, 0, 0, 1, 1};
     TinyImage mono;
-    r |= assertEquals(tiny_image_decode(&mono, bytes, size, &grey), TINYIMG_OK);
+    r |= assertEquals(tiny_image_decode(&mono, bytes, size, &gray), TINYIMG_OK);
     r |= assertEquals((long) mono.channels, 1L);
 
     int lumaMatches = 1;
@@ -509,7 +509,7 @@ int main(void) {
 
     // #region round trip
 
-    // 24 bit out and back has to be lossless, since neither direction quantises
+    // 24 bit out and back has to be lossless, since neither direction quantizes
     r |= assertEquals(tiny_writer_init(&writer, 0), TINYIMG_OK);
     r |= assertEquals(
         tiny_image_encode(&full, TINYIMG_FORMAT_BMP, 0, &writer), TINYIMG_OK
@@ -548,15 +548,15 @@ int main(void) {
     tiny_image_destroy(&rgba);
     tiny_writer_free(&writer);
 
-    // one channel goes out as an 8 bit greyscale palette rather than as three
+    // one channel goes out as an 8 bit grayscale palette rather than as three
     // copies of the same byte
-    TinyImage grey8;
-    r |= assertEquals(tiny_image_load(&grey8, bytes, size), TINYIMG_OK);
-    r |= assertEquals(tiny_image_convert_channels(&grey8, 1), TINYIMG_OK);
+    TinyImage gray8;
+    r |= assertEquals(tiny_image_load(&gray8, bytes, size), TINYIMG_OK);
+    r |= assertEquals(tiny_image_convert_channels(&gray8, 1), TINYIMG_OK);
 
     r |= assertEquals(tiny_writer_init(&writer, 0), TINYIMG_OK);
     r |= assertEquals(
-        tiny_image_encode(&grey8, TINYIMG_FORMAT_BMP, 0, &writer), TINYIMG_OK
+        tiny_image_encode(&gray8, TINYIMG_FORMAT_BMP, 0, &writer), TINYIMG_OK
     );
 
     // 14 + 40 + 1024 palette + 320 * 180
@@ -567,13 +567,13 @@ int main(void) {
     );
     r |= assertEquals((long) again.channels, 3L);
 
-    int greyRoundTrip = 1;
+    int grayRoundTrip = 1;
     for (uint32_t i = 0; i < 320 * 180; i++) {
-        if (again.data[i * 3] != grey8.data[i]) greyRoundTrip = 0;
+        if (again.data[i * 3] != gray8.data[i]) grayRoundTrip = 0;
     }
-    r |= assertTrue(greyRoundTrip);
+    r |= assertTrue(grayRoundTrip);
     tiny_image_destroy(&again);
-    tiny_image_destroy(&grey8);
+    tiny_image_destroy(&gray8);
     tiny_writer_free(&writer);
 
     r |= assertEquals(
@@ -606,7 +606,7 @@ int main(void) {
         r |= assertEquals((long) rle.channels, 3L);
 
         // the same source image through two independent BMP encoders, so the
-        // gap is the 256 colour palette and nothing else
+        // gap is the 256 color palette and nothing else
         r |= assertPSNR(rle.data, full.data, (size_t) 320 * 180 * 3, 28.0);
 
         // a region of an RLE8 file expands the plane first, and still has to
