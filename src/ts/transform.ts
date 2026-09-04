@@ -74,6 +74,9 @@ const ORDER = [
  * @return The same image, for chaining.
  */
 export function apply(image: Image, options: TransformOptions): Image {
+	// one option, both sides: the decoder drops its smoothing pass and the encoder bounds its search
+	if (options.effort !== undefined) image.effort(options.effort);
+
 	if (options.background !== undefined) image.background(options.background);
 
 	if (options.crop) {
