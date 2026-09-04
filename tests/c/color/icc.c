@@ -173,10 +173,10 @@ static int srgb_is_the_identity(void) {
 }
 
 /**
- * @brief A wide gamut colour converts inward, and a neutral one stays neutral.
+ * @brief A wide gamut color converts inward, and a neutral one stays neutral.
  *
  * Full red in P3 is outside sRGB, so converting it has to clip rather than
- * stay at 255 across the board, and grey has to stay grey: an adaptation
+ * stay at 255 across the board, and gray has to stay gray: an adaptation
  * applied in the wrong direction breaks the second of those first.
  */
 static int conversion_moves_the_right_way(void) {
@@ -196,15 +196,15 @@ static int conversion_moves_the_right_way(void) {
     failures += assertLessThan(out[1], 20);
     failures += assertLessThan(out[2], 20);
 
-    // a mid grey is inside both gamuts and both are D50 adapted, so it has to
+    // a mid gray is inside both gamuts and both are D50 adapted, so it has to
     // come back neutral and at the same level
-    uint8_t grey[3] = {128, 128, 128};
-    failures += assertEquals(tiny_icc_to_srgb(&p3, grey, out), 0);
+    uint8_t gray[3] = {128, 128, 128};
+    failures += assertEquals(tiny_icc_to_srgb(&p3, gray, out), 0);
 
     failures += assertIn((double) out[0], 126.0, 130.0);
 
     // the three channels go through three matrix rows and round separately, so
-    // a level between them is the arithmetic rather than a colour cast; an
+    // a level between them is the arithmetic rather than a color cast; an
     // adaptation applied in the wrong direction is worth tens of levels here
     int32_t spread = 0;
 
@@ -297,7 +297,7 @@ static int matrix_between(void) {
     }
 
     // and P3 to sRGB expands: the off-diagonal terms are what pull a
-    // saturated P3 colour back inside sRGB, so they cannot all be zero
+    // saturated P3 color back inside sRGB, so they cannot all be zero
     TinyIccProfile srgb;
     failures += assertEquals(tiny_icc_srgb(&srgb), 0);
     failures += assertEquals(tiny_icc_matrix_between(m, &p3, &srgb), 0);
@@ -305,7 +305,7 @@ static int matrix_between(void) {
     failures += assertGreaterThan(m[0], 1.0f);
     failures += assertLessThan(m[1], 0.0f);
 
-    // each row sums to one, or a neutral colour would not stay neutral
+    // each row sums to one, or a neutral color would not stay neutral
     for (uint32_t row = 0; row < 3u; row++) {
         float sum = m[row * 3u] + m[row * 3u + 1u] + m[row * 3u + 2u];
 
@@ -319,7 +319,7 @@ static int matrix_between(void) {
  * @brief Our conversion against ImageMagick's, through the same profile.
  *
  * The reference is `magick -profile srgb.icc` over the tagged source, so this
- * compares against a colour managed reader's answer rather than against our
+ * compares against a color managed reader's answer rather than against our
  * own arithmetic rearranged. It is what catches a curve read in the wrong
  * direction: that produces a profile which round-trips against itself
  * perfectly and disagrees with everybody else.

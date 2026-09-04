@@ -93,7 +93,7 @@ static int landmarks(void) {
     tiny_rgb_to_hsv(0, 0, 255, &h, &s, &v);
     failures += assertFloatEquals(h, 240.0f, 0.01f);
 
-    // grey has no hue and no saturation, at any level
+    // gray has no hue and no saturation, at any level
     tiny_rgb_to_hsv(128, 128, 128, &h, &s, &v);
     failures += assertFloatEquals(s, 0.0f, 0.01f);
     failures += assertFloatEquals(v, 128.0f / 255.0f, 0.01f);
@@ -133,7 +133,7 @@ static int landmarks(void) {
     failures += assertFloatEquals(m, 0.0f, 0.01f);
     failures += assertFloatEquals(ye, 0.0f, 0.01f);
 
-    // greyscale both ways
+    // grayscale both ways
     failures += assertEquals(tiny_rgb_to_grayscale(255, 255, 255), 255);
     failures += assertEquals(tiny_rgb_to_grayscale(0, 0, 0), 0);
 
