@@ -2163,7 +2163,7 @@ static void predict_block(uint8_t* dest, uint32_t size, uint32_t mode) {
 
             for (uint32_t i = 0; i < size; i++) {
                 sum += top[i];
-                sum += dest[(size_t) i * VP8_BPS - 1];
+                sum += (dest - 1)[(size_t) i * VP8_BPS];
             }
 
             fill_block(dest, size, (uint8_t) (sum / (2u * size)));
@@ -2201,7 +2201,7 @@ static void predict_block(uint8_t* dest, uint32_t size, uint32_t mode) {
             uint32_t sum = size / 2u;
 
             for (uint32_t i = 0; i < size; i++) {
-                sum += dest[(size_t) i * VP8_BPS - 1];
+                sum += (dest - 1)[(size_t) i * VP8_BPS];
             }
 
             fill_block(dest, size, (uint8_t) (sum / size));
@@ -2237,7 +2237,7 @@ static void predict_subblock(uint8_t* dest, uint32_t mode) {
     uint8_t edge[9];
 
     for (uint32_t i = 0; i < 4; i++) {
-        left[i] = dest[(size_t) i * VP8_BPS - 1];
+        left[i] = (dest - 1)[(size_t) i * VP8_BPS];
     }
 
     edge[0] = left[3];
@@ -2785,8 +2785,14 @@ static void load_borders(
         const uint8_t* source = vp8->y + (size_t) mb_y * 16u * vp8->y_stride +
                                 (size_t) mb_x * 16u - 1u;
 
+        // the column left of the block, taken as its own base rather than as
+        // a negative offset from y: `i * VP8_BPS - 1` in size_t arithmetic is
+        // y + SIZE_MAX at i == 0, which is undefined pointer arithmetic even
+        // though every real target computes the address this wants
+        uint8_t* y_left = y - 1;
+
         for (uint32_t i = 0; i < 16; i++) {
-            y[(size_t) i * VP8_BPS - 1] = source[(size_t) i * vp8->y_stride];
+            y_left[(size_t) i * VP8_BPS] = source[(size_t) i * vp8->y_stride];
         }
 
         const uint8_t* cu = vp8->u + (size_t) mb_y * 8u * vp8->uv_stride +
@@ -2794,18 +2800,25 @@ static void load_borders(
         const uint8_t* cv = vp8->v + (size_t) mb_y * 8u * vp8->uv_stride +
                             (size_t) mb_x * 8u - 1u;
 
+        uint8_t* u_left = u - 1;
+        uint8_t* v_left = v - 1;
+
         for (uint32_t i = 0; i < 8; i++) {
-            u[(size_t) i * VP8_BPS - 1] = cu[(size_t) i * vp8->uv_stride];
-            v[(size_t) i * VP8_BPS - 1] = cv[(size_t) i * vp8->uv_stride];
+            u_left[(size_t) i * VP8_BPS] = cu[(size_t) i * vp8->uv_stride];
+            v_left[(size_t) i * VP8_BPS] = cv[(size_t) i * vp8->uv_stride];
         }
     }
     else {
+        uint8_t* y_left = y - 1;
+        uint8_t* u_left = u - 1;
+        uint8_t* v_left = v - 1;
+
         for (uint32_t i = 0; i < 16; i++) {
-            y[(size_t) i * VP8_BPS - 1] = 129;
+            y_left[(size_t) i * VP8_BPS] = 129;
         }
         for (uint32_t i = 0; i < 8; i++) {
-            u[(size_t) i * VP8_BPS - 1] = 129;
-            v[(size_t) i * VP8_BPS - 1] = 129;
+            u_left[(size_t) i * VP8_BPS] = 129;
+            v_left[(size_t) i * VP8_BPS] = 129;
         }
     }
 
@@ -3060,7 +3073,7 @@ static void upsample_pair(
  * be cut to exactly the rows a caller reads rather than to a raster prefix.
  */
 static void planes_to_rgba(
-    const Vp8Decoder* vp8, uint8_t* rgba, uint32_t rows
+    const Vp8Decoder* vp8, uint8_t* rgba, size_t dest_stride, uint32_t rows
 ) {
     uint32_t width = vp8->width;
     uint32_t full = vp8->height;
@@ -3068,7 +3081,12 @@ static void planes_to_rgba(
     // one row pair beyond the request, so every row a caller reads still gets
     // the chroma pair its position calls for
     uint32_t height = (rows + 2u >= full) ? full : rows + 2u;
-    size_t row_bytes = (size_t) width * 4u;
+
+    // the destination is the canvas, which an animation's frame can be smaller
+    // than, so the row pitch is the caller's rather than this frame's width;
+    // striding by the frame width instead slides every row left and returns
+    // whatever the allocator left past the frame
+    size_t row_bytes = dest_stride;
 
     const uint8_t* first_u = vp8->u;
     const uint8_t* first_v = vp8->v;
@@ -3128,10 +3146,16 @@ static void planes_to_rgba(
  */
 static int decode_lossy(
     const uint8_t* data, size_t size, uint32_t width, uint32_t height,
-    uint8_t* rgba, uint32_t rows, uint8_t effort
+    uint8_t* rgba, uint32_t rows, uint8_t effort, Vp8Decoder** planes
 ) {
     uint32_t coded_width = 0;
     uint32_t coded_height = 0;
+
+    if (planes) *planes = 0;
+
+    // the caller sized rgba by the canvas, which is what the row pitch has to
+    // be even when this frame covers less of it
+    size_t dest_stride = (size_t) width * 4u;
 
     int result = parse_vp8(data, size, &coded_width, &coded_height);
     if (result != TINYIMG_OK) return result;
@@ -3286,7 +3310,14 @@ static int decode_lossy(
      */
     if (effort != TINYIMG_EFFORT_FAST) filter_frame(vp8, mb_rows);
 
-    planes_to_rgba(vp8, rgba, wanted);
+    // a scaled request averages the planes itself, so converting the frame
+    // here would convert den^2 samples for every one it keeps
+    if (planes) {
+        *planes = vp8;
+        return TINYIMG_OK;
+    }
+
+    planes_to_rgba(vp8, rgba, dest_stride, wanted);
 
     // a frame coded larger than the canvas leaves the rest of the plane as the
     // caller had it, which for a still image cannot happen and for an animation
@@ -5729,6 +5760,107 @@ static void resample_region(
     }
 }
 
+/**
+ * Averages the planes over each output pixel's box, converting once per box.
+ *
+ * The same reduction `resample_region` performs, with the conversion moved to
+ * after the average instead of before it. Both orders are the same arithmetic
+ * up to the clamp, because the conversion is affine in Y, U and V, so this
+ * runs it once per output pixel where the other ran it `den * den` times and
+ * needed a full frame of RGBA to hold the results.
+ *
+ * Chroma is averaged over the box's own chroma extent rather than over the
+ * triangle upsample of it. The upsample exists to keep a diagonal edge from
+ * looking blocky at full size; the mean of a box is what a reduction wants,
+ * and the file has no finer chroma to reduce. That is why this is a FAST
+ * kernel: it is a defensible reduction and it is not the exact one.
+ */
+static void planes_to_region(
+    const Vp8Decoder* vp8, const uint8_t* alpha, const TinyDecodeOpts* resolved,
+    TinyImage* image
+) {
+    uint32_t den = resolved->scale_den;
+    uint8_t channels = image->channels;
+
+    uint32_t right_edge = resolved->x + resolved->width;
+    uint32_t bottom_edge = resolved->y + resolved->height;
+
+    for (uint32_t oy = 0; oy < image->height; oy++) {
+        uint8_t* dest = image->data + (size_t) oy * image->width * channels;
+
+        uint32_t top = resolved->y + oy * den;
+        uint32_t bottom = top + den;
+
+        if (bottom > bottom_edge) bottom = bottom_edge;
+
+        for (uint32_t ox = 0; ox < image->width; ox++) {
+            uint32_t left = resolved->x + ox * den;
+            uint32_t right = left + den;
+
+            if (right > right_edge) right = right_edge;
+
+            uint32_t luma = 0;
+            uint32_t alpha_sum = 0;
+            uint32_t taken = 0;
+
+            for (uint32_t y = top; y < bottom; y++) {
+                const uint8_t* row = vp8->y + (size_t) y * vp8->y_stride;
+
+                for (uint32_t x = left; x < right; x++) {
+                    luma += row[x];
+                    taken++;
+                }
+
+                if (alpha) {
+                    const uint8_t* arow = alpha + (size_t) y * vp8->width;
+
+                    for (uint32_t x = left; x < right; x++) {
+                        alpha_sum += arow[x];
+                    }
+                }
+            }
+
+            if (taken == 0) taken = 1;
+
+            // the box's chroma extent; the fold runs at den 2 and up, so the
+            // box spans at least two luma columns and this cannot come out
+            // empty
+            uint32_t cleft = left >> 1;
+            uint32_t ctop = top >> 1;
+            uint32_t cright = (right + 1u) >> 1;
+            uint32_t cbottom = (bottom + 1u) >> 1;
+
+            uint32_t chroma_u = 0;
+            uint32_t chroma_v = 0;
+            uint32_t chroma_taken = 0;
+
+            for (uint32_t y = ctop; y < cbottom; y++) {
+                const uint8_t* urow = vp8->u + (size_t) y * vp8->uv_stride;
+                const uint8_t* vrow = vp8->v + (size_t) y * vp8->uv_stride;
+
+                for (uint32_t x = cleft; x < cright; x++) {
+                    chroma_u += urow[x];
+                    chroma_v += vrow[x];
+                    chroma_taken++;
+                }
+            }
+
+            uint8_t pixel[4];
+            yuv_to_rgb(
+                (int32_t) ((luma + taken / 2u) / taken),
+                (int32_t) ((chroma_u + chroma_taken / 2u) / chroma_taken),
+                (int32_t) ((chroma_v + chroma_taken / 2u) / chroma_taken), pixel
+            );
+
+            if (alpha) pixel[3] = (uint8_t) ((alpha_sum + taken / 2u) / taken);
+
+            tiny_pixel_convert(
+                dest + (size_t) ox * channels, channels, pixel, 4
+            );
+        }
+    }
+}
+
 static int webp_decode(
     TinyImage* image, const uint8_t* buffer, size_t size,
     const TinyDecodeOpts* options
@@ -5754,14 +5886,30 @@ static int webp_decode(
     tiny_arena_mark(&mark);
 
     size_t count = (size_t) header.width * header.height;
-    uint8_t* rgba = tiny_arena_alloc(count * 4u, 4);
 
-    if (!rgba) {
+    /*
+     * A scaled lossy request can average the planes straight into the output,
+     * needing neither this plane nor the conversion that fills it.
+     *
+     * It is behind FAST because it is not the same reduction. Averaging the
+     * chroma plane over the box is not averaging the triangle upsample of it,
+     * and the conversion's clamp lands after the average instead of before, so
+     * the result is within 39.6 dB of the exact box average rather than equal
+     * to it. FANCY keeps the exactness, and with it the property that a scaled
+     * WebP and a scaled PNG of one picture agree.
+     */
+    int folded = !header.lossless && resolved.scale_den > 1u &&
+                 resolved.effort == TINYIMG_EFFORT_FAST;
+    uint8_t* rgba = folded ? 0 : tiny_arena_alloc(count * 4u, 4);
+
+    if (!folded && !rgba) {
         tiny_arena_release(&mark);
         return TINYIMG_ERR_MEMORY;
     }
 
     const uint8_t* stream = buffer + header.bitstream_at;
+    Vp8Decoder* planes = 0;
+    uint8_t* alpha_plane = 0;
 
     if (header.lossless) {
         uint32_t width = 0;
@@ -5794,14 +5942,42 @@ static int webp_decode(
         }
     }
     else {
+        // a lossy frame smaller than the canvas leaves the rest transparent,
+        // the same way the lossless path above does. Without this the gap is
+        // whatever the arena last held and it is returned as image data, and
+        // the coded extent is not known out here to make it conditional
+        if (rgba) tiny_memset(rgba, 0, count * 4u);
+
         // an alpha chunk is decoded over the whole plane, so it needs all of it
         uint32_t rows =
             header.alpha_at ? header.height : resolved.y + resolved.height;
 
         result = decode_lossy(
             stream, header.bitstream_size, header.width, header.height, rgba,
-            rows, resolved.effort
+            rows, resolved.effort, folded ? &planes : 0
         );
+
+        /*
+         * The fold reads the planes directly, so a frame coded smaller than
+         * the canvas has no zeroed gap to fall into. Only a VP8X file can be
+         * in that shape, and it converts through the plane the way it did.
+         */
+        if (result == TINYIMG_OK && folded &&
+            (planes->width != header.width ||
+             planes->height != header.height)) {
+            rgba = tiny_arena_alloc(count * 4u, 4);
+
+            if (!rgba) {
+                result = TINYIMG_ERR_MEMORY;
+            }
+            else {
+                tiny_memset(rgba, 0, count * 4u);
+                planes_to_rgba(planes, rgba, (size_t) header.width * 4u, rows);
+            }
+
+            folded = 0;
+            planes = 0;
+        }
 
         if (result == TINYIMG_OK && header.alpha_at) {
             uint8_t* plane = tiny_arena_alloc(count, 0);
@@ -5815,7 +5991,10 @@ static int webp_decode(
                     header.height, plane
                 );
 
-                if (result == TINYIMG_OK) {
+                if (result == TINYIMG_OK && folded) {
+                    alpha_plane = plane;
+                }
+                else if (result == TINYIMG_OK) {
                     for (size_t i = 0; i < count; i++) {
                         rgba[i * 4u + 3] = plane[i];
                     }
@@ -5839,7 +6018,13 @@ static int webp_decode(
         return result;
     }
 
-    resample_region(rgba, header.width, &resolved, image);
+    if (folded) {
+        planes_to_region(planes, alpha_plane, &resolved, image);
+    }
+    else {
+        resample_region(rgba, header.width, &resolved, image);
+    }
+
     tiny_arena_release(&mark);
 
     image->format = TINYIMG_FORMAT_WEBP;

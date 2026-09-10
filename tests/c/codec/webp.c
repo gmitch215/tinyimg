@@ -76,6 +76,81 @@ static const unsigned char kPlaneCodes[120] = {
     0x51, 0x5f, 0x40, 0x72, 0x7e, 0x61, 0x6f, 0x50, 0x71, 0x7f, 0x60, 0x70
 };
 
+/**
+ * Box averages a decoded image, which is what a scaled decode promises.
+ *
+ * Written here rather than reused from the codec so the assertion has an
+ * independent second implementation to compare against.
+ */
+static int boxReduce(const TinyImage* full, uint32_t den, TinyImage* out) {
+    int result = tiny_image_create(
+        out, (full->width + den - 1u) / den, (full->height + den - 1u) / den,
+        full->channels
+    );
+
+    if (result != TINYIMG_OK) return result;
+
+    for (uint32_t oy = 0; oy < out->height; oy++) {
+        for (uint32_t ox = 0; ox < out->width; ox++) {
+            uint32_t bottom = (oy + 1u) * den;
+            uint32_t right = (ox + 1u) * den;
+
+            if (bottom > full->height) bottom = full->height;
+            if (right > full->width) right = full->width;
+
+            uint32_t sums[4] = {0, 0, 0, 0};
+            uint32_t taken = 0;
+
+            for (uint32_t y = oy * den; y < bottom; y++) {
+                for (uint32_t x = ox * den; x < right; x++) {
+                    const uint8_t* pixel =
+                        full->data +
+                        ((size_t) y * full->width + x) * full->channels;
+
+                    for (uint8_t c = 0; c < full->channels; c++) {
+                        sums[c] += pixel[c];
+                    }
+
+                    taken++;
+                }
+            }
+
+            if (taken == 0) taken = 1;
+
+            uint8_t* dest =
+                out->data + ((size_t) oy * out->width + ox) * out->channels;
+
+            for (uint8_t c = 0; c < out->channels; c++) {
+                dest[c] = (uint8_t) ((sums[c] + taken / 2u) / taken);
+            }
+        }
+    }
+
+    return TINYIMG_OK;
+}
+
+/** Copies a rectangle out of an image, so a region can be checked at scale. */
+static int cropImage(
+    const TinyImage* whole, uint32_t x, uint32_t y, uint32_t width,
+    uint32_t height, TinyImage* out
+) {
+    int result = tiny_image_create(out, width, height, whole->channels);
+    if (result != TINYIMG_OK) return result;
+
+    for (uint32_t row = 0; row < height; row++) {
+        const uint8_t* from =
+            whole->data +
+            ((size_t) (y + row) * whole->width + x) * whole->channels;
+
+        tiny_memcpy(
+            out->data + (size_t) row * width * whole->channels, from,
+            (size_t) width * whole->channels
+        );
+    }
+
+    return TINYIMG_OK;
+}
+
 int main(void) {
     int r = 0;
 
@@ -920,6 +995,333 @@ int main(void) {
     r |= assertEquals(
         tiny_image_encode(0, TINYIMG_FORMAT_WEBP, 0, 0), TINYIMG_ERR_NULL
     );
+
+    // #endregion
+
+    // #region a canvas larger than the frame inside it
+
+    // the output is sized by the VP8X canvas while the frame covers less of
+    // it, and the converter used to stride by the frame's width, which slid
+    // every row left and returned whatever the arena last held as image data.
+    // The arena is filled and released first so a disclosure shows as a
+    // recognizable pattern rather than as plausible pixels
+    TinyArenaMark poison;
+    tiny_arena_mark(&poison);
+
+    uint8_t* scratch = tiny_arena_alloc(1u << 20, 0);
+    if (scratch) tiny_memset(scratch, 0xAB, 1u << 20);
+
+    tiny_arena_release(&poison);
+
+    size_t canvasSize = 0;
+    unsigned char* canvasBytes =
+        readFixture("derived/malformed/webp-canvas-mismatch.webp", &canvasSize);
+
+    r |= assertNotNull(canvasBytes);
+
+    if (canvasBytes) {
+        TinyImage canvas;
+
+        if (tiny_image_decode(&canvas, canvasBytes, canvasSize, 0) ==
+            TINYIMG_OK) {
+            // the frame is 320 wide inside a 512 wide canvas, so everything
+            // from column 320 on is padding and has to be transparent
+            int padded = 1;
+
+            for (uint32_t y = 0; y < canvas.height; y += 16u) {
+                for (uint32_t x = 320; x < canvas.width; x++) {
+                    const uint8_t* pixel =
+                        canvas.data +
+                        ((size_t) y * canvas.width + x) * canvas.channels;
+
+                    for (uint8_t c = 0; c < canvas.channels; c++) {
+                        if (pixel[c] != 0) padded = 0;
+                    }
+                }
+            }
+
+            r |= assertTrue(padded);
+            tiny_image_destroy(&canvas);
+        }
+
+        free(canvasBytes);
+    }
+
+    // #endregion
+
+    // #region scaled decode
+
+    /*
+     * The scaled decode's contract, which nothing asserted before.
+     *
+     * `TinyDecodeOpts` promises a box average rather than a nearest neighbor
+     * pick, and `resample_region` promises that a scaled WebP and a scaled PNG
+     * of one picture therefore agree. At FANCY that is exact, so the assertion
+     * is equality against a box average computed here.
+     */
+    static const char* const scaledFixtures[] = {
+        "toyota_racing.webp", "derived/base-lossy.webp",
+        "derived/base-lossy-alpha.webp", "derived/base-lossless.webp",
+        "derived/base-alpha.webp"
+    };
+
+    for (size_t i = 0; i < sizeof(scaledFixtures) / sizeof(*scaledFixtures);
+         i++) {
+        TinyImage full;
+
+        if (decodeFixture(scaledFixtures[i], &full, 0) != TINYIMG_OK) {
+            r |= assertTrue(0);
+            continue;
+        }
+
+        for (uint32_t den = 2; den <= 8u; den *= 2u) {
+            TinyDecodeOpts opts = {0, 0, 0, 0, (uint8_t) den, 0, 0};
+            TinyImage got;
+
+            if (decodeWith(scaledFixtures[i], &got, &opts) != TINYIMG_OK) {
+                r |= assertTrue(0);
+                continue;
+            }
+
+            TinyImage want;
+
+            if (boxReduce(&full, den, &want) == TINYIMG_OK) {
+                r |= assertImageEquals(&got, &want);
+                tiny_image_destroy(&want);
+            }
+            else {
+                r |= assertTrue(0);
+            }
+
+            tiny_image_destroy(&got);
+        }
+
+        tiny_image_destroy(&full);
+    }
+
+    /*
+     * FAST averages the planes instead, which is 2.05x-3.35x for a reduction
+     * that is no longer the exact one: the chroma mean is taken over the box's
+     * chroma samples rather than over the triangle upsample of them, and the
+     * conversion clamps once per output pixel instead of once per source
+     * pixel. The floor is the measurement, 38.86 dB and 46 levels on the
+     * fixture that moves most.
+     *
+     * Alpha has no chroma and no clamp, so it stays exact and is asserted as
+     * equality rather than against a floor.
+     */
+    for (size_t i = 0; i < sizeof(scaledFixtures) / sizeof(*scaledFixtures);
+         i++) {
+        TinyImage full;
+
+        if (decodeFixture(scaledFixtures[i], &full, 0) != TINYIMG_OK) {
+            r |= assertTrue(0);
+            continue;
+        }
+
+        for (uint32_t den = 2; den <= 8u; den *= 2u) {
+            TinyDecodeOpts opts = {
+                0, 0, 0, 0, (uint8_t) den, 0, TINYIMG_EFFORT_FAST
+            };
+            TinyImage got;
+
+            if (decodeWith(scaledFixtures[i], &got, &opts) != TINYIMG_OK) {
+                r |= assertTrue(0);
+                continue;
+            }
+
+            TinyImage want;
+
+            if (boxReduce(&full, den, &want) != TINYIMG_OK) {
+                r |= assertTrue(0);
+                tiny_image_destroy(&got);
+                continue;
+            }
+
+            r |= assertEquals(got.width, want.width);
+            r |= assertEquals(got.height, want.height);
+            r |= assertPSNR(
+                got.data, want.data,
+                (size_t) got.width * got.height * got.channels, 38.0
+            );
+
+            if (got.channels == 4) {
+                int exact = 1;
+                size_t pixels = (size_t) got.width * got.height;
+
+                for (size_t at = 0; at < pixels; at++) {
+                    if (got.data[at * 4u + 3u] != want.data[at * 4u + 3u]) {
+                        exact = 0;
+                    }
+                }
+
+                r |= assertTrue(exact);
+            }
+
+            /*
+             * Luminance rather than the channels, because the fold averages
+             * luma directly and only reorders chroma: the mean luminance
+             * barely moves where a per channel mean carries the chroma
+             * difference too. Measured 0.152 at worst across these fixtures
+             * against 0.409 with the luma average's rounding step removed,
+             * which is what this bound is set from. The floor above has far
+             * too much slack to see half a level of bias.
+             *
+             * The chroma averages' own rounding is not separately covered;
+             * it moves luminance by 0.001 and blue by a tenth of a level.
+             */
+            double shift = 0;
+            size_t pixelCount = (size_t) got.width * got.height;
+
+            for (size_t at = 0; at < pixelCount; at++) {
+                const uint8_t* mine = got.data + at * got.channels;
+                const uint8_t* theirs = want.data + at * want.channels;
+
+                shift += 0.299 * ((double) mine[0] - theirs[0]) +
+                         0.587 * ((double) mine[1] - theirs[1]) +
+                         0.114 * ((double) mine[2] - theirs[2]);
+            }
+
+            shift /= (double) pixelCount;
+            r |= assertLessThan(shift < 0 ? -shift : shift, 0.25);
+
+            tiny_image_destroy(&want);
+            tiny_image_destroy(&got);
+        }
+
+        tiny_image_destroy(&full);
+    }
+
+    /*
+     * The fold is engaged, which every assertion above passes without.
+     *
+     * Disabling it makes FAST byte-identical to FANCY, and a floor is a lower
+     * bound that exactness satisfies, so nothing else here can tell the lever
+     * stopped working. This is the assertion that fails when it does.
+     */
+    {
+        // both sides at FAST, because FAST also skips the deblocking filter
+        // and a FANCY reference would differ from that alone
+        TinyDecodeOpts whole = {0, 0, 0, 0, 1, 0, TINYIMG_EFFORT_FAST};
+        TinyDecodeOpts fast = {0, 0, 0, 0, 4, 0, TINYIMG_EFFORT_FAST};
+        TinyImage full;
+        TinyImage folded;
+
+        if (decodeWith("toyota_racing.webp", &full, &whole) == TINYIMG_OK &&
+            decodeWith("toyota_racing.webp", &folded, &fast) == TINYIMG_OK) {
+            TinyImage exact;
+
+            if (boxReduce(&full, 4, &exact) == TINYIMG_OK) {
+                int differs = 0;
+                size_t samples =
+                    (size_t) folded.width * folded.height * folded.channels;
+
+                for (size_t at = 0; at < samples; at++) {
+                    if (folded.data[at] != exact.data[at]) differs = 1;
+                }
+
+                r |= assertTrue(differs);
+                tiny_image_destroy(&exact);
+            }
+
+            tiny_image_destroy(&folded);
+            tiny_image_destroy(&full);
+        }
+        else {
+            r |= assertTrue(0);
+        }
+    }
+
+    /*
+     * A region whose extent is not a multiple of the denominator, taken from
+     * an offset that puts both far edges on an odd coordinate. The last box in
+     * each axis is then a partial one whose chroma extent is rounded up, which
+     * is the only shape a whole image request never produces.
+     */
+    for (uint8_t effort = 0; effort <= TINYIMG_EFFORT_FAST; effort++) {
+        TinyDecodeOpts odd = {37, 40, 106, 9, 4, 0, effort};
+        TinyDecodeOpts whole = {0, 0, 0, 0, 1, 0, effort};
+        TinyImage got;
+        TinyImage full;
+
+        if (decodeWith("toyota_racing.webp", &got, &odd) == TINYIMG_OK &&
+            decodeWith("toyota_racing.webp", &full, &whole) == TINYIMG_OK) {
+            TinyImage crop;
+            TinyImage want;
+
+            r |= assertEquals(got.width, 27);
+            r |= assertEquals(got.height, 3);
+
+            if (cropImage(&full, 37, 40, 106, 9, &crop) == TINYIMG_OK) {
+                if (boxReduce(&crop, 4, &want) == TINYIMG_OK) {
+                    // the offsets are what this is really checking, so the
+                    // expectation is the reduced crop rather than a range: a
+                    // dropped offset still produces a plausible picture
+                    if (effort == TINYIMG_EFFORT_FAST) {
+                        // the patch is chroma flat, so the fold lands on the
+                        // box average exactly here and the floor can be set
+                        // high enough to catch a shifted read
+                        r |= assertPSNR(
+                            got.data, want.data,
+                            (size_t) got.width * got.height * got.channels, 45.0
+                        );
+                    }
+                    else {
+                        r |= assertImageEquals(&got, &want);
+                    }
+
+                    tiny_image_destroy(&want);
+                }
+                else {
+                    r |= assertTrue(0);
+                }
+
+                tiny_image_destroy(&crop);
+            }
+            else {
+                r |= assertTrue(0);
+            }
+
+            tiny_image_destroy(&full);
+            tiny_image_destroy(&got);
+        }
+        else {
+            r |= assertTrue(0);
+        }
+    }
+
+    /*
+     * A frame coded smaller than its canvas has no zeroed gap to average, so
+     * the fold steps aside and the padding stays transparent at either effort.
+     */
+    for (uint8_t effort = 0; effort <= TINYIMG_EFFORT_FAST; effort++) {
+        TinyDecodeOpts opts = {0, 0, 0, 0, 4, 0, effort};
+        TinyImage canvas;
+
+        if (decodeWith(
+                "derived/malformed/webp-canvas-mismatch.webp", &canvas, &opts
+            ) == TINYIMG_OK) {
+            int padded = 1;
+
+            for (uint32_t y = 0; y < canvas.height; y++) {
+                for (uint32_t x = 320u / 4u; x < canvas.width; x++) {
+                    const uint8_t* pixel =
+                        canvas.data +
+                        ((size_t) y * canvas.width + x) * canvas.channels;
+
+                    for (uint8_t c = 0; c < canvas.channels; c++) {
+                        if (pixel[c] != 0) padded = 0;
+                    }
+                }
+            }
+
+            r |= assertTrue(padded);
+            tiny_image_destroy(&canvas);
+        }
+        else {
+            r |= assertTrue(0);
+        }
+    }
 
     // #endregion
 
