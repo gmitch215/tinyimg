@@ -1,6 +1,6 @@
 {
 	"name": "@gmitch215/tinyimg",
-	"version": "1.0.1",
+	"version": "1.1.0",
 	"type": "module",
 	"description": "Image toolkit library for Cloudflare Workers",
 	"license": "MIT",
@@ -41,6 +41,8 @@
 		"bench": "bun bench/run.ts",
 		"fixtures": "bun scripts/fixtures.ts",
 		"fixtures:check": "bun scripts/fixtures.ts --check",
+		"tables": "bun scripts/vp8-tables.ts && bun scripts/av1-tables.ts && bun scripts/blobs-builtin.ts",
+		"tables:check": "bun scripts/vp8-tables.ts --check && bun scripts/av1-tables.ts --check && bun scripts/blobs-builtin.ts --check",
 		"blobs": "bun scripts/fixtures.ts --blobs",
 		"format": "bash format.sh && prettier --write .",
 		"format:check": "bash check-format.sh && prettier --check .",
