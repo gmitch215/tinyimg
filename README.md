@@ -971,4 +971,10 @@ bun run test
 
 ## License
 
-MIT
+MIT.
+
+The module compiles in two third-party works, and their notices ship with the package in
+`LICENSES/`. The Latin face is a subset of DejaVu Sans, under the Bitstream Vera Fonts license
+(`LICENSES/DejaVu.txt`). The two face cascades are packed from OpenCV's LBP data files, under the
+3-clause BSD license (`LICENSES/OpenCV-LBP-Cascades.txt`). The four ICC profiles are generated from
+published primaries and transfer curves rather than copied from anyone's files.
