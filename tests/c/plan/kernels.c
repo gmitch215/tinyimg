@@ -866,14 +866,16 @@ static int encodes(void) {
     tiny_image_destroy(&decoded);
     tiny_writer_free(&writer);
 
-    // a format with no encoder in this build reports that rather than writing
+    // a format with no encoder in this build reports that rather than writing.
+    // AVIF served here until it gained an encoder; HEIF is what is left, and it
+    // is a format value rather than a fixture because nothing writes one
     TinyPlan again;
     tiny_plan_init(&again, bytes, size);
     tiny_plan_resize(&again, 8, 8);
 
     tiny_writer_init(&writer, 0);
     failures += assertEquals(
-        tiny_plan_encode(&again, TINYIMG_FORMAT_AVIF, 0, &writer),
+        tiny_plan_encode(&again, TINYIMG_FORMAT_HEIF, 0, &writer),
         TINYIMG_ERR_UNSUPPORTED_CODEC
     );
     tiny_writer_free(&writer);

@@ -114,6 +114,14 @@ int tiny_plan_set_effort(TinyPlan* plan, uint8_t effort) {
     return TINYIMG_OK;
 }
 
+TINYIMG_EXPORT("tiny_plan_set_budget")
+int tiny_plan_set_budget(TinyPlan* plan, uint32_t microseconds) {
+    if (!plan) return TINYIMG_ERR_NULL;
+
+    plan->budget = microseconds;
+    return TINYIMG_OK;
+}
+
 TINYIMG_EXPORT("tiny_plan_background")
 int tiny_plan_background(TinyPlan* plan, const uint8_t* color) {
     if (!plan) return TINYIMG_ERR_NULL;
@@ -232,19 +240,19 @@ int tiny_plan_rotate(TinyPlan* plan, int32_t degrees) {
 
 TINYIMG_EXPORT("tiny_plan_brightness")
 int tiny_plan_brightness(TinyPlan* plan, float factor) {
-    if (factor < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(factor) || factor < 0.0f) return TINYIMG_ERR_RANGE;
     return plan_scalar(plan, TINYIMG_OP_BRIGHTNESS, factor);
 }
 
 TINYIMG_EXPORT("tiny_plan_contrast")
 int tiny_plan_contrast(TinyPlan* plan, float factor) {
-    if (factor < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(factor) || factor < 0.0f) return TINYIMG_ERR_RANGE;
     return plan_scalar(plan, TINYIMG_OP_CONTRAST, factor);
 }
 
 TINYIMG_EXPORT("tiny_plan_saturation")
 int tiny_plan_saturation(TinyPlan* plan, float factor) {
-    if (factor < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(factor) || factor < 0.0f) return TINYIMG_ERR_RANGE;
     return plan_scalar(plan, TINYIMG_OP_SATURATION, factor);
 }
 
@@ -265,12 +273,12 @@ int tiny_plan_invert(TinyPlan* plan) {
 
 TINYIMG_EXPORT("tiny_plan_gamma")
 int tiny_plan_gamma(TinyPlan* plan, float gamma) {
-    if (gamma <= 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(gamma) || gamma <= 0.0f) return TINYIMG_ERR_RANGE;
     return plan_scalar(plan, TINYIMG_OP_GAMMA, gamma);
 }
 
 static int plan_blur(TinyPlan* plan, float amount, uint8_t gaussian) {
-    if (amount < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(amount) || amount < 0.0f) return TINYIMG_ERR_RANGE;
 
     TinyPlanOp op;
     tiny_memset(&op, 0, sizeof(op));
@@ -414,6 +422,8 @@ uint32_t tiny_plan_field(
         case TINYIMG_FIELD_COLOR_STAGES: return resolution->color_stages;
         case TINYIMG_FIELD_PASSES: return resolution->passes;
         case TINYIMG_FIELD_KERNELS: return resolution->kernels;
+        case TINYIMG_FIELD_COST: return resolution->cost;
+        case TINYIMG_FIELD_DEGRADED: return resolution->degraded;
         default: return 0u;
     }
 }
@@ -1186,7 +1196,25 @@ static void rewrite(
                 ) {
                     // the first resample's output is entirely discarded by the
                     // second, and one resample of the source is better than two
+                    //
+                    // the second operand cannot be copied verbatim: a zero axis
+                    // means keep the ratio, and the ratio it means is the one
+                    // the first resize produces, not the source's. Resolving
+                    // both and storing concrete numbers is what makes the merge
+                    // agree with running the pair eagerly
+                    uint32_t first_w;
+                    uint32_t first_h;
+                    resize_target(&ops[i], w, h, &first_w, &first_h);
+
+                    uint32_t target_w;
+                    uint32_t target_h;
+                    resize_target(
+                        second, first_w, first_h, &target_w, &target_h
+                    );
+
                     ops[i] = *second;
+                    ops[i].resize.width = target_w;
+                    ops[i].resize.height = target_h;
                     merged = 1;
                 }
                 else if (
@@ -1243,7 +1271,17 @@ static void rewrite(
                 double rx;
                 double ry;
 
-                if (next >= 0 && op_reduction(&ops[next], w, h, &rx, &ry) &&
+                // only when the reduction is the very next operation.
+                // next_geometry walks over colour operations, and moving the
+                // blur past the reduction moves it past those too: a blur
+                // commutes with a resample under a scaled sigma, which is the
+                // approximation this rule is licensed to make, but it does not
+                // commute with a LUT and not even with a matrix once the clamp
+                // is counted. Measured on a hard-edged checkerboard reduced 4x,
+                // the licensed approximation is 53.4 dB and reordering across a
+                // colour operation is 13.4 to 18.9 dB
+                if (next == (int32_t) i + 1 &&
+                    op_reduction(&ops[next], w, h, &rx, &ry) &&
                     blur_may_move(rx, ry)) {
                     ops[i].blur.amount /= (float) rx;
                     ops_move_after(ops, i, (uint32_t) next);
@@ -1510,8 +1548,38 @@ static int only_grayscale(const TinyPlanOp* ops, uint32_t count) {
     return seen == 1u;
 }
 
-TINYIMG_EXPORT("tiny_plan_resolve")
-int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
+/**
+ * The cost model lives in its own region, below; a budget makes the resolution
+ * depend on it.
+ */
+static uint32_t cost_of(
+    const TinyPlan* plan, const TinyPlanResolution* resolution
+);
+
+/** One rung of the budget ladder; see tiny_plan_resolve. */
+typedef struct {
+    /** Effort tier to resolve at. */
+    uint8_t effort;
+    /** Non-zero to take nearest for a filter the caller left on AUTO. */
+    uint8_t nearest;
+    /** Halvings of the decode past what the scale ladder picks. */
+    uint8_t steps;
+} Lever;
+
+/**
+ * @brief The resolution at one point on the degrade ladder.
+ *
+ * A zeroed `lever` at the plan's own effort is the plan's undegraded
+ * resolution. Everything else reads from the plan, so this stays a pure
+ * function of its arguments.
+ *
+ * @param plan The plan.
+ * @param lever What to give up.
+ * @param resolution Receives it.
+ */
+static int resolve_at(
+    const TinyPlan* plan, Lever lever, TinyPlanResolution* resolution
+) {
     if (!plan || !resolution) return TINYIMG_ERR_NULL;
 
     tiny_memset(resolution, 0, sizeof(*resolution));
@@ -1568,14 +1636,43 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
         region_width = region_right - region_x;
         region_height = region_bottom - region_y;
 
-        // the largest reduction the decoder can take that still leaves the
-        // resample as many pixels as it means to produce
+        /*
+         * The largest reduction the decoder can take that still leaves the
+         * resample a strict surplus of samples to work from.
+         *
+         * The comparison is the real quotient and not the `ceil(region / den)`
+         * the decoder produces. Matching the ceiling admits the exact fit,
+         * where the resample degenerates to a copy and the decoder's scaler
+         * becomes the only filter in the path; that costs 1.3-2.4 dB against a
+         * Lanczos reference on five of six measured cells for 1.3x-6.0x. The
+         * ladder below takes that trade under a budget rather than on every
+         * resize.
+         */
         for (uint8_t candidate = 8; candidate > 1u; candidate /= 2u) {
             if (geometry.width_src / candidate >= (double) geometry.width &&
                 geometry.height_src / candidate >= (double) geometry.height) {
                 den = candidate;
                 break;
             }
+        }
+
+        /*
+         * A budget can push past that pick, which is the one place this library
+         * asks a decoder for fewer samples than the output needs. The window
+         * arithmetic below is written against `den` rather than against the
+         * ladder, so it follows without a second code path; what changes is
+         * that the resample enlarges instead of reducing and the result is
+         * softer.
+         *
+         * A step that leaves nothing to decode is not taken.
+         */
+        for (uint8_t taken = 0; taken < lever.steps && den < 8u; taken++) {
+            uint32_t next_width = (region_width + den * 2u - 1u) / (den * 2u);
+            uint32_t next_height = (region_height + den * 2u - 1u) / (den * 2u);
+
+            if (next_width == 0u || next_height == 0u) break;
+
+            den = (uint8_t) (den * 2u);
         }
     }
 
@@ -1585,7 +1682,7 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
     resolution->decode.height = region_height;
     resolution->decode.scale_den = den;
     resolution->decode.channels = 0;
-    resolution->decode.effort = plan->effort;
+    resolution->decode.effort = lever.effort;
 
     resolution->decode_width = (region_width + den - 1u) / den;
     resolution->decode_height = (region_height + den - 1u) / den;
@@ -1651,7 +1748,7 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
          * hard to work at what the caller left open, not what to do instead of
          * what they asked for.
          */
-        TinyResampleFilter up = plan->effort == TINYIMG_EFFORT_FAST
+        TinyResampleFilter up = lever.effort == TINYIMG_EFFORT_FAST
                                     ? TINYIMG_FILTER_BILINEAR
                                     : TINYIMG_FILTER_CATMULL_ROM;
 
@@ -1659,6 +1756,14 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
         // that reproduce their own input, so the boundary belongs on this side
         resolution->filter_x = step_x >= 1.0 ? TINYIMG_FILTER_BOX : up;
         resolution->filter_y = step_y >= 1.0 ? TINYIMG_FILTER_BOX : up;
+
+        // a budget's second rung, and the reason it is a rung of its own:
+        // nearest is one tap in either direction, so it is the only filter
+        // whose rate does not depend on which way the resample is going
+        if (lever.nearest) {
+            resolution->filter_x = TINYIMG_FILTER_NEAREST;
+            resolution->filter_y = TINYIMG_FILTER_NEAREST;
+        }
     }
 
     // one source pixel per output pixel, in order, is a copy however it got
@@ -1714,6 +1819,100 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
             TINYIMG_OP_CLASS_NEIGHBORHOOD) {
             resolution->passes++;
         }
+    }
+
+    resolution->cost = cost_of(plan, resolution);
+    return TINYIMG_OK;
+}
+
+TINYIMG_EXPORT("tiny_plan_resolve")
+int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
+    if (!plan || !resolution) return TINYIMG_ERR_NULL;
+
+    Lever none = {plan->effort, 0u, 0u};
+    int result = resolve_at(plan, none, resolution);
+
+    if (result != TINYIMG_OK || plan->budget == 0u ||
+        resolution->cost <= plan->budget) {
+        return result;
+    }
+
+    /*
+     * The ladder, cheapest thing to give up first.
+     *
+     * Effort is the first rung because its cost is already measured and
+     * documented, and because it is two levers in one: a lossy decoder drops
+     * its smoothing pass and an enlargement the caller left on AUTO steps from
+     * the cubic to bilinear. Nearest is the second, which is visible and is
+     * still a filter rather than a different picture. Reductions of the decode
+     * are last, one at a time, because each one is the one thing here that
+     * makes the decoder produce fewer samples than the output needs.
+     *
+     * **The order is not the intuitive one, and a measurement is why.** Under
+     * TINYIMG_FILTER_AUTO, reducing the decode before the filter turns a box
+     * reduction into a bilinear enlargement, and box is half the rate per
+     * output sample; at 600 wide from `mountains.jpg` that rung came out
+     * 22,780 microseconds against 21,801 for no degradation at all, so it
+     * would have served a softer image for more CPU. Once the filter is at
+     * nearest, whose rate is the same in either direction, a coarser decode is
+     * unconditionally cheaper.
+     *
+     * Which rungs are worth taking therefore depends on the request, so the
+     * `cost >= best` guard below decides it per plan rather than a rule about
+     * which rungs go together deciding it once. A named filter, for instance,
+     * has one rate in both directions, so its reduction rung is worth taking
+     * even though its filter rung does not exist.
+     *
+     * Each rung is a whole re-resolve rather than a patch of the previous one.
+     * Patching would be faster and would have to reproduce the window
+     * arithmetic that follows the scale ladder; getting that subtly wrong moves
+     * every sample by a fraction of a pixel and looks nearly right.
+     */
+    static const Lever ladder[5] = {
+        {TINYIMG_EFFORT_FAST, 0u, 0u},
+        {TINYIMG_EFFORT_FAST, 1u, 0u},
+        {TINYIMG_EFFORT_FAST, 1u, 1u},
+        {TINYIMG_EFFORT_FAST, 1u, 2u},
+        {TINYIMG_EFFORT_FAST, 1u, 3u}
+    };
+
+    TinyPlanResolution best = *resolution;
+    TinyResampleFilter baseline_x = resolution->filter_x;
+    TinyResampleFilter baseline_y = resolution->filter_y;
+    uint8_t baseline_den = resolution->decode.scale_den;
+    int chosen = 0;
+
+    for (uint32_t rung = 0; rung < 5u; rung++) {
+        TinyPlanResolution candidate;
+
+        if (resolve_at(plan, ladder[rung], &candidate) != TINYIMG_OK) break;
+
+        // a rung that is not cheaper buys nothing, and taking it would give
+        // something up for free
+        if (candidate.cost >= best.cost) continue;
+
+        best = candidate;
+        chosen = 1;
+
+        if (best.cost <= plan->budget) break;
+    }
+
+    if (chosen) {
+        best.degraded = TINYIMG_DEGRADE_EFFORT;
+
+        // a rung the plan could not take changes nothing, and reporting
+        // something it did not give up would be a lie: an explicitly requested
+        // filter is never overridden, so the filter rung is unavailable to a
+        // caller who named one, and the scale rung is unavailable without a
+        // decoder to ask
+        if (best.filter_x != baseline_x || best.filter_y != baseline_y) {
+            best.degraded |= TINYIMG_DEGRADE_FILTER;
+        }
+        if (best.decode.scale_den > baseline_den) {
+            best.degraded |= TINYIMG_DEGRADE_SCALE;
+        }
+
+        *resolution = best;
     }
 
     return TINYIMG_OK;
@@ -2790,6 +2989,30 @@ static int run_remainder(
 }
 
 /**
+ * Whether an image's alpha channel actually carries transparency.
+ *
+ * A 2 or 4 channel image is only *capable* of it. Most are fully opaque, and
+ * for those the premultiply the resampler would do is arithmetically the
+ * identity, so this decides whether to pay for it. One linear pass over the
+ * alpha samples, against a resample that reads up to sixteen taps per output
+ * pixel; it stops at the first transparent sample, so the common answer is
+ * reached without reading the plane.
+ */
+static int image_has_alpha(const TinyImage* image) {
+    if (!image || !image->data) return 0;
+    if (image->channels != 2u && image->channels != 4u) return 0;
+
+    uint32_t alpha = image->channels - 1u;
+    size_t count = (size_t) image->width * image->height;
+
+    for (size_t i = 0; i < count; i++) {
+        if (image->data[i * image->channels + alpha] != 255u) return 1;
+    }
+
+    return 0;
+}
+
+/**
  * @brief Runs the operations exactly as they were appended, one pass each.
  *
  * The reference the fused path is measured against, and the benchmark's
@@ -2998,8 +3221,12 @@ static int run_fused(
     pass.stages_before = resolution->color_stages_before;
     pass.stages_total = stage_count;
     pass.copies = copies;
-    pass.premultiply =
-        !copies && (source->channels == 2u || source->channels == 4u);
+    // an opaque image needs no premultiply, and paying for one anyway is not
+    // free: it is three multiplies and three divides per tap, at up to sixteen
+    // taps per output pixel, computing `v * 255 / 255`. One pass over the alpha
+    // channel answers the question, which is cheap against the resample it
+    // guards and is skipped entirely when the resample is a copy
+    pass.premultiply = !copies && image_has_alpha(source);
     pass.sample_width = resolution->sample_width;
     pass.sample_height = resolution->sample_height;
     pass.out_channels = resolution->channels;
@@ -3185,42 +3412,165 @@ int tiny_plan_run(const TinyPlan* plan, TinyImage* out) {
  * because a fit spreads one stage's error over every other stage's constant.
  * Re-run the script to recalibrate; a machine of a different speed wants every
  * constant scaled by the same factor, and nothing else changes.
+ *
+ * Recalibrated 2026-09-10 for the `-O2` build, from the median of three runs
+ * with the run-to-run spread checked. Decode fell 1.17x to 1.58x and WebP
+ * encode 1.90x; the other encoders and the colour and neighborhood rates moved
+ * by less than their own spread and were left alone rather than chased into
+ * noise. A constant left unchanged here is a deliberate reading of that spread,
+ * not an oversight.
  */
-#define COST_DECODE_BMP 6868u
-#define COST_DECODE_GIF 9319u
-#define COST_DECODE_JPEG 12622u
-#define COST_DECODE_PNG 15202u
-#define COST_DECODE_WEBP 16467u
-#define COST_DECODE_TIFF 21952u
+#define COST_DECODE_BMP 5668u
+#define COST_DECODE_GIF 6687u
+#define COST_DECODE_JPEG 8004u
+#define COST_DECODE_PNG 12977u
+#define COST_DECODE_WEBP 13673u
+#define COST_DECODE_TIFF 14328u
+#define COST_DECODE_AVIF 26461u
 
 #define COST_ENCODE_BMP 7900u
 #define COST_ENCODE_JPEG 17000u
 #define COST_ENCODE_GIF 50000u
-#define COST_ENCODE_WEBP 74000u
+#define COST_ENCODE_WEBP 39000u
 #define COST_ENCODE_TIFF 240000u
 #define COST_ENCODE_PNG 480000u
 
-#define COST_SAMPLE_NEAREST 33600u
-#define COST_SAMPLE_BOX 39100u
-#define COST_SAMPLE_BILINEAR 81600u
-#define COST_SAMPLE_CATMULL 207700u
+#define COST_SAMPLE_NEAREST 29500u
+#define COST_SAMPLE_BOX 35600u
+#define COST_SAMPLE_BILINEAR 67300u
+#define COST_SAMPLE_CATMULL 155100u
 
 #define COST_COLOR_FIRST 5200u
 #define COST_COLOR_MORE 700u
 #define COST_NEIGHBORHOOD 42400u
 
 /*
- * A scaled decode does not cost its share of the output samples, because a
- * block's transform still takes eight column passes to write four samples per
- * row and the entropy decode does not shrink at all. These are the measured
- * fractions of a full decode, in thousandths, which are exact at the four
- * denominators a codec offers and need nothing the planner has to guess.
+ * What a scaled decode costs as a fraction of a full one, in thousandths, per
+ * format and per denominator.
+ *
+ * These used to be one set of factors applied to every codec, and they were
+ * JPEG's. Only JPEG and BMP have a decode that shrinks: JPEG reduces in the
+ * DCT domain and BMP skips rows, while every other codec decodes the whole
+ * frame and box averages afterwards, so a scaled request buys them nothing and
+ * costs them an averaging pass they would not otherwise run.
+ *
+ * **Three of the seven are above 1000, which is a cost and not a saving.** PNG
+ * is the extreme: at 1.619 a half scale decode costs 62% more than a full one,
+ * because at a denominator of one the row is a single `tiny_memcpy` and above
+ * it the same row goes through `expand_row` and `accumulate`. The shared factor
+ * charged 0.674 there, so the planner believed a 33% saving where the truth is
+ * a 62% penalty, and it would take the scale rung under a budget expecting the
+ * request to get cheaper.
+ *
+ * That also retires the capability rule this was going to need. The ladder
+ * already skips a rung that does not come out cheaper; it was blind rather than
+ * wrong, and correct factors are what let it see. Nothing needs a per-codec
+ * flag saying the rung is unavailable.
+ *
+ * Measured 2026-09-10 by `scripts/measure/calibrate.ts`, five interleaved
+ * repeats of a median of fifteen, spread within 2% on every cell. One pass per
+ * format swung by up to 1.6x between runs and inverted the order of two
+ * formats, which is why the sweep interleaves.
  */
-static uint32_t scale_fraction(uint8_t den) {
+static uint32_t scale_fraction(TinyImageFormat format, uint8_t den) {
+    uint32_t at_half = 1000u;
+    uint32_t at_quarter = 1000u;
+    uint32_t at_eighth = 1000u;
+
+    switch (format) {
+        case TINYIMG_FORMAT_JPEG:
+            at_half = 350u;
+            at_quarter = 290u;
+            at_eighth = 203u;
+            break;
+        case TINYIMG_FORMAT_BMP:
+            at_half = 527u;
+            at_quarter = 384u;
+            at_eighth = 358u;
+            break;
+        case TINYIMG_FORMAT_PNG:
+            at_half = 1619u;
+            at_quarter = 1559u;
+            at_eighth = 1547u;
+            break;
+        case TINYIMG_FORMAT_WEBP:
+            at_half = 1024u;
+            at_quarter = 993u;
+            at_eighth = 975u;
+            break;
+        case TINYIMG_FORMAT_GIF:
+            at_half = 953u;
+            at_quarter = 882u;
+            at_eighth = 872u;
+            break;
+        case TINYIMG_FORMAT_TIFF:
+            at_half = 847u;
+            at_quarter = 811u;
+            at_eighth = 804u;
+            break;
+        case TINYIMG_FORMAT_AVIF:
+            at_half = 919u;
+            at_quarter = 879u;
+            at_eighth = 865u;
+            break;
+        default: break;
+    }
+
     switch (den) {
-        case 2: return 561u;
-        case 4: return 425u;
-        case 8: return 278u;
+        case 2: return at_half;
+        case 4: return at_quarter;
+        case 8: return at_eighth;
+        default: return 1000u;
+    }
+}
+
+/*
+ * What TINYIMG_EFFORT_FAST takes off a decode, in thousandths.
+ *
+ * Only the two lossy decoders have anything to drop, which is the structural
+ * half of [[only-lossy-decoders-have-anything-to-drop]]: a lossless bitstream
+ * defines its pixels exactly. The figures are the reciprocals of the speedups
+ * recorded in TinyEffort's own documentation, VP8's 1.53x for skipping the
+ * deblocking filter and the middle of JPEG's 1.11x-1.25x for replicating
+ * chroma instead of interpolating it.
+ *
+ * The planner needs this because a budget's first lever is the effort tier. A
+ * model that priced FAST the same as FANCY would report the lever as buying
+ * nothing and skip straight to reducing the decode, which is the expensive
+ * rung.
+ *
+ * JPEG's lever reaches subsampled files only, so a 4:4:4 source is charged a
+ * saving it does not get. That is the wrong direction by about 13% on one
+ * format and it is the conservative direction for the question a budget asks.
+ */
+static uint32_t effort_fraction(
+    TinyImageFormat format, uint8_t effort, uint8_t den
+) {
+    if (effort != TINYIMG_EFFORT_FAST) return 1000u;
+
+    switch (format) {
+        case TINYIMG_FORMAT_JPEG: return 870u;
+        case TINYIMG_FORMAT_WEBP:
+            /*
+             * WebP's two levers do not multiply, so this cannot be one number.
+             * FAST skips the deblocking filter at any scale and additionally
+             * reduces in the plane domain above a denominator of one, and the
+             * second saving grows with the denominator while `scale_fraction`
+             * was measured at full effort.
+             *
+             * The figures are the highest ratio observed across three fixtures
+             * rather than the mean, because a budget that is promised a saving
+             * it does not get reports that a request fits when it does not.
+             * `toyota_racing.webp` is the conservative one at every
+             * denominator; the reference photograph re-encoded as WebP is
+             * 1.4x better and is not what these are set from.
+             */
+            switch (den) {
+                case 2: return 568u;
+                case 4: return 513u;
+                case 8: return 487u;
+                default: return 654u;
+            }
         default: return 1000u;
     }
 }
@@ -3233,6 +3583,7 @@ static uint32_t decode_rate(TinyImageFormat format) {
         case TINYIMG_FORMAT_PNG: return COST_DECODE_PNG;
         case TINYIMG_FORMAT_WEBP: return COST_DECODE_WEBP;
         case TINYIMG_FORMAT_TIFF: return COST_DECODE_TIFF;
+        case TINYIMG_FORMAT_AVIF: return COST_DECODE_AVIF;
         default: return 0u;
     }
 }
@@ -3251,23 +3602,132 @@ static uint32_t at_rate(uint64_t samples, uint32_t rate) {
     return (uint32_t) ((samples * (uint64_t) rate) / 1000000u);
 }
 
-TINYIMG_EXPORT("tiny_encode_cost")
-uint32_t tiny_encode_cost(
-    TinyImageFormat format, uint32_t width, uint32_t height
+/*
+ * What a compression level costs a deflate stream, in thousandths of what
+ * TINYIMG_COMPRESSION_DEFAULT costs.
+ *
+ * Measured 2026-09-10 on the reference photograph re-encoded at 400 and 800
+ * pixels wide, five interleaved repeats. The observed range was 1.55x-2.45x
+ * for NONE against DEFAULT and 1.20x-2.06x for FAST, on a machine under load
+ * that compresses every ratio toward one; the conservative end of each range
+ * is what is used, because a budget promised a saving it does not get reports
+ * that a request fits when it does not.
+ *
+ * BEST is 3x-4.3x dearer than DEFAULT and is priced at the dear end for the
+ * same reason.
+ *
+ * **NONE is not always a trade.** At 400 pixels wide it produced a file 6.6%
+ * SMALLER than DEFAULT as well as faster, because one greedy short match per
+ * position codes a filtered photograph row worse than entropy coding the
+ * literals. It becomes a real trade at 800, where it costs 11% more bytes.
+ */
+static uint32_t compression_fraction(uint8_t compression) {
+    switch (compression) {
+        case TINYIMG_COMPRESSION_NONE: return 667u;
+        case TINYIMG_COMPRESSION_FAST: return 833u;
+        case TINYIMG_COMPRESSION_BEST: return 4300u;
+        default: return 1000u;
+    }
+}
+
+TINYIMG_EXPORT("tiny_encode_cost_at")
+uint32_t tiny_encode_cost_at(
+    TinyImageFormat format, uint32_t width, uint32_t height, uint8_t compression
 ) {
     uint32_t rate = 0;
+    int deflated = 0;
 
     switch (format) {
         case TINYIMG_FORMAT_BMP: rate = COST_ENCODE_BMP; break;
         case TINYIMG_FORMAT_JPEG: rate = COST_ENCODE_JPEG; break;
         case TINYIMG_FORMAT_GIF: rate = COST_ENCODE_GIF; break;
         case TINYIMG_FORMAT_WEBP: rate = COST_ENCODE_WEBP; break;
-        case TINYIMG_FORMAT_TIFF: rate = COST_ENCODE_TIFF; break;
-        case TINYIMG_FORMAT_PNG: rate = COST_ENCODE_PNG; break;
+        case TINYIMG_FORMAT_TIFF:
+            rate = COST_ENCODE_TIFF;
+            deflated = 1;
+            break;
+        case TINYIMG_FORMAT_PNG:
+            rate = COST_ENCODE_PNG;
+            deflated = 1;
+            break;
         default: return 0u;
     }
 
-    return at_rate((uint64_t) width * height, rate);
+    uint64_t cost = (uint64_t) at_rate((uint64_t) width * height, rate);
+
+    // a format with no deflate stream ignores the level, the same way its
+    // encoder does
+    if (deflated) cost = cost * compression_fraction(compression) / 1000u;
+
+    return cost > 0xFFFFFFFFu ? 0xFFFFFFFFu : (uint32_t) cost;
+}
+
+TINYIMG_EXPORT("tiny_encode_cost")
+uint32_t tiny_encode_cost(
+    TinyImageFormat format, uint32_t width, uint32_t height
+) {
+    return tiny_encode_cost_at(format, width, height, TINYIMG_COMPRESSION_AUTO);
+}
+
+static uint32_t cost_of(
+    const TinyPlan* plan, const TinyPlanResolution* resolution
+) {
+    uint32_t total = 0;
+
+    if (!plan->image) {
+        /*
+         * The extent and the format are already on the plan, put there by the
+         * probe `tiny_plan_init` ran. This used to probe again, once per call,
+         * and the budget ladder calls it six times: five rungs and a baseline.
+         * A probe is cheap for five of the seven formats and `O(file bytes)`
+         * for PNG, which is why nobody noticed.
+         */
+        uint64_t source = (uint64_t) plan->source_width * plan->source_height;
+        uint32_t rate = decode_rate(plan->source_format);
+
+        // in 64 bits because a scale fraction above 1000 would otherwise
+        // overflow a full-second decode, and three formats are above it
+        uint64_t decode = (uint64_t) at_rate(source, rate);
+
+        decode =
+            decode *
+            scale_fraction(plan->source_format, resolution->decode.scale_den) /
+            1000u;
+        decode = decode *
+                 effort_fraction(
+                     plan->source_format, resolution->decode.effort,
+                     resolution->decode.scale_den
+                 ) /
+                 1000u;
+
+        total += (uint32_t) decode;
+    }
+
+    uint64_t out = (uint64_t) resolution->width * resolution->height;
+
+    if ((resolution->kernels & TINYIMG_KERNEL_RESAMPLE) != 0) {
+        // the two axes may take different filters, so price the dearer one
+        uint32_t x = sample_rate(resolution->filter_x);
+        uint32_t y = sample_rate(resolution->filter_y);
+
+        total += at_rate(out, x > y ? x : y);
+    }
+
+    if (resolution->color_stages > 0) {
+        total += at_rate(out, COST_COLOR_FIRST);
+        total +=
+            at_rate(out, COST_COLOR_MORE * (resolution->color_stages - 1u));
+    }
+
+    // a neighborhood operation ends a fused pass and runs over the whole image
+    for (uint32_t i = 0; i < resolution->ops; i++) {
+        if (tiny_plan_op_class(resolution->op[i].kind) ==
+            TINYIMG_OP_CLASS_NEIGHBORHOOD) {
+            total += at_rate(out, COST_NEIGHBORHOOD);
+        }
+    }
+
+    return total;
 }
 
 TINYIMG_EXPORT("tiny_plan_cost")
@@ -3277,46 +3737,7 @@ uint32_t tiny_plan_cost(const TinyPlan* plan) {
     TinyPlanResolution resolution;
     if (tiny_plan_resolve(plan, &resolution) != TINYIMG_OK) return 0u;
 
-    uint32_t total = 0;
-
-    if (!plan->image) {
-        TinyImageInfo info;
-
-        if (tiny_image_probe(plan->buffer, plan->size, &info) != TINYIMG_OK) {
-            return 0u;
-        }
-
-        uint64_t source = (uint64_t) info.width * info.height;
-        uint32_t rate = decode_rate(info.format);
-
-        total += at_rate(source, rate) *
-                 scale_fraction(resolution.decode.scale_den) / 1000u;
-    }
-
-    uint64_t out = (uint64_t) resolution.width * resolution.height;
-
-    if ((resolution.kernels & TINYIMG_KERNEL_RESAMPLE) != 0) {
-        // the two axes may take different filters, so price the dearer one
-        uint32_t x = sample_rate(resolution.filter_x);
-        uint32_t y = sample_rate(resolution.filter_y);
-
-        total += at_rate(out, x > y ? x : y);
-    }
-
-    if (resolution.color_stages > 0) {
-        total += at_rate(out, COST_COLOR_FIRST);
-        total += at_rate(out, COST_COLOR_MORE * (resolution.color_stages - 1u));
-    }
-
-    // a neighborhood operation ends a fused pass and runs over the whole image
-    for (uint32_t i = 0; i < resolution.ops; i++) {
-        if (tiny_plan_op_class(resolution.op[i].kind) ==
-            TINYIMG_OP_CLASS_NEIGHBORHOOD) {
-            total += at_rate(out, COST_NEIGHBORHOOD);
-        }
-    }
-
-    return total;
+    return resolution.cost;
 }
 
 #pragma endregion

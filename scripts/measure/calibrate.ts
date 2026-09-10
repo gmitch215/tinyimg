@@ -14,7 +14,9 @@
  * twice as fast wants every one of them halved and nothing else changes.
  */
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ImageFormat } from '../../src/ts/index.js';
 import { Image, TinyImgModule } from '../../src/ts/index.js';
@@ -159,7 +161,7 @@ console.log('\ndecode by format, us per source sample at full scale');
  */
 const samples = 1835 * 1032;
 
-for (const format of ['jpeg', 'png', 'webp', 'gif', 'tiff', 'bmp'] as ImageFormat[]) {
+for (const format of ['jpeg', 'png', 'webp', 'gif', 'tiff', 'bmp', 'avif'] as ImageFormat[]) {
 	try {
 		using original = await Image.open(tinyimg, source);
 		const encoded = await original.bytes(format, { quality: 80 });
@@ -173,6 +175,193 @@ for (const format of ['jpeg', 'png', 'webp', 'gif', 'tiff', 'bmp'] as ImageForma
 	} catch (error) {
 		console.log(`  ${format.padEnd(5)} unavailable: ${(error as Error).message}`);
 	}
+}
+
+// #endregion
+
+// #region scale factors by format
+
+/*
+ * The scale factors above are JPEG's, measured on the reference photograph, and the planner applied
+ * them to every format. Only a codec whose decode actually shrinks earns them: JPEG works in the
+ * DCT domain and BMP skips rows, while the rest decode the whole frame and reduce afterwards.
+ *
+ * Each format is re-encoded from the same photograph so the extent and the content are constant and
+ * the only variable is the codec. A factor near 1.0 means a scaled request buys that format
+ * nothing.
+ */
+console.log('\nscale factors by format, against that format at full scale');
+
+const scaleWidth = 1835;
+const scaleHeight = 1032;
+
+function loadScaled(bytes: Uint8Array, den: number): void {
+	const buffer = tinyimg.copyIn(bytes);
+	const image = tinyimg.alloc(tinyimg.exports.tiny_image_sizeof());
+
+	try {
+		const code = tinyimg.exports.tiny_image_load_scaled(
+			image,
+			buffer,
+			bytes.byteLength,
+			Math.ceil(scaleWidth / den),
+			Math.ceil(scaleHeight / den)
+		);
+
+		if (code !== 0) throw new Error(`decode at 1/${den} failed with ${code}`);
+		tinyimg.exports.tiny_image_destroy(image);
+	} finally {
+		tinyimg.free(image);
+		tinyimg.free(buffer);
+	}
+}
+
+/*
+ * Five interleaved repeats rather than one pass per format, and the spread is printed beside the
+ * median. A single pass swung these by up to 1.6x between runs, which is wide enough to invert the
+ * ordering of two formats, so a constant taken from one pass would be noise wearing a decimal
+ * point. Interleaving spreads any drift over every cell instead of over whichever format ran late.
+ */
+const REPEATS = 5;
+const scaleFormats = ['jpeg', 'bmp', 'png', 'webp', 'gif', 'tiff', 'avif'] as ImageFormat[];
+const encodedAt = new Map<ImageFormat, Uint8Array>();
+
+for (const format of scaleFormats) {
+	try {
+		using original = await Image.open(tinyimg, source);
+		encodedAt.set(format, await original.bytes(format, { quality: 80 }));
+	} catch (error) {
+		console.log(`  ${format.padEnd(5)} unavailable: ${(error as Error).message}`);
+	}
+}
+
+const observed = new Map<string, number[]>();
+
+for (let repeat = 0; repeat < REPEATS; repeat++) {
+	for (const [format, encoded] of encodedAt) {
+		const full = await time(() => loadScaled(encoded, 1));
+
+		for (const den of [2, 4, 8]) {
+			const key = `${format}/${den}`;
+			const factor = (await time(() => loadScaled(encoded, den))) / full;
+
+			observed.set(key, [...(observed.get(key) ?? []), factor]);
+		}
+	}
+}
+
+for (const format of scaleFormats) {
+	if (!encodedAt.has(format)) continue;
+
+	const cells = [2, 4, 8].map((den) => {
+		const samples = observed.get(`${format}/${den}`)!;
+		const low = Math.min(...samples);
+		const high = Math.max(...samples);
+
+		return `1/${den} ${median(samples).toFixed(3)} [${low.toFixed(2)}-${high.toFixed(2)}]`;
+	});
+
+	console.log(`  ${format.padEnd(5)} ${cells.join('  ')}`);
+}
+
+// #endregion
+
+// #region effort by denominator
+
+/*
+ * What FAST takes off a decode, per denominator.
+ *
+ * The planner multiplies one effort fraction by one scale fraction, which assumes the two levers
+ * are independent. For WebP they are not: FAST reduces in the plane domain, so its saving grows
+ * with the denominator, and a single fraction taken at full scale over-charges a scaled FAST
+ * request by more than the band allows.
+ */
+console.log('\neffort fraction by denominator, fast against fancy at the same scale');
+
+/*
+ * Driven through the planner rather than a raw decode, because that is the path the model predicts
+ * and no options-taking decode is exported to the wrapper. The widths are the largest the strict
+ * denominator rule maps to each `den`, so asking for 458 pixels of an 1835 pixel source is what
+ * selects a quarter scale decode.
+ */
+const widthFor: Record<number, number> = { 1: 1835, 2: 917, 4: 458, 8: 229 };
+
+const atEffort = async (bytes: Uint8Array, width: number, effort: 'fancy' | 'fast') =>
+	await time(async () => {
+		using image = await Image.open(tinyimg, bytes);
+		image.resize(width, 0).effort(effort);
+		await image.pixels();
+	});
+
+for (const format of ['jpeg', 'webp'] as ImageFormat[]) {
+	const bytes = encodedAt.get(format);
+	if (!bytes) continue;
+
+	const cells: string[] = [];
+
+	for (const den of [1, 2, 4, 8]) {
+		const width = widthFor[den]!;
+		const fancy = await atEffort(bytes, width, 'fancy');
+		const fast = await atEffort(bytes, width, 'fast');
+
+		cells.push(`1/${den} ${(fast / fancy).toFixed(3)}`);
+	}
+
+	console.log(`  ${format.padEnd(5)} ${cells.join('  ')}`);
+}
+
+/*
+ * JPEG's row is uninformative on this source and that is a property of the file, not the lever.
+ * The reference photograph is 4:4:4, so there is no chroma to replicate and FAST has nothing to
+ * drop; the ratios wander either side of 1.0 by up to 1.5x, which is the noise floor rather than a
+ * measurement. JPEG's constant comes from a subsampled fixture.
+ */
+
+// #endregion
+
+// #region compressed bytes
+
+/*
+ * Whether a per-byte term is needed on top of a per-sample one.
+ *
+ * A sequential inflate is proportional to the compressed stream and nothing about the output
+ * touches it, so two PNGs of one extent and very different compressed sizes should cost differently
+ * if the term matters. Three contents at a fixed extent hold the sample count constant and vary
+ * only the bytes.
+ */
+console.log('\ncompressed bytes at a fixed extent, png');
+
+const extent = '1200x800';
+
+function pngOf(recipe: string[]): Uint8Array<ArrayBuffer> {
+	const out = join(tmpdir(), `calibrate-${recipe.join('-').replace(/[^a-z0-9]/gi, '')}.png`);
+
+	execFileSync('magick', [...recipe, '-depth', '8', `PNG24:${out}`]);
+
+	const buffer = readFileSync(out);
+	const bytes = new Uint8Array(buffer.byteLength);
+
+	bytes.set(buffer);
+	return bytes;
+}
+
+const contents = {
+	flat: pngOf(['-size', extent, 'xc:rgb(128,96,64)']),
+	gradient: pngOf(['-size', extent, 'gradient:red-blue']),
+	photo: pngOf([join(ROOT, 'tests', 'fixtures', 'sf-24.jpg'), '-resize', `${extent}!`]),
+	noise: pngOf(['-size', extent, 'xc:gray', '+noise', 'Random'])
+};
+
+for (const [name, encoded] of Object.entries(contents)) {
+	const ms = await time(() => tinyimg.decode(encoded));
+	const perSample = (ms * 1000) / (1200 * 800);
+	const perByte = (ms * 1000) / encoded.byteLength;
+
+	console.log(
+		`  ${name.padEnd(9)} ${encoded.byteLength.toString().padStart(8)} bytes  ` +
+			`${ms.toFixed(2).padStart(6)} ms  ${perSample.toFixed(4)} us/sample  ` +
+			`${perByte.toFixed(4)} us/byte`
+	);
 }
 
 // #endregion

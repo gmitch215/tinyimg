@@ -64,9 +64,16 @@ describe('the planner inside the wasm module', () => {
 	});
 
 	it('does not scale the decode when the output is larger than the source', () => {
-		const { result, resolution } = abi.plan(fixture('sf-24.jpg'), (plan) => {
-			abi.exports.tiny_plan_resize(plan, 4000, 2250);
-		});
+		// the resolution is the whole assertion, so the plan is not run: a 9 megapixel cubic
+		// enlargement of a fixture nothing here looks at was most of this file's runtime
+		const { result, resolution } = abi.plan(
+			fixture('sf-24.jpg'),
+			(plan) => {
+				abi.exports.tiny_plan_resize(plan, 4000, 2250);
+			},
+			1,
+			false
+		);
 
 		expect(result).toBe(Err.ok);
 		expect(resolution!.decode.scale).toBe(1);

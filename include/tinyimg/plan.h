@@ -405,6 +405,8 @@ typedef struct {
     uint8_t fusion;
     /** How much work the decode may spend; see tiny_plan_set_effort. */
     uint8_t effort;
+    /** Microseconds the plan may cost, or zero for no budget. */
+    uint32_t budget;
     /** What padding is filled with, as many channels as the output has. */
     uint8_t background[4];
 
@@ -446,6 +448,57 @@ typedef enum TinyPlanKernel
     /** A neighborhood operation runs on a materialized image. */
     TINYIMG_KERNEL_NEIGHBORHOOD = 1 << 8,
 } TinyPlanKernel;
+
+/**
+ * @brief What the planner gave up to fit a budget, as a bitmask.
+ *
+ * Zero when nothing was given up, which is every plan with no budget set and
+ * every plan whose estimate already fit. A caller that would rather fail than
+ * serve a softer image reads this and refuses.
+ *
+ * The estimate is an estimate, so this says what the planner decided and not
+ * what the request will actually cost. tiny_plan_cost's own documentation is
+ * the accuracy claim.
+ */
+typedef enum TinyPlanDegrade
+{
+    /**
+     * @brief The decode ran at TINYIMG_EFFORT_FAST.
+     *
+     * One lever with two effects, because the effort tier already carries
+     * both: a lossy decoder drops its smoothing pass, and an enlargement the
+     * caller left on TINYIMG_FILTER_AUTO steps from the cubic to bilinear. The
+     * measured floors are in TinyEffort's own documentation; nothing new is
+     * given up here.
+     */
+    TINYIMG_DEGRADE_EFFORT = 1 << 0,
+    /**
+     * @brief A filter the caller left on AUTO stepped down to nearest.
+     *
+     * One tap in either direction, so it is the only filter whose rate does not
+     * depend on which way the resample is going, and that is what makes the
+     * reduction rung below worth taking at all.
+     *
+     * Never set when the caller named a filter. Effort and a budget both say
+     * how hard to work at what was left open, not what to do instead of what
+     * was asked for.
+     */
+    TINYIMG_DEGRADE_FILTER = 1 << 1,
+    /**
+     * @brief The decoder was asked for a further reduction.
+     *
+     * Past what the scale ladder picks, so the resample reads fewer source
+     * samples than the output it produces and the result is softer. The
+     * denominator that was used is in `decode.scale_den`, and the ladder's own
+     * pick is what it would have been without a budget.
+     *
+     * Only available for a coded source at a denominator the format offers,
+     * and never past eight. It comes after the filter rung because taking it
+     * first turns a box reduction into an interpolating enlargement, which
+     * measured **more** expensive than not degrading at all.
+     */
+    TINYIMG_DEGRADE_SCALE = 1 << 2,
+} TinyPlanDegrade;
 
 /**
  * @brief What the planner decided, before any pixel is touched.
@@ -534,6 +587,10 @@ typedef struct {
     uint32_t passes;
     /** A bitmask of TinyPlanKernel. */
     uint32_t kernels;
+    /** What running this is estimated to cost, in microseconds. */
+    uint32_t cost;
+    /** A bitmask of TinyPlanDegrade; zero when nothing was given up. */
+    uint32_t degraded;
 } TinyPlanResolution;
 
 /**
@@ -644,6 +701,33 @@ int tiny_plan_set_fusion(TinyPlan* plan, int enabled);
  * that is not a TinyEffort.
  */
 int tiny_plan_set_effort(TinyPlan* plan, uint8_t effort);
+
+/**
+ * @brief Sets a CPU budget the planner may degrade the request to fit.
+ *
+ * The Workers Free plan allows 10 milliseconds of CPU per request and does not
+ * let a caller pay for more, so a request that does not fit fails outright.
+ * With a budget set, the planner prices the plan and, while the estimate is
+ * over, gives something up: the effort tier, then nearest for a filter left on
+ * AUTO, then reductions of the decode. What it gave up is reported in
+ * `degraded` on the resolution and the estimate it settled on is in `cost`.
+ *
+ * **A rung that is not cheaper is skipped rather than taken**, so what comes
+ * back is never softer for more CPU than the undegraded plan.
+ *
+ * **A budget is a request, not a guarantee.** The estimate is within about 20%,
+ * the levers run out, and a plan can still be over budget after all of them; a
+ * caller that has to know reads `cost` back and compares. Nothing is degraded
+ * silently and nothing is degraded when the estimate already fits.
+ *
+ * The encoder is not priced here, because a plan does not carry one. Subtract
+ * tiny_encode_cost for the format being written before setting this.
+ *
+ * @param plan The plan.
+ * @param microseconds The budget, or zero to remove it.
+ * @return int TINYIMG_OK or TINYIMG_ERR_NULL.
+ */
+int tiny_plan_set_budget(TinyPlan* plan, uint32_t microseconds);
 
 /**
  * @brief Sets what padding is filled with.
@@ -986,6 +1070,9 @@ uint32_t tiny_plan_cost(const TinyPlan* plan);
  * function exists: at the rates measured, PNG costs 29 times JPEG per sample
  * and WebP costs 4, so a request that does not fit as WebP may fit as JPEG.
  *
+ * Prices the default compression level. Use tiny_encode_cost_at to price
+ * another one, which is the lever a budgeted lossless request has.
+ *
  * @param format The format to write.
  * @param width Output width.
  * @param height Output height.
@@ -993,6 +1080,28 @@ uint32_t tiny_plan_cost(const TinyPlan* plan);
  */
 uint32_t tiny_encode_cost(
     TinyImageFormat format, uint32_t width, uint32_t height
+);
+
+/**
+ * @brief What encoding an image of this extent costs at one compression level.
+ *
+ * The lever a budget has over a lossless output. PNG and TIFF carry a deflate
+ * stream whose level moves the encoder by 1.5x to 2.4x measured, which on a
+ * PNG-output request is worth more than anything the planner can do to the
+ * pixels: the encoder is the larger half of the cost and the only half a
+ * budget could not previously reach.
+ *
+ * Every other format ignores the level, the same way its encoder does, so this
+ * agrees with tiny_encode_cost for them.
+ *
+ * @param format The format to write.
+ * @param width Output width.
+ * @param height Output height.
+ * @param compression A TinyCompression; AUTO prices as the default level.
+ * @return uint32_t Microseconds, or 0 for a format this build cannot write.
+ */
+uint32_t tiny_encode_cost_at(
+    TinyImageFormat format, uint32_t width, uint32_t height, uint8_t compression
 );
 
 /**
@@ -1039,6 +1148,10 @@ typedef enum TinyPlanField
     TINYIMG_FIELD_PASSES = 14,
     /** A bitmask of TinyPlanKernel. */
     TINYIMG_FIELD_KERNELS = 15,
+    /** What running this is estimated to cost, in microseconds. */
+    TINYIMG_FIELD_COST = 16,
+    /** A bitmask of TinyPlanDegrade. */
+    TINYIMG_FIELD_DEGRADED = 17,
 } TinyPlanField;
 
 /**
