@@ -27,7 +27,7 @@ extern "C" {
 /**
  * @brief Minor version of the library.
  */
-#define TINYIMG_VERSION_MINOR 0
+#define TINYIMG_VERSION_MINOR 1
 
 /**
  * @brief Patch version of the library.
@@ -49,7 +49,7 @@ extern "C" {
  * changes. The TypeScript loader refuses a module whose ABI it does not know,
  * which turns a silent misread of a struct into a startup failure.
  */
-#define TINYIMG_ABI_VERSION 1
+#define TINYIMG_ABI_VERSION 2
 
 /**
  * @brief Marks a function as exported from the wasm module.

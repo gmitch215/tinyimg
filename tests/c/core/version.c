@@ -12,7 +12,9 @@ int main(void) {
     int r = 0;
 
     r |= assertEquals((long) tiny_version(), (long) TINYIMG_VERSION);
-    r |= assertEquals((long) tiny_version(), 1L << 16);
+    // the packing spelled out rather than derived from the macro, so a wrong
+    // macro fails here instead of agreeing with itself
+    r |= assertEquals((long) tiny_version(), (1L << 16) | (1L << 8));
     r |= assertEquals((long) tiny_abi_version(), (long) TINYIMG_ABI_VERSION);
 
     // tiny_init has to be safe to call twice, and safe not to call at all:
@@ -33,9 +35,12 @@ int main(void) {
         (long) (tiny_codec_find(TINYIMG_FORMAT_BMP) != 0)
     );
 
-    // AVIF's bit means the container can be described, not decoded, so it is
-    // set even with no codec
-    r |= assertTrue((features & TINYIMG_FEATURE_AVIF) != 0);
+    // AVIF now decodes and encodes, so its bit tracks the codec the way every
+    // other format's does
+    r |= assertEquals(
+        (long) ((features & TINYIMG_FEATURE_AVIF) != 0),
+        (long) (tiny_codec_find(TINYIMG_FORMAT_AVIF) != 0)
+    );
 
     // every error code has a name, and an unknown one is named rather than read
     // past the table

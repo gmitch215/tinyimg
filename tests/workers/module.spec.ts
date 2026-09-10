@@ -29,8 +29,8 @@ describe('the wasm module inside workerd', () => {
 
 	it('instantiates and reports the version the header declares', async () => {
 		const result = await probe();
-		expect(result.version).toBe(1 << 16);
-		expect(result.abi).toBe(1);
+		expect(result.version).toBe((1 << 16) | (1 << 8));
+		expect(result.abi).toBe(2);
 	});
 
 	it('imports nothing, so it needs no host functions to run', async () => {

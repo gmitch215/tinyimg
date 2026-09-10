@@ -17,7 +17,7 @@ import {
  * Bumped in lockstep with `TINYIMG_ABI_VERSION` in `include/tinyimg/tinyimg.h`. A module built against a
  * different one is refused at load, because the alternative is misreading a struct field silently.
  */
-export const SUPPORTED_ABI = 1;
+export const SUPPORTED_ABI = 2;
 
 /** The module's work counters, in the order `TinyWorkCounter` declares them. */
 const Counter = {

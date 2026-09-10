@@ -30,8 +30,8 @@ describe('the shipped wrapper inside workerd', () => {
 	it('loads a module the embedder compiled', async () => {
 		const info = await json<{ version: string; abi: number; features: string[] }>('version');
 
-		expect(info.version).toBe('1.0.0');
-		expect(info.abi).toBe(1);
+		expect(info.version).toBe('1.1.0');
+		expect(info.abi).toBe(2);
 		expect(info.features).toContain('jpeg');
 		expect(info.features).toContain('webp');
 	});
