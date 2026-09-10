@@ -1,5 +1,5 @@
-<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>TinyImgModule | tinyimg - v1.0.0</title><meta name="description" content="Documentation for tinyimg"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
-<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">tinyimg - v1.0.0</a>
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>TinyImgModule | tinyimg - v1.1.0</title><meta name="description" content="Documentation for tinyimg"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">tinyimg - v1.1.0</a>
 <div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
 <ul role="listbox" id="tsd-search-results"></ul>
 <div id="tsd-search-status" aria-live="polite" aria-atomic="true">
@@ -18,7 +18,7 @@ the module is compiled once at worker startup and the memory is reused, and the 
 every buffer back at the end of a call.</p>
 </div></section><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L237">src/ts/wasm.ts:237</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L307">src/ts/wasm.ts:307</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
@@ -35,7 +35,9 @@ every buffer back at the end of a call.</p>
 </div></section>
 <section class="tsd-index-section">
 <h3 class="tsd-index-heading tsd-anchor-link" id="methods">Methods<a href="#methods" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-index-list"><a href="#decode" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>decode</span></a>
+<div class="tsd-index-list"><a href="#builtinblobs" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>builtin<wbr/>Blobs</span></a>
+<a href="#decode" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>decode</span></a>
+<a href="#decoderegion" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>decode<wbr/>Region</span></a>
 <a href="#detectfaces" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>detect<wbr/>Faces</span></a>
 <a href="#errorname" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>error<wbr/>Name</span></a>
 <a href="#freeblob" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>free<wbr/>Blob</span></a>
@@ -60,7 +62,7 @@ every buffer back at the end of a call.</p>
 </div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L326">src/ts/wasm.ts:326</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L396">src/ts/wasm.ts:396</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="features"><span>features</span><a href="#features" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -71,7 +73,7 @@ every buffer back at the end of a call.</p>
 </div>
 <h4 class="tsd-returns-title">Returns (<br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;text&quot;</span><br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;icc&quot;</span><br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;png&quot;</span><br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;bmp&quot;</span><br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;simd&quot;</span><br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;jpeg&quot;</span><br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;gif&quot;</span><br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;tiff&quot;</span><br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;webp&quot;</span><br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;avif&quot;</span><br/>    <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;detect&quot;</span><br/>)<span class="tsd-signature-symbol">[]</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L353">src/ts/wasm.ts:353</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L423">src/ts/wasm.ts:423</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="memory"><span>memory</span><a href="#memory" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -82,7 +84,7 @@ every buffer back at the end of a call.</p>
 </div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Memory</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L331">src/ts/wasm.ts:331</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L401">src/ts/wasm.ts:401</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="pages"><span>pages</span><a href="#pages" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -93,7 +95,7 @@ every buffer back at the end of a call.</p>
 </div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L336">src/ts/wasm.ts:336</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L406">src/ts/wasm.ts:406</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="version"><span>version</span><a href="#version" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -104,7 +106,7 @@ every buffer back at the end of a call.</p>
 </div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-symbol">[</span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">]</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L315">src/ts/wasm.ts:315</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L385">src/ts/wasm.ts:385</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="versiontext"><span>version<wbr/>Text</span><a href="#versiontext" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -115,10 +117,34 @@ every buffer back at the end of a call.</p>
 </div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L321">src/ts/wasm.ts:321</a></li></ul></aside></div></li></ul></section></section></details>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L391">src/ts/wasm.ts:391</a></li></ul></aside></div></li></ul></section></section></details>
 <details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
 <h2 class="tsd-anchor-link" id="methods-1">Methods<a href="#methods-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
 <section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="builtinblobs"><span>builtin<wbr/>Blobs</span><a href="#builtinblobs" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="builtinblobs-1"><span class="tsd-kind-call-signature">builtinBlobs</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">kind</span><span class="tsd-signature-symbol">?:</span> <a href="../types/BlobKind.html" class="tsd-signature-type tsd-kind-type-alias">BlobKind</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/BuiltinBlob.html" class="tsd-signature-type tsd-kind-interface">BuiltinBlob</a><span class="tsd-signature-symbol">[]</span><a href="#builtinblobs-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The blobs compiled into the module.</p>
+<p>A Latin face under <code>sans</code>, the four ICC profiles under <code>srgb</code>, <code>display-p3</code>,
+<code>adobe-rgb-1998</code> and <code>rec2020</code>, and two LBP cascades. Nothing has to be loaded for text,
+profile conversion or face detection to work; <a href="#loadblob" class="tsd-kind-method">loadBlob</a> is for a wider glyph set, a
+different face or another cascade.</p>
+<p>Loading a blob of a kind hides the builtins of that kind from face detection, so one
+resident cascade runs alone. This listing reports what ships either way.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">kind</span>: <a href="../types/BlobKind.html" class="tsd-signature-type tsd-kind-type-alias">BlobKind</a></span>
+<div class="tsd-comment tsd-typography"><p>Which kind to list, or omitted for all of them.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/BuiltinBlob.html" class="tsd-signature-type tsd-kind-interface">BuiltinBlob</a><span class="tsd-signature-symbol">[]</span></h4><p>The id and byte length of each.</p>
+<aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L714">src/ts/wasm.ts:714</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="decode"><span>decode</span><a href="#decode" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -141,7 +167,42 @@ the planner decide what to decode and this decodes all of it.</p>
 packed.</p>
 <aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L466">src/ts/wasm.ts:466</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L538">src/ts/wasm.ts:538</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="decoderegion"><span>decode<wbr/>Region</span><a href="#decoderegion" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="decoderegion-1"><span class="tsd-kind-call-signature">decodeRegion</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">source</span><span class="tsd-signature-symbol">:</span> <a href="../types/Source.html" class="tsd-signature-type tsd-kind-type-alias">Source</a><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">region</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/Rect.html" class="tsd-signature-type tsd-kind-interface">Rect</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/RawImage.html" class="tsd-signature-type tsd-kind-interface">RawImage</a><span class="tsd-signature-symbol">&gt;</span><a href="#decoderegion-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Decodes one rectangle of a source to raw pixels, without decoding the rest.</p>
+<p>For splitting one image across several invocations, which on Workers is how a request too
+large for one CPU allowance can still be served: CPU is rationed per invocation and wall time
+is not billed, so N bands each get their own allowance.</p>
+<p><strong>It pays for JPEG and BMP and costs more for everything else.</strong> A band's decode is
+proportional to the source rows it has to produce, which for those two is a real fraction of
+the frame. PNG, GIF, TIFF and WebP have to inflate or entropy-decode everything above the
+band before they can produce it, so N bands cost N times the whole decode and banding makes
+the total worse. Measured on WebP: a top quarter is 24% of the frame and a bottom half is 97%.</p>
+<p>The region is clamped to the image, and a zero width or height means to that edge. Bands that
+feed a resample need to overlap by the filter's radius, which this does not do for you.</p>
+<pre><code class="ts"><span class="hl-5">const</span><span class="hl-1"> </span><span class="hl-6">band</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">tinyimg</span><span class="hl-1">.</span><span class="hl-0">decodeRegion</span><span class="hl-1">(</span><span class="hl-4">source</span><span class="hl-1">, { </span><span class="hl-4">x:</span><span class="hl-1"> </span><span class="hl-8">0</span><span class="hl-1">, </span><span class="hl-4">y:</span><span class="hl-1"> </span><span class="hl-8">0</span><span class="hl-1">, </span><span class="hl-4">width:</span><span class="hl-1"> </span><span class="hl-8">0</span><span class="hl-1">, </span><span class="hl-4">height:</span><span class="hl-1"> </span><span class="hl-8">512</span><span class="hl-1"> });</span>
+</code><button type="button">Copy</button></pre>
+
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">source</span>: <a href="../types/Source.html" class="tsd-signature-type tsd-kind-type-alias">Source</a></span>
+<div class="tsd-comment tsd-typography"><p>The encoded image.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">region</span>: <a href="../interfaces/Rect.html" class="tsd-signature-type tsd-kind-interface">Rect</a></span>
+<div class="tsd-comment tsd-typography"><p>The rectangle in source pixels.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/RawImage.html" class="tsd-signature-type tsd-kind-interface">RawImage</a><span class="tsd-signature-symbol">&gt;</span></h4><p>The extent, the channel count and <code>width * height * channels</code> bytes, rows tightly
+packed.</p>
+<aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L593">src/ts/wasm.ts:593</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="detectfaces"><span>detect<wbr/>Faces</span><a href="#detectfaces" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -149,9 +210,8 @@ packed.</p>
 <div class="tsd-signature tsd-anchor-link" id="detectfaces-1"><span class="tsd-kind-call-signature">detectFaces</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">source</span><span class="tsd-signature-symbol">:</span> <a href="../types/Source.html" class="tsd-signature-type tsd-kind-type-alias">Source</a><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">limit</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/FaceBox.html" class="tsd-signature-type tsd-kind-interface">FaceBox</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span><a href="#detectfaces-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
 <div class="tsd-description">
 <div class="tsd-comment tsd-typography"><p>Finds the faces in an image.</p>
-<p>Needs at least one cascade loaded through <a href="#loadblob" class="tsd-kind-method">loadBlob</a>; with none it throws a
-<a href="TinyImgBlobError.html" class="tsd-kind-class">TinyImgBlobError</a> rather than reporting no faces, because the two mean different
-things. Runs every resident cascade and groups the results, so a frontal and a profile
+<p>Runs the two cascades the module carries, or every cascade loaded through
+<a href="#loadblob" class="tsd-kind-method">loadBlob</a> when any is resident, and groups the results, so a frontal and a profile
 cascade together find both kinds of face and a face that fires both is one box.</p>
 </div>
 <div class="tsd-parameters">
@@ -166,7 +226,7 @@ cascade together find both kinds of face and a face that fires both is one box.<
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/FaceBox.html" class="tsd-signature-type tsd-kind-interface">FaceBox</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></h4><p>The detections, ordered by confidence, in the source image's own coordinates.</p>
 <aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L577">src/ts/wasm.ts:577</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L758">src/ts/wasm.ts:758</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="errorname"><span>error<wbr/>Name</span><a href="#errorname" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -184,7 +244,7 @@ cascade together find both kinds of face and a face that fires both is one box.<
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4><p>The short name the module carries for it.</p>
 <aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L366">src/ts/wasm.ts:366</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L436">src/ts/wasm.ts:436</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="freeblob"><span>free<wbr/>Blob</span><a href="#freeblob" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -205,7 +265,7 @@ cascade together find both kinds of face and a face that fires both is one box.<
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>True when one was released.</p>
 <aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L550">src/ts/wasm.ts:550</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L685">src/ts/wasm.ts:685</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="freeblobs"><span>free<wbr/>Blobs</span><a href="#freeblobs" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -216,7 +276,7 @@ cascade together find both kinds of face and a face that fires both is one box.<
 </div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L561">src/ts/wasm.ts:561</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L696">src/ts/wasm.ts:696</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="has"><span>has</span><a href="#has" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -235,7 +295,7 @@ cascade together find both kinds of face and a face that fires both is one box.<
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>True when the build contains it.</p>
 <aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L348">src/ts/wasm.ts:348</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L418">src/ts/wasm.ts:418</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="loadblob"><span>load<wbr/>Blob</span><a href="#loadblob" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -269,7 +329,7 @@ deliver one, and no code changes between them:</p>
 <h4 class="tsd-anchor-link" id="throws">Throws<a href="#throws" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><p>TinyImgError If all eight slots are taken, or a cascade does not parse.</p>
 </div></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L520">src/ts/wasm.ts:520</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L655">src/ts/wasm.ts:655</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="measure"><span>measure</span><a href="#measure" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -304,7 +364,7 @@ a genuine quarter.</p>
 
 </div></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L390">src/ts/wasm.ts:390</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L460">src/ts/wasm.ts:460</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="probe"><span>probe</span><a href="#probe" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -312,8 +372,9 @@ a genuine quarter.</p>
 <div class="tsd-signature tsd-anchor-link" id="probe-1"><span class="tsd-kind-call-signature">probe</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">source</span><span class="tsd-signature-symbol">:</span> <a href="../types/Source.html" class="tsd-signature-type tsd-kind-type-alias">Source</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/ImageInfo.html" class="tsd-signature-type tsd-kind-interface">ImageInfo</a><span class="tsd-signature-symbol">&gt;</span><a href="#probe-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
 <div class="tsd-description">
 <div class="tsd-comment tsd-typography"><p>Reads a file's header without decoding any pixels.</p>
-<p>Every format the library recognizes, including the ones it cannot decode: an AVIF answers
-fully here and fails with a specific error on decode.</p>
+<p>Every format the library recognizes, including the ones it cannot decode: a HEIF answers
+fully here and fails with a specific error on decode, because it shares AVIF's container and
+carries HEVC rather than AV1.</p>
 </div>
 <div class="tsd-parameters">
 <h4 class="tsd-parameters-title">Parameters</h4>
@@ -324,7 +385,7 @@ fully here and fails with a specific error on decode.</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/ImageInfo.html" class="tsd-signature-type tsd-kind-interface">ImageInfo</a><span class="tsd-signature-symbol">&gt;</span></h4><p>What the header says.</p>
 <aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L424">src/ts/wasm.ts:424</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L496">src/ts/wasm.ts:496</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="load"><code class="tsd-tag">Static</code><span>load</span><a href="#load" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -354,7 +415,7 @@ startup:</p>
 not understand.</p>
 </div></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L266">src/ts/wasm.ts:266</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L336">src/ts/wasm.ts:336</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="loadbytes"><code class="tsd-tag">Static</code><span>load<wbr/>Bytes</span><a href="#loadbytes" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -375,7 +436,7 @@ library's: import the wasm file there instead.</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="" class="tsd-signature-type tsd-kind-class">TinyImgModule</a><span class="tsd-signature-symbol">&gt;</span></h4><p>A loaded module ready to use.</p>
 <aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/wasm.ts#L296">src/ts/wasm.ts:296</a></li></ul></aside></div></li></ul></section></section></details></div>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/wasm.ts#L366">src/ts/wasm.ts:366</a></li></ul></aside></div></li></ul></section></section></details></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">
@@ -394,9 +455,9 @@ library's: import the wasm file there instead.</p>
 <details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Accessors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Accessors</summary>
 <div><a href="#abi"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>abi</span></a><a href="#features"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>features</span></a><a href="#memory"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>memory</span></a><a href="#pages"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>pages</span></a><a href="#version"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>version</span></a><a href="#versiontext"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>version<wbr/>Text</span></a></div></details>
 <details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Methods</summary>
-<div><a href="#decode"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>decode</span></a><a href="#detectfaces"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>detect<wbr/>Faces</span></a><a href="#errorname"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>error<wbr/>Name</span></a><a href="#freeblob"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>free<wbr/>Blob</span></a><a href="#freeblobs"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>free<wbr/>Blobs</span></a><a href="#has"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>has</span></a><a href="#loadblob"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>load<wbr/>Blob</span></a><a href="#measure"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>measure</span></a><a href="#probe"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>probe</span></a><a href="#load"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>load</span></a><a href="#loadbytes"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>load<wbr/>Bytes</span></a></div></details></div></details></div>
+<div><a href="#builtinblobs"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>builtin<wbr/>Blobs</span></a><a href="#decode"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>decode</span></a><a href="#decoderegion"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>decode<wbr/>Region</span></a><a href="#detectfaces"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>detect<wbr/>Faces</span></a><a href="#errorname"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>error<wbr/>Name</span></a><a href="#freeblob"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>free<wbr/>Blob</span></a><a href="#freeblobs"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>free<wbr/>Blobs</span></a><a href="#has"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>has</span></a><a href="#loadblob"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>load<wbr/>Blob</span></a><a href="#measure"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>measure</span></a><a href="#probe"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>probe</span></a><a href="#load"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>load</span></a><a href="#loadbytes"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>load<wbr/>Bytes</span></a></div></details></div></details></div>
 <div class="site-menu">
-<nav class="tsd-navigation"><a href="../modules.html">tinyimg - v1.0.0</a>
+<nav class="tsd-navigation"><a href="../modules.html">tinyimg - v1.1.0</a>
 <ul class="tsd-small-nested-navigation" id="tsd-nav-container">
 <li>Loading...</li></ul></nav></div></div></div><footer>
 <p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>

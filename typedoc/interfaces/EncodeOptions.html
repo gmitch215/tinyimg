@@ -1,5 +1,5 @@
-<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>EncodeOptions | tinyimg - v1.0.0</title><meta name="description" content="Documentation for tinyimg"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
-<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">tinyimg - v1.0.0</a>
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>EncodeOptions | tinyimg - v1.1.0</title><meta name="description" content="Documentation for tinyimg"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">tinyimg - v1.1.0</a>
 <div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
 <ul role="listbox" id="tsd-search-results"></ul>
 <div id="tsd-search-status" aria-live="polite" aria-atomic="true">
@@ -13,9 +13,9 @@
 <section class="tsd-panel tsd-comment">
 <div class="tsd-comment tsd-typography"><p>What <a href="../classes/Image.html#bytes" class="tsd-kind-method">Image.bytes</a> and its siblings take.</p>
 </div></section>
-<div class="tsd-signature"><span class="tsd-signature-keyword">interface</span> <span class="tsd-kind-interface">EncodeOptions</span> <span class="tsd-signature-symbol">{</span><br/>    <a class="tsd-kind-property" href="#effort">effort</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;fancy&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;fast&quot;</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#lossless">lossless</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#progressive">progressive</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#quality">quality</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#stripmetadata">stripMetadata</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div><aside class="tsd-sources">
+<div class="tsd-signature"><span class="tsd-signature-keyword">interface</span> <span class="tsd-kind-interface">EncodeOptions</span> <span class="tsd-signature-symbol">{</span><br/>    <a class="tsd-kind-property" href="#compression">compression</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;best&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;auto&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;none&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;fast&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;default&quot;</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#effort">effort</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;fancy&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;fast&quot;</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#lossless">lossless</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#progressive">progressive</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#quality">quality</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#stripmetadata">stripMetadata</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/image.ts#L94">src/ts/image.ts:94</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/image.ts#L103">src/ts/image.ts:103</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
@@ -23,7 +23,8 @@
 <div class="tsd-accordion-details">
 <section class="tsd-index-section">
 <h3 class="tsd-index-heading tsd-anchor-link" id="properties">Properties<a href="#properties" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-index-list"><a href="#effort" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>effort?</span></a>
+<div class="tsd-index-list"><a href="#compression" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>compression?</span></a>
+<a href="#effort" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>effort?</span></a>
 <a href="#lossless" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>lossless?</span></a>
 <a href="#progressive" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>progressive?</span></a>
 <a href="#quality" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>quality?</span></a>
@@ -32,6 +33,21 @@
 <details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Properties"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
 <h2 class="tsd-anchor-link" id="properties-1">Properties<a href="#properties-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
 <section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="compression"><code class="tsd-tag">Optional</code><span>compression</span><a href="#compression" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">compression</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;best&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;auto&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;none&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;fast&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;default&quot;</span></div>
+<div class="tsd-comment tsd-typography"><p>How hard a lossless stream should be compressed. <code>'auto'</code> is the default.</p>
+<p>A third axis, separate from quality and effort, because for PNG and deflate-compressed TIFF
+the whole output is the compressor's: there is no quantizer to turn down, so quality says
+nothing and effort only decides how many candidate streams get compressed. <code>'auto'</code> reads
+quality, which is what every caller got before this option existed.</p>
+<p>At the longest chain walk this measured 664 bytes against 835 on a logo, for 4.30x the CPU;
+<code>'none'</code> entropy codes without searching for matches at all and can beat <code>'fast'</code> on a
+photograph's filtered rows.</p>
+<p>Formats with no deflate stream ignore it.</p>
+</div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/image.ts#L147">src/ts/image.ts:147</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="effort"><code class="tsd-tag">Optional</code><span>effort</span><a href="#effort" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">effort</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;fancy&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;fast&quot;</span></div>
@@ -42,38 +58,45 @@ prediction search to its four whole-block modes, which over six fixtures at 800 
 1.18x to 1.45x faster for between 8.8% smaller and 17.5% larger, never more than 0.05 dB
 apart. Flat-color illustrations pay the most, because hard diagonal edges are what the
 omitted modes are for.</p>
-<p>Formats with nothing to trade ignore it and do the exact thing.</p>
+<p>PNG reads it too, and its trade splits by content. The encoder compresses an adaptively
+filtered stream and an unfiltered one and keeps the smaller; <code>'fast'</code> compresses only the
+adaptive one, which is 1.59x to 2.08x. On a photograph the adaptive stream wins anyway, so the
+output is byte-identical and the speed costs nothing. On flat artwork the unfiltered stream is
+the one that would have won, so it pays 7.0% more bytes on a mono GIF, 17.2% on
+<code>webassembly.png</code> and 63.1% on a 96x96 logo.</p>
+<p>Formats with nothing to trade ignore it and do the exact thing, which includes AVIF: the AV1
+encoder has no bounded search to give up.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/image.ts#L115">src/ts/image.ts:115</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/image.ts#L132">src/ts/image.ts:132</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="lossless"><code class="tsd-tag">Optional</code><span>lossless</span><a href="#lossless" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">lossless</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span></div>
 <div class="tsd-comment tsd-typography"><p>Use the format's lossless mode where it has one.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/image.ts#L98">src/ts/image.ts:98</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/image.ts#L107">src/ts/image.ts:107</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="progressive"><code class="tsd-tag">Optional</code><span>progressive</span><a href="#progressive" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">progressive</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span></div>
 <div class="tsd-comment tsd-typography"><p>Write a progressive or interlaced stream.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/image.ts#L100">src/ts/image.ts:100</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/image.ts#L109">src/ts/image.ts:109</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="quality"><code class="tsd-tag">Optional</code><span>quality</span><a href="#quality" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">quality</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span></div>
 <div class="tsd-comment tsd-typography"><p>Quality for a lossy format, 1 through 100.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/image.ts#L96">src/ts/image.ts:96</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/image.ts#L105">src/ts/image.ts:105</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="stripmetadata"><code class="tsd-tag">Optional</code><span>strip<wbr/>Metadata</span><a href="#stripmetadata" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">stripMetadata</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span></div>
 <div class="tsd-comment tsd-typography"><p>Drop EXIF and other metadata from the output.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/7056cf5c0ef7179d6940319bf0b5e2ddd4f2006e/src/ts/image.ts#L102">src/ts/image.ts:102</a></li></ul></aside></section></section></details></div>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/f64d16bf91288ad60efd9a658004fb9c7314b1f2/src/ts/image.ts#L111">src/ts/image.ts:111</a></li></ul></aside></section></section></details></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">
@@ -90,9 +113,9 @@ omitted modes are for.</p>
 <h3>On This Page</h3></summary>
 <div class="tsd-accordion-details">
 <details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Properties"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Properties</summary>
-<div><a href="#effort"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>effort</span></a><a href="#lossless"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>lossless</span></a><a href="#progressive"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>progressive</span></a><a href="#quality"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>quality</span></a><a href="#stripmetadata"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>strip<wbr/>Metadata</span></a></div></details></div></details></div>
+<div><a href="#compression"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>compression</span></a><a href="#effort"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>effort</span></a><a href="#lossless"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>lossless</span></a><a href="#progressive"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>progressive</span></a><a href="#quality"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>quality</span></a><a href="#stripmetadata"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>strip<wbr/>Metadata</span></a></div></details></div></details></div>
 <div class="site-menu">
-<nav class="tsd-navigation"><a href="../modules.html">tinyimg - v1.0.0</a>
+<nav class="tsd-navigation"><a href="../modules.html">tinyimg - v1.1.0</a>
 <ul class="tsd-small-nested-navigation" id="tsd-nav-container">
 <li>Loading...</li></ul></nav></div></div></div><footer>
 <p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
