@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -121,14 +121,14 @@ Macros</h2></td></tr>
 #define&#160;</td><td class="memItemRight"><b>TINYIMG_VERSION_MAJOR</b>&#160;&#160;&#160;1</td></tr>
 <tr class="memdesc:aef0cb6c72e4c2f9454e8c3548257eb80"><td class="mdescLeft">&#160;</td><td class="mdescRight">Major version of the library. <br /></td></tr>
 <tr class="memitem:a2c52af5a912c1d236734f99cc46ac938" id="r_a2c52af5a912c1d236734f99cc46ac938"><td class="memItemLeft"><a id="a2c52af5a912c1d236734f99cc46ac938" name="a2c52af5a912c1d236734f99cc46ac938"></a>
-#define&#160;</td><td class="memItemRight"><b>TINYIMG_VERSION_MINOR</b>&#160;&#160;&#160;0</td></tr>
+#define&#160;</td><td class="memItemRight"><b>TINYIMG_VERSION_MINOR</b>&#160;&#160;&#160;1</td></tr>
 <tr class="memdesc:a2c52af5a912c1d236734f99cc46ac938"><td class="mdescLeft">&#160;</td><td class="mdescRight">Minor version of the library. <br /></td></tr>
 <tr class="memitem:a6451672b9314264456cb6e6e8bf0829c" id="r_a6451672b9314264456cb6e6e8bf0829c"><td class="memItemLeft"><a id="a6451672b9314264456cb6e6e8bf0829c" name="a6451672b9314264456cb6e6e8bf0829c"></a>
 #define&#160;</td><td class="memItemRight"><b>TINYIMG_VERSION_PATCH</b>&#160;&#160;&#160;0</td></tr>
 <tr class="memdesc:a6451672b9314264456cb6e6e8bf0829c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Patch version of the library. <br /></td></tr>
 <tr class="memitem:a270a0ad956d9cb8579352dccb09326aa" id="r_a270a0ad956d9cb8579352dccb09326aa"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#a270a0ad956d9cb8579352dccb09326aa">TINYIMG_VERSION</a></td></tr>
 <tr class="memdesc:a270a0ad956d9cb8579352dccb09326aa"><td class="mdescLeft">&#160;</td><td class="mdescRight">The version packed into a single integer as <span class="tt">(major &lt;&lt; 16) | (minor &lt;&lt; 8) | patch</span>.  <br /></td></tr>
-<tr class="memitem:a7421b84eccdae3267f9554f7d09aa328" id="r_a7421b84eccdae3267f9554f7d09aa328"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#a7421b84eccdae3267f9554f7d09aa328">TINYIMG_ABI_VERSION</a>&#160;&#160;&#160;1</td></tr>
+<tr class="memitem:a7421b84eccdae3267f9554f7d09aa328" id="r_a7421b84eccdae3267f9554f7d09aa328"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#a7421b84eccdae3267f9554f7d09aa328">TINYIMG_ABI_VERSION</a>&#160;&#160;&#160;2</td></tr>
 <tr class="memdesc:a7421b84eccdae3267f9554f7d09aa328"><td class="mdescLeft">&#160;</td><td class="mdescRight">Version of the contract between the wasm module and its host wrapper.  <br /></td></tr>
 <tr class="memitem:a4e4cf4a7f6b5a3b4ed3d4078596c9876" id="r_a4e4cf4a7f6b5a3b4ed3d4078596c9876"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#a4e4cf4a7f6b5a3b4ed3d4078596c9876">TINYIMG_EXPORT</a>(name)</td></tr>
 <tr class="memdesc:a4e4cf4a7f6b5a3b4ed3d4078596c9876"><td class="mdescLeft">&#160;</td><td class="mdescRight">Marks a function as exported from the wasm module.  <br /></td></tr>
@@ -209,7 +209,7 @@ Functions</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">#define TINYIMG_ABI_VERSION&#160;&#160;&#160;1</td>
+          <td class="memname">#define TINYIMG_ABI_VERSION&#160;&#160;&#160;2</td>
         </tr>
       </table>
 </div><div class="memdoc">

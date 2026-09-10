@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -149,6 +149,8 @@ typedef enum <a class="el" href="#aa310fe6104e33c23c38848721d1ee76c">TinyResampl
 <tr class="memdesc:a1319bd7ca115d895db95fb9442373c98"><td class="mdescLeft">&#160;</td><td class="mdescRight">Which weights the resampler reads a source pixel through. <br /></td></tr>
 <tr class="memitem:a7a4ef7133b2ecceaa54ab792e6bd4f27" id="r_a7a4ef7133b2ecceaa54ab792e6bd4f27"><td class="memItemLeft">typedef enum <a class="el" href="#a41ce42f913bd0f7e17e31e694f2f4590">TinyPlanKernel</a>&#160;</td><td class="memItemRight"><a class="el" href="#a7a4ef7133b2ecceaa54ab792e6bd4f27">TinyPlanKernel</a></td></tr>
 <tr class="memdesc:a7a4ef7133b2ecceaa54ab792e6bd4f27"><td class="mdescLeft">&#160;</td><td class="mdescRight">Special cases the planner took, reported as a bitmask.  <br /></td></tr>
+<tr class="memitem:ae84bb3dc3e48d80e978456aa4e4699e1" id="r_ae84bb3dc3e48d80e978456aa4e4699e1"><td class="memItemLeft">typedef enum <a class="el" href="#a2f17e0231afd1a0bbf82e406cb73cf60">TinyPlanDegrade</a>&#160;</td><td class="memItemRight"><a class="el" href="#ae84bb3dc3e48d80e978456aa4e4699e1">TinyPlanDegrade</a></td></tr>
+<tr class="memdesc:ae84bb3dc3e48d80e978456aa4e4699e1"><td class="mdescLeft">&#160;</td><td class="mdescRight">What the planner gave up to fit a budget, as a bitmask.  <br /></td></tr>
 <tr class="memitem:a810093b34690a4874cba54f0973c7c02" id="r_a810093b34690a4874cba54f0973c7c02"><td class="memItemLeft">typedef enum <a class="el" href="#abfb24bb74084d275d821d2b6048596f6">TinyPlanField</a>&#160;</td><td class="memItemRight"><a class="el" href="#a810093b34690a4874cba54f0973c7c02">TinyPlanField</a></td></tr>
 <tr class="memdesc:a810093b34690a4874cba54f0973c7c02"><td class="mdescLeft">&#160;</td><td class="mdescRight">A field of a <a class="el" href="../../d0/d2f/structTinyPlanResolution.html" title="What the planner decided, before any pixel is touched.">TinyPlanResolution</a>, named rather than offset.  <br /></td></tr>
 </table><table class="memberdecls">
@@ -256,6 +258,11 @@ Enumerations</h2></td></tr>
 <br />
  }</td></tr>
 <tr class="memdesc:a41ce42f913bd0f7e17e31e694f2f4590"><td class="mdescLeft">&#160;</td><td class="mdescRight">Special cases the planner took, reported as a bitmask.  <a href="#a41ce42f913bd0f7e17e31e694f2f4590">More...</a><br /></td></tr>
+<tr class="memitem:a2f17e0231afd1a0bbf82e406cb73cf60" id="r_a2f17e0231afd1a0bbf82e406cb73cf60"><td class="memItemLeft">enum &#160;</td><td class="memItemRight"><a class="el" href="#a2f17e0231afd1a0bbf82e406cb73cf60">TinyPlanDegrade</a> { <a class="el" href="#a2f17e0231afd1a0bbf82e406cb73cf60a5255da52cf1dece6fa380e6cb06c3bf8">TINYIMG_DEGRADE_EFFORT</a> = 1 &lt;&lt; 0
+, <a class="el" href="#a2f17e0231afd1a0bbf82e406cb73cf60a0055926b4a1eb1e39189017bad4b25b8">TINYIMG_DEGRADE_FILTER</a> = 1 &lt;&lt; 1
+, <a class="el" href="#a2f17e0231afd1a0bbf82e406cb73cf60a471ec353b401a97b9eead8148c386f3b">TINYIMG_DEGRADE_SCALE</a> = 1 &lt;&lt; 2
+ }</td></tr>
+<tr class="memdesc:a2f17e0231afd1a0bbf82e406cb73cf60"><td class="mdescLeft">&#160;</td><td class="mdescRight">What the planner gave up to fit a budget, as a bitmask.  <a href="#a2f17e0231afd1a0bbf82e406cb73cf60">More...</a><br /></td></tr>
 <tr class="memitem:abfb24bb74084d275d821d2b6048596f6" id="r_abfb24bb74084d275d821d2b6048596f6"><td class="memItemLeft">enum &#160;</td><td class="memItemRight"><a class="el" href="#abfb24bb74084d275d821d2b6048596f6">TinyPlanField</a> { <br />
 &#160;&#160;<a class="el" href="#abfb24bb74084d275d821d2b6048596f6a8c0ac983bc08cc84317b6658e7d10851">TINYIMG_FIELD_REGION_X</a> = 0
 , <a class="el" href="#abfb24bb74084d275d821d2b6048596f6ab58aba6fabf4dbbec58b628d64b679ba">TINYIMG_FIELD_REGION_Y</a> = 1
@@ -276,6 +283,9 @@ Enumerations</h2></td></tr>
 , <a class="el" href="#abfb24bb74084d275d821d2b6048596f6a0781279d034b24f9c775222ef6d1931f">TINYIMG_FIELD_COLOR_STAGES</a> = 13
 , <a class="el" href="#abfb24bb74084d275d821d2b6048596f6a039a1d31632b3d02b4bd1d74289ebc59">TINYIMG_FIELD_PASSES</a> = 14
 , <a class="el" href="#abfb24bb74084d275d821d2b6048596f6ac3c3bd50871cdaab0a198bdf5916c222">TINYIMG_FIELD_KERNELS</a> = 15
+, <br />
+&#160;&#160;<a class="el" href="#abfb24bb74084d275d821d2b6048596f6ab6472b31acd2a7833cbafe7bd6d99d9a">TINYIMG_FIELD_COST</a> = 16
+, <a class="el" href="#abfb24bb74084d275d821d2b6048596f6ae7db1ea6cb19e782f17c013725c6941e">TINYIMG_FIELD_DEGRADED</a> = 17
 <br />
  }</td></tr>
 <tr class="memdesc:abfb24bb74084d275d821d2b6048596f6"><td class="mdescLeft">&#160;</td><td class="mdescRight">A field of a <a class="el" href="../../d0/d2f/structTinyPlanResolution.html" title="What the planner decided, before any pixel is touched.">TinyPlanResolution</a>, named rather than offset.  <a href="#abfb24bb74084d275d821d2b6048596f6">More...</a><br /></td></tr>
@@ -294,6 +304,8 @@ Functions</h2></td></tr>
 <tr class="memdesc:a6b71707766bc986fe0a713da979c96f3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Chooses whether the plan fuses.  <br /></td></tr>
 <tr class="memitem:aad126eb49d5f4996a03dfd9e6427dfa7" id="r_aad126eb49d5f4996a03dfd9e6427dfa7"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#aad126eb49d5f4996a03dfd9e6427dfa7">tiny_plan_set_effort</a> (<a class="el" href="../../d4/dc3/structTinyPlan.html">TinyPlan</a> *plan, uint8_t effort)</td></tr>
 <tr class="memdesc:aad126eb49d5f4996a03dfd9e6427dfa7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Chooses how much work the plan's decode may spend.  <br /></td></tr>
+<tr class="memitem:a026954dffeec969eb31782484d704e99" id="r_a026954dffeec969eb31782484d704e99"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a026954dffeec969eb31782484d704e99">tiny_plan_set_budget</a> (<a class="el" href="../../d4/dc3/structTinyPlan.html">TinyPlan</a> *plan, uint32_t microseconds)</td></tr>
+<tr class="memdesc:a026954dffeec969eb31782484d704e99"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets a CPU budget the planner may degrade the request to fit.  <br /></td></tr>
 <tr class="memitem:a6d53ab4be41da9e9d47ed878ed783921" id="r_a6d53ab4be41da9e9d47ed878ed783921"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a6d53ab4be41da9e9d47ed878ed783921">tiny_plan_background</a> (<a class="el" href="../../d4/dc3/structTinyPlan.html">TinyPlan</a> *plan, const uint8_t *color)</td></tr>
 <tr class="memdesc:a6d53ab4be41da9e9d47ed878ed783921"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets what padding is filled with.  <br /></td></tr>
 <tr class="memitem:a8e91b184bc9d116e92112a010153beb8" id="r_a8e91b184bc9d116e92112a010153beb8"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a8e91b184bc9d116e92112a010153beb8">tiny_plan_crop</a> (<a class="el" href="../../d4/dc3/structTinyPlan.html">TinyPlan</a> *plan, uint32_t x, uint32_t y, uint32_t width, uint32_t height)</td></tr>
@@ -348,6 +360,8 @@ Functions</h2></td></tr>
 <tr class="memdesc:add931e6cfcef735f99256c71fb1c9cf1"><td class="mdescLeft">&#160;</td><td class="mdescRight">What running this plan is expected to cost, in microseconds.  <br /></td></tr>
 <tr class="memitem:a3fd3eb159f13505b463734fadbb02f13" id="r_a3fd3eb159f13505b463734fadbb02f13"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a3fd3eb159f13505b463734fadbb02f13">tiny_encode_cost</a> (<a class="el" href="../../d5/db2/image_8h.html#a0cfa60bdfdbf3bc49b738a9f19accb8b">TinyImageFormat</a> format, uint32_t width, uint32_t height)</td></tr>
 <tr class="memdesc:a3fd3eb159f13505b463734fadbb02f13"><td class="mdescLeft">&#160;</td><td class="mdescRight">What encoding an image of this extent is expected to cost.  <br /></td></tr>
+<tr class="memitem:a8f309545f4260640cbcd49ce10ca9cee" id="r_a8f309545f4260640cbcd49ce10ca9cee"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a8f309545f4260640cbcd49ce10ca9cee">tiny_encode_cost_at</a> (<a class="el" href="../../d5/db2/image_8h.html#a0cfa60bdfdbf3bc49b738a9f19accb8b">TinyImageFormat</a> format, uint32_t width, uint32_t height, uint8_t compression)</td></tr>
+<tr class="memdesc:a8f309545f4260640cbcd49ce10ca9cee"><td class="mdescLeft">&#160;</td><td class="mdescRight">What encoding an image of this extent costs at one compression level.  <br /></td></tr>
 <tr class="memitem:a67b0dda68701890ccb38efdaea3b087e" id="r_a67b0dda68701890ccb38efdaea3b087e"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a67b0dda68701890ccb38efdaea3b087e">tiny_plan_field</a> (const <a class="el" href="../../d0/d2f/structTinyPlanResolution.html">TinyPlanResolution</a> *resolution, <a class="el" href="#abfb24bb74084d275d821d2b6048596f6">TinyPlanField</a> field)</td></tr>
 <tr class="memdesc:a67b0dda68701890ccb38efdaea3b087e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads one named field of a resolution.  <br /></td></tr>
 <tr class="memitem:a6ff2bf0ba87f1dcf70e22cf29d7a1041" id="r_a6ff2bf0ba87f1dcf70e22cf29d7a1041"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a6ff2bf0ba87f1dcf70e22cf29d7a1041">tiny_plan_resolve</a> (const <a class="el" href="../../d4/dc3/structTinyPlan.html">TinyPlan</a> *plan, <a class="el" href="../../d0/d2f/structTinyPlanResolution.html">TinyPlanResolution</a> *resolution)</td></tr>
@@ -425,6 +439,24 @@ int&#160;</td><td class="memItemRight"><b>tiny_plan_blur_box</b> (<a class="el" 
 
 <p>The neighborhood effects TINYIMG_OP_EFFECT can carry. </p>
 <p>Every one of these reads more than one pixel, so they share the class that ends a fused pass. What separates them is the kernel and the parameters, not anything the planner needs to know, which is why one operation kind carries them all. </p>
+
+</div>
+</div>
+<a id="ae84bb3dc3e48d80e978456aa4e4699e1" name="ae84bb3dc3e48d80e978456aa4e4699e1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae84bb3dc3e48d80e978456aa4e4699e1">&#9670;&#160;</a></span>TinyPlanDegrade</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef enum <a class="el" href="#a2f17e0231afd1a0bbf82e406cb73cf60">TinyPlanDegrade</a> <a class="el" href="#a2f17e0231afd1a0bbf82e406cb73cf60">TinyPlanDegrade</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>What the planner gave up to fit a budget, as a bitmask. </p>
+<p>Zero when nothing was given up, which is every plan with no budget set and every plan whose estimate already fit. A caller that would rather fail than serve a softer image reads this and refuses.</p>
+<p>The estimate is an estimate, so this says what the planner decided and not what the request will actually cost. tiny_plan_cost's own documentation is the accuracy claim. </p>
 
 </div>
 </div>
@@ -599,6 +631,37 @@ int&#160;</td><td class="memItemRight"><b>tiny_plan_blur_box</b> (<a class="el" 
 
 </div>
 </div>
+<a id="a2f17e0231afd1a0bbf82e406cb73cf60" name="a2f17e0231afd1a0bbf82e406cb73cf60"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2f17e0231afd1a0bbf82e406cb73cf60">&#9670;&#160;</a></span>TinyPlanDegrade</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="#a2f17e0231afd1a0bbf82e406cb73cf60">TinyPlanDegrade</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>What the planner gave up to fit a budget, as a bitmask. </p>
+<p>Zero when nothing was given up, which is every plan with no budget set and every plan whose estimate already fit. A caller that would rather fail than serve a softer image reads this and refuses.</p>
+<p>The estimate is an estimate, so this says what the planner decided and not what the request will actually cost. tiny_plan_cost's own documentation is the accuracy claim. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a2f17e0231afd1a0bbf82e406cb73cf60a5255da52cf1dece6fa380e6cb06c3bf8" name="a2f17e0231afd1a0bbf82e406cb73cf60a5255da52cf1dece6fa380e6cb06c3bf8"></a>TINYIMG_DEGRADE_EFFORT&#160;</td><td class="fielddoc"><p>The decode ran at TINYIMG_EFFORT_FAST. </p>
+<p>One lever with two effects, because the effort tier already carries both: a lossy decoder drops its smoothing pass, and an enlargement the caller left on TINYIMG_FILTER_AUTO steps from the cubic to bilinear. The measured floors are in <a class="el" href="../../d5/db2/image_8h.html#a8f3b99eeaa1cd08f18cd2f9e9a898a61" title="How much computation an operation may spend to do its best work.">TinyEffort</a>'s own documentation; nothing new is given up here. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a2f17e0231afd1a0bbf82e406cb73cf60a0055926b4a1eb1e39189017bad4b25b8" name="a2f17e0231afd1a0bbf82e406cb73cf60a0055926b4a1eb1e39189017bad4b25b8"></a>TINYIMG_DEGRADE_FILTER&#160;</td><td class="fielddoc"><p>A filter the caller left on AUTO stepped down to nearest. </p>
+<p>One tap in either direction, so it is the only filter whose rate does not depend on which way the resample is going, and that is what makes the reduction rung below worth taking at all.</p>
+<p>Never set when the caller named a filter. Effort and a budget both say how hard to work at what was left open, not what to do instead of what was asked for. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a2f17e0231afd1a0bbf82e406cb73cf60a471ec353b401a97b9eead8148c386f3b" name="a2f17e0231afd1a0bbf82e406cb73cf60a471ec353b401a97b9eead8148c386f3b"></a>TINYIMG_DEGRADE_SCALE&#160;</td><td class="fielddoc"><p>The decoder was asked for a further reduction. </p>
+<p>Past what the scale ladder picks, so the resample reads fewer source samples than the output it produces and the result is softer. The denominator that was used is in <span class="tt">decode.scale_den</span>, and the ladder's own pick is what it would have been without a budget.</p>
+<p>Only available for a coded source at a denominator the format offers, and never past eight. It comes after the filter rung because taking it first turns a box reduction into an interpolating enlargement, which measured <b>more</b> expensive than not degrading at all. </p>
+</td></tr>
+</table>
+
+</div>
+</div>
 <a id="abfb24bb74084d275d821d2b6048596f6" name="abfb24bb74084d275d821d2b6048596f6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#abfb24bb74084d275d821d2b6048596f6">&#9670;&#160;</a></span>TinyPlanField</h2>
 
@@ -645,6 +708,10 @@ int&#160;</td><td class="memItemRight"><b>tiny_plan_blur_box</b> (<a class="el" 
 <tr><td class="fieldname"><a id="abfb24bb74084d275d821d2b6048596f6a039a1d31632b3d02b4bd1d74289ebc59" name="abfb24bb74084d275d821d2b6048596f6a039a1d31632b3d02b4bd1d74289ebc59"></a>TINYIMG_FIELD_PASSES&#160;</td><td class="fielddoc"><p>Fused passes tiny_plan_run will make. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="abfb24bb74084d275d821d2b6048596f6ac3c3bd50871cdaab0a198bdf5916c222" name="abfb24bb74084d275d821d2b6048596f6ac3c3bd50871cdaab0a198bdf5916c222"></a>TINYIMG_FIELD_KERNELS&#160;</td><td class="fielddoc"><p>A bitmask of <a class="el" href="#a41ce42f913bd0f7e17e31e694f2f4590" title="Special cases the planner took, reported as a bitmask.">TinyPlanKernel</a>. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="abfb24bb74084d275d821d2b6048596f6ab6472b31acd2a7833cbafe7bd6d99d9a" name="abfb24bb74084d275d821d2b6048596f6ab6472b31acd2a7833cbafe7bd6d99d9a"></a>TINYIMG_FIELD_COST&#160;</td><td class="fielddoc"><p>What running this is estimated to cost, in microseconds. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="abfb24bb74084d275d821d2b6048596f6ae7db1ea6cb19e782f17c013725c6941e" name="abfb24bb74084d275d821d2b6048596f6ae7db1ea6cb19e782f17c013725c6941e"></a>TINYIMG_FIELD_DEGRADED&#160;</td><td class="fielddoc"><p>A bitmask of <a class="el" href="#a2f17e0231afd1a0bbf82e406cb73cf60" title="What the planner gave up to fit a budget, as a bitmask.">TinyPlanDegrade</a>. </p>
 </td></tr>
 </table>
 
@@ -829,11 +896,57 @@ int&#160;</td><td class="memItemRight"><b>tiny_plan_blur_box</b> (<a class="el" 
 
 <p>What encoding an image of this extent is expected to cost. </p>
 <p>Separate from tiny_plan_cost so a caller choosing between formats can price each one without building a plan per candidate. The spread is the reason the function exists: at the rates measured, PNG costs 29 times JPEG per sample and WebP costs 4, so a request that does not fit as WebP may fit as JPEG.</p>
+<p>Prices the default compression level. Use tiny_encode_cost_at to price another one, which is the lever a budgeted lossless request has.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">format</td><td>The format to write. </td></tr>
     <tr><td class="paramname">width</td><td>Output width. </td></tr>
     <tr><td class="paramname">height</td><td>Output height. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>uint32_t Microseconds, or 0 for a format this build cannot write. </dd></dl>
+
+</div>
+</div>
+<a id="a8f309545f4260640cbcd49ce10ca9cee" name="a8f309545f4260640cbcd49ce10ca9cee"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8f309545f4260640cbcd49ce10ca9cee">&#9670;&#160;</a></span>tiny_encode_cost_at()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t tiny_encode_cost_at </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="../../d5/db2/image_8h.html#a0cfa60bdfdbf3bc49b738a9f19accb8b">TinyImageFormat</a></td>          <td class="paramname"><span class="paramname"><em>format</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>width</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>height</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint8_t</td>          <td class="paramname"><span class="paramname"><em>compression</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>What encoding an image of this extent costs at one compression level. </p>
+<p>The lever a budget has over a lossless output. PNG and TIFF carry a deflate stream whose level moves the encoder by 1.5x to 2.4x measured, which on a PNG-output request is worth more than anything the planner can do to the pixels: the encoder is the larger half of the cost and the only half a budget could not previously reach.</p>
+<p>Every other format ignores the level, the same way its encoder does, so this agrees with tiny_encode_cost for them.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">format</td><td>The format to write. </td></tr>
+    <tr><td class="paramname">width</td><td>Output width. </td></tr>
+    <tr><td class="paramname">height</td><td>Output height. </td></tr>
+    <tr><td class="paramname">compression</td><td>A <a class="el" href="../../d5/db2/image_8h.html#a793fcaf9f7129350c2c44772cd58dd1d" title="How hard a lossless encoder should compress.">TinyCompression</a>; AUTO prices as the default level. </td></tr>
   </table>
   </dd>
 </dl>
@@ -1978,6 +2091,41 @@ int&#160;</td><td class="memItemRight"><b>tiny_plan_blur_box</b> (<a class="el" 
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK, TINYIMG_ERR_NULL, TINYIMG_ERR_RANGE for a negative factor, or TINYIMG_ERR_PLAN. </dd></dl>
+
+</div>
+</div>
+<a id="a026954dffeec969eb31782484d704e99" name="a026954dffeec969eb31782484d704e99"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a026954dffeec969eb31782484d704e99">&#9670;&#160;</a></span>tiny_plan_set_budget()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_plan_set_budget </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="../../d4/dc3/structTinyPlan.html">TinyPlan</a> *</td>          <td class="paramname"><span class="paramname"><em>plan</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>microseconds</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Sets a CPU budget the planner may degrade the request to fit. </p>
+<p>The Workers Free plan allows 10 milliseconds of CPU per request and does not let a caller pay for more, so a request that does not fit fails outright. With a budget set, the planner prices the plan and, while the estimate is over, gives something up: the effort tier, then nearest for a filter left on AUTO, then reductions of the decode. What it gave up is reported in <span class="tt">degraded</span> on the resolution and the estimate it settled on is in <span class="tt">cost</span>.</p>
+<p><b>A rung that is not cheaper is skipped rather than taken</b>, so what comes back is never softer for more CPU than the undegraded plan.</p>
+<p><b>A budget is a request, not a guarantee.</b> The estimate is within about 20%, the levers run out, and a plan can still be over budget after all of them; a caller that has to know reads <span class="tt">cost</span> back and compares. Nothing is degraded silently and nothing is degraded when the estimate already fits.</p>
+<p>The encoder is not priced here, because a plan does not carry one. Subtract tiny_encode_cost for the format being written before setting this.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">plan</td><td>The plan. </td></tr>
+    <tr><td class="paramname">microseconds</td><td>The budget, or zero to remove it. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK or TINYIMG_ERR_NULL. </dd></dl>
 
 </div>
 </div>

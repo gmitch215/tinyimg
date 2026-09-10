@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -117,7 +117,13 @@ Table of Contents</h1>
 <li><a class="el" href="#codec-support" title="Codec Support">Codec Support</a></li>
 <li><a class="el" href="#drawing" title="Drawing">Drawing</a></li>
 <li><a class="el" href="#effects" title="Effects">Effects</a></li>
-<li><a class="el" href="#text" title="Text">Text</a></li>
+<li><a class="el" href="#text" title="Text">Text</a><ul>
+<li><a class="el" href="#setting-a-run" title="Setting a Run">Setting a Run</a></li>
+<li><a class="el" href="#mixed-styles" title="Mixed Styles">Mixed Styles</a></li>
+<li><a class="el" href="#what-the-face-says" title="What the Face Says">What the Face Says</a></li>
+<li><a class="el" href="#open-graph-cards" title="Open Graph Cards">Open Graph Cards</a></li>
+</ul>
+</li>
 <li><a class="el" href="#face-detection" title="Face Detection">Face Detection</a></li>
 <li><a class="el" href="#color-management" title="Color Management">Color Management</a></li>
 <li><a class="el" href="#reading-the-db-figures" title="Reading the dB Figures">Reading the dB Figures</a></li>
@@ -140,7 +146,7 @@ Why tinyimg</h1>
 <li><b>Workers-native.</b> One wasm module with zero imports, instantiated at worker startup. Nothing depends on Node, and there is no filesystem access, no subrequest and no binding.</li>
 <li><b>Lazy by design.</b> Operations do not run when called. They append to a plan, and the plan decides what to decode before decoding it; see <a class="el" href="#the-planner" title="The Planner">The Planner</a>.</li>
 <li><b>A drawing surface.</b> Shapes, polygons, gradients, compositing with blend modes, and a display list with a transform stack, which is the Canvas-shaped API the runtime does not have.</li>
-<li><b>Nothing bundled that you might not use.</b> Fonts, color profiles and cascades load at runtime. The module ships no font data.</li>
+<li><b>Works off a bare instantiate.</b> A Latin face, four ICC profiles and two face cascades are compiled in, so text, color conversion and face detection need no blob and no subrequest. A wider glyph set or a cascade of your own loads at runtime.</li>
 <li><b>TypeScript-first.</b> The types are the contract and the documentation.</li>
 </ul>
 <h1 class="doxsection"><a class="anchor" id="compared-with-cloudflare-images"></a>
@@ -158,73 +164,92 @@ Compared With Cloudflare Images</h1>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">Subrequest or binding  </td><td class="markdownTableBodyNone">required  </td><td class="markdownTableBodyNone">none  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">AVIF output  </td><td class="markdownTableBodyNone">yes  </td><td class="markdownTableBodyNone">no  </td></tr>
+<td class="markdownTableBodyNone">AVIF output  </td><td class="markdownTableBodyNone">yes  </td><td class="markdownTableBodyNone">yes  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">Runs on Workers Free  </td><td class="markdownTableBodyNone">5,000 transforms / mo  </td><td class="markdownTableBodyNone">sources up to roughly 2 MP  </td></tr>
+<td class="markdownTableBodyNone">Runs on Workers Free  </td><td class="markdownTableBodyNone">5,000 transforms / mo  </td><td class="markdownTableBodyNone">see <a class="el" href="#speed" title="Speed">Speed</a>  </td></tr>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone">Raw pixel access  </td><td class="markdownTableBodyNone">no  </td><td class="markdownTableBodyNone">yes  </td></tr>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">Shapes and gradients  </td><td class="markdownTableBodyNone">no  </td><td class="markdownTableBodyNone">yes  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">Text  </td><td class="markdownTableBodyNone">one string, one font, one size  </td><td class="markdownTableBodyNone">layout, wrapping, alignment, metrics  </td></tr>
+<td class="markdownTableBodyNone">Text measurement  </td><td class="markdownTableBodyNone">no  </td><td class="markdownTableBodyNone">yes  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Text wrapping  </td><td class="markdownTableBodyNone">no  </td><td class="markdownTableBodyNone">yes  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Text stroke or shadow  </td><td class="markdownTableBodyNone">no  </td><td class="markdownTableBodyNone">yes  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Mixed styles in a run  </td><td class="markdownTableBodyNone">no  </td><td class="markdownTableBodyNone">yes  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">Ligatures and GPOS  </td><td class="markdownTableBodyNone">no  </td><td class="markdownTableBodyNone">yes  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Variable font axes  </td><td class="markdownTableBodyNone">no  </td><td class="markdownTableBodyNone">yes  </td></tr>
 </table>
+<p>Images renders text as of 2026: <span class="tt">.text(content, options)</span> takes a font by URL (TrueType, OpenType or WOFF, up to 20 MB), a colour and a size, up to 1,000 characters and 4096 x 4096 pixels, positioned through the <span class="tt">draw</span> array with Porter-Duff compositing. The row that used to read "one string, one
+font, one size" understated it.</p>
+<p>What it does not do is give the caller any measurements back, so nothing can be positioned relative to the text. That is the difference the text rows above describe: wrapping a caption to a box, centring a line inside a plate, or fitting a title to a width all need the metrics first, and <span class="tt">measureText</span> is the entry point Images has no equivalent of. The rest follows from having a layout rather than a string: an outline and a shadow so a headline survives being drawn over a photograph, several styles on one baseline, and one variable file serving every weight.</p>
 <h2 class="doxsection"><a class="anchor" id="cost"></a>
 Cost</h2>
-<p>Past the included CPU, Workers bills $0.02 per million CPU milliseconds, so a transformation costs its own compute multiplied by that. Three routes to the same 800 px page:</p>
+<p>Past the included CPU, Workers bills $0.02 per million CPU milliseconds, so a transformation costs its own compute multiplied by that. Four routes to the same 800 px page:</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
 <th class="markdownTableHeadNone">Route  </th><th class="markdownTableHeadNone"><span class="tt">effort</span>  </th><th class="markdownTableHeadRight">Compute  </th><th class="markdownTableHeadRight">Per million  </th><th class="markdownTableHeadRight">Within the included CPU  </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">800 px WebP  </td><td class="markdownTableBodyNone">fancy  </td><td class="markdownTableBodyRight">41.6 ms  </td><td class="markdownTableBodyRight">$0.83  </td><td class="markdownTableBodyRight">721,000  </td></tr>
+<td class="markdownTableBodyNone">800 px JPEG  </td><td class="markdownTableBodyNone">either  </td><td class="markdownTableBodyRight">16.7 ms  </td><td class="markdownTableBodyRight">$0.33  </td><td class="markdownTableBodyRight">1,796,000  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">800 px WebP  </td><td class="markdownTableBodyNone">fast  </td><td class="markdownTableBodyRight">33.4 ms  </td><td class="markdownTableBodyRight">$0.67  </td><td class="markdownTableBodyRight">898,000  </td></tr>
+<td class="markdownTableBodyNone">800 px WebP  </td><td class="markdownTableBodyNone">fast  </td><td class="markdownTableBodyRight">22.4 ms  </td><td class="markdownTableBodyRight">$0.45  </td><td class="markdownTableBodyRight">1,339,000  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">800 px JPEG  </td><td class="markdownTableBodyNone">either  </td><td class="markdownTableBodyRight">20.8 ms  </td><td class="markdownTableBodyRight">$0.42  </td><td class="markdownTableBodyRight">1,442,000  </td></tr>
+<td class="markdownTableBodyNone">800 px WebP  </td><td class="markdownTableBodyNone">fancy  </td><td class="markdownTableBodyRight">25.5 ms  </td><td class="markdownTableBodyRight">$0.51  </td><td class="markdownTableBodyRight">1,176,000  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">800 px AVIF  </td><td class="markdownTableBodyNone">either  </td><td class="markdownTableBodyRight">45 ms  </td><td class="markdownTableBodyRight">$0.90  </td><td class="markdownTableBodyRight">666,000  </td></tr>
 </table>
-<p>Against <b>$500 per million</b> for Images at $0.50 per 1,000. The absolute figures are small whichever route you take. What the spread buys is CPU headroom, and headroom is what the Free plan rations.</p>
-<p>Images bills a unique source and flag combination <b>once per calendar month</b> however often it is served, so a small set of derivatives under heavy traffic is already cheap there. tinyimg charges for every invocation that runs, so put <a href="https://developers.cloudflare.com/workers/cache/">Workers Cache</a> in front of it and a hit costs no CPU at all. tinyimg wins on many distinct derivatives, Images wins on few you have not cached.</p>
+<p>Against <b>$500 per million</b> for Images at $0.50 per 1,000. The absolute figures are small whichever route you take. What the spread buys is CPU headroom, and headroom is what the Free plan rations. AVIF costs the most compute and produces the smallest file: 17,860 bytes against WebP's 20,572 and JPEG's 21,561 on the same 800 px request.</p>
+<p>Images bills a unique source and flag combination <b>once per calendar month</b> however often it is served, so a small set of derivatives under heavy traffic is already cheap there. Since July 2026 the Images binding bills the same way rather than per call, and <span class="tt">.info()</span> is not billed at all. tinyimg charges for every invocation that runs, so put <a href="https://developers.cloudflare.com/workers/cache/">Workers Cache</a> in front of it and a hit costs no CPU at all.</p>
+<p>The split follows from that. Images is cheaper for a fixed set of derivatives you serve repeatedly. tinyimg is cheaper when the derivatives are unbounded, and the clearest case is text that varies per request: a social card carrying a page title is a unique transformation per page, so it bills every page and never reuses one.</p>
 <h2 class="doxsection"><a class="anchor" id="speed"></a>
 Speed</h2>
-<p>Median wall clock in bun on darwin-arm64 over <span class="tt">sf-24.jpg</span> at 1835x1032. This is not Worker CPU time on Cloudflare's hardware, so profile your own images.</p>
+<p>Fastest of 15 runs in bun on darwin-arm64 over <span class="tt">sf-24.jpg</span> at 1835x1032. The minimum rather than the median, because a busy machine can only move a timing upward. This is not Worker CPU time on Cloudflare's hardware, so profile your own images.</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
 <th class="markdownTableHeadNone">Request  </th><th class="markdownTableHeadRight"><span class="tt">effort: 'fancy'</span>  </th><th class="markdownTableHeadRight"><span class="tt">effort: 'fast'</span>  </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">200 px cover, JPEG q80  </td><td class="markdownTableBodyRight">7.2 ms  </td><td class="markdownTableBodyRight">6.9 ms  </td></tr>
+<td class="markdownTableBodyNone">200 px cover, JPEG q80  </td><td class="markdownTableBodyRight">5.1 ms  </td><td class="markdownTableBodyRight">5.0 ms  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">200 px cover, WebP q80  </td><td class="markdownTableBodyRight">8.3 ms  </td><td class="markdownTableBodyRight">7.7 ms  </td></tr>
+<td class="markdownTableBodyNone">400 px cover, JPEG q80  </td><td class="markdownTableBodyRight">9.1 ms  </td><td class="markdownTableBodyRight">9.2 ms  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">400 px cover, JPEG q80  </td><td class="markdownTableBodyRight">11.7 ms  </td><td class="markdownTableBodyRight">11.8 ms  </td></tr>
+<td class="markdownTableBodyNone">800 px cover, JPEG q80  </td><td class="markdownTableBodyRight">16.7 ms  </td><td class="markdownTableBodyRight">16.8 ms  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">400 px cover, WebP q80  </td><td class="markdownTableBodyRight">17.2 ms  </td><td class="markdownTableBodyRight">14.9 ms  </td></tr>
+<td class="markdownTableBodyNone">800 px cover, WebP q80  </td><td class="markdownTableBodyRight">25.5 ms  </td><td class="markdownTableBodyRight">22.4 ms  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">800 px cover, JPEG q80  </td><td class="markdownTableBodyRight">20.8 ms  </td><td class="markdownTableBodyRight">20.8 ms  </td></tr>
-<tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">800 px cover, WebP q80  </td><td class="markdownTableBodyRight">41.6 ms  </td><td class="markdownTableBodyRight">33.4 ms  </td></tr>
+<td class="markdownTableBodyNone">800 px cover, AVIF q80  </td><td class="markdownTableBodyRight">45 ms  </td><td class="markdownTableBodyRight">45 ms  </td></tr>
 </table>
-<p><span class="tt">effort</span> moves WebP at every size and leaves JPEG output flat, because the WebP encoder has a 4x4 prediction search to bound and the JPEG encoder has no equivalent.</p>
+<p><span class="tt">effort</span> moves WebP and leaves JPEG and AVIF output flat, because the WebP encoder has a 4x4 prediction search to bound and neither of the others has an equivalent. A PNG output is the other one it moves; see <a class="el" href="#budget-and-effort" title="Budget and Effort">Budget and Effort</a>.</p>
 <p>JPEG's own lever is on the decode side, and a thumbnail cannot show it. Replicating chroma instead of filtering it is worth 1.11x to 1.25x on a full decode, but the saving scales with output samples while a reduced request's cost is dominated by the entropy decode, which the source fixes. On a 4:2:0 source it measures 1.00x at 200 px and 1.07x at the source's own extent. <span class="tt">sf-24.jpg</span> cannot show it at any size, being 4:4:4 with no chroma to upsample.</p>
 <p>A request the source already satisfies is 0.01 ms and a plan decision with no pixels decoded is under 0.1 ms; neither depends on effort.</p>
-<p>The Workers Free plan allows 10 ms of CPU per request and does not let a caller pay for more, so a request either fits or fails. Workers Paid defaults to 30 seconds, raised to 5 minutes with <span class="tt">limits.cpu_ms</span>, and nothing above comes close to it.</p>
-<p><b>What fits Free is decided by the source, not by the size you ask for.</b> Every row below produces the same 200 px thumbnail from the same eighth-scale decode, and every one of them decodes 1.57% of its source's samples. The spread is the entropy decode, which no output size can reduce.</p>
+<p>The Workers Free plan allows 10 ms of CPU per request and does not let a caller pay for more, so a request either fits or fails. Workers Paid defaults to 30 seconds, raised to 5 minutes with <span class="tt">limits.cpu_ms</span>, and nothing above comes close to it. Every millisecond below is measured on darwin-arm64; Workers is 1.9x slower at the median and up to 4.7x on the cheapest requests, which are the ones nearest the limit, so scale before comparing.</p>
+<p><b>What fits Free is decided by the source, not by the size you ask for.</b> Every row below produces the same 200 px thumbnail from the same eighth-scale decode. The spread is the entropy decode, which no output size can reduce.</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
-<th class="markdownTableHeadNone">Source  </th><th class="markdownTableHeadRight">Megapixels  </th><th class="markdownTableHeadRight">200 px wide, JPEG  </th></tr>
+<th class="markdownTableHeadNone">Source  </th><th class="markdownTableHeadRight">Megapixels  </th><th class="markdownTableHeadRight">Compressed  </th><th class="markdownTableHeadRight">200 px wide, JPEG  </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">320x180  </td><td class="markdownTableBodyRight">0.06  </td><td class="markdownTableBodyRight">2.20 ms  </td></tr>
+<td class="markdownTableBodyNone">250x187  </td><td class="markdownTableBodyRight">0.05  </td><td class="markdownTableBodyRight">23 KB  </td><td class="markdownTableBodyRight">2.2 ms  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">1835x1032  </td><td class="markdownTableBodyRight">1.89  </td><td class="markdownTableBodyRight">6.80 ms  </td></tr>
+<td class="markdownTableBodyNone">2272x3000  </td><td class="markdownTableBodyRight">6.82  </td><td class="markdownTableBodyRight">215 KB  </td><td class="markdownTableBodyRight">8.0 ms  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">1920x1250  </td><td class="markdownTableBodyRight">2.40  </td><td class="markdownTableBodyRight">15.86 ms  </td></tr>
+<td class="markdownTableBodyNone">2308x3000  </td><td class="markdownTableBodyRight">6.92  </td><td class="markdownTableBodyRight">435 KB  </td><td class="markdownTableBodyRight">12.1 ms  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">5000x4000  </td><td class="markdownTableBodyRight">20.00  </td><td class="markdownTableBodyRight">25.41 ms  </td></tr>
+<td class="markdownTableBodyNone">1920x1280  </td><td class="markdownTableBodyRight">2.46  </td><td class="markdownTableBodyRight">828 KB  </td><td class="markdownTableBodyRight">15.4 ms  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">3600x2700  </td><td class="markdownTableBodyRight">9.72  </td><td class="markdownTableBodyRight">2721 KB  </td><td class="markdownTableBodyRight">53 ms  </td></tr>
 </table>
-<p>So roughly two megapixels is the Free ceiling for a synchronous transformation, whatever the output size. Past that the artifact has to be computed once and cached; see <a class="el" href="#caching" title="Caching">Caching</a>.</p>
-<p>Decode is 1.2x to 2.1x behind libjpeg, libpng and libwebp, which have SIMD implementations of their hot kernels and tinyimg has none. WebP and PNG encode are slower still. <a href="https://github.com/gmitch215/tinyimg/blob/master/TECHNICAL_REPORT.md"><span class="tt">TECHNICAL_REPORT.md</span></a> has the per-stage profile and the comparison against <span class="tt">@jsquash</span>.</p>
+<p><b>Compressed bytes predict it and megapixels do not.</b> The second and fourth rows make the point on their own: 2272x3000 carries 2.8x the pixels of 1920x1280, a quarter of the bytes, and finishes in half the time. Across twelve JPEGs, milliseconds per megapixel spread 7.1x while milliseconds per megabyte spread 1.95x at this scale. The practical rule for a 200 px thumbnail is roughly <b>480 KB of compressed source</b>, whatever its dimensions.</p>
+<p>The estimate <span class="tt">decide()</span> returns still prices against source samples and is wrong by up to 12.8x for that reason, so treat <span class="tt">budgetMs</span> as a coarse guard rather than a promise. Past the ceiling the artifact has to be computed once and cached; see <a class="el" href="#caching" title="Caching">Caching</a>.</p>
+<p>A progressive JPEG is the exception worth knowing about. At an eighth scale the transform reads the DC term alone, so the scans that carry only high-frequency detail are stepped over rather than decoded: <span class="tt">road.jpg</span> at 160 px goes from 28.5 ms to <b>6.5 ms</b>, byte-identical, which moves that request from outside the Free budget to inside it.</p>
+<p>JPEG and PNG decode are slightly ahead of libjpeg and libpng, at 1.06x-1.09x and 1.03x-1.08x; WebP decode is 0.68x-0.72x behind libwebp. JPEG and WebP encode are ahead at 3.8x-4.0x and 1.31x-1.38x. PNG encode is 12x behind, and that row is an operating-point difference as much as a speed one, since it produces a file 47% smaller; <span class="tt">compression: 'fast'</span> closes most of it at a stated size cost. <a href="https://github.com/gmitch215/tinyimg/blob/master/TECHNICAL_REPORT.md"><span class="tt">TECHNICAL_REPORT.md</span></a> has the per-stage profile and the comparison against <span class="tt">@jsquash</span>.</p>
 <h2 class="doxsection"><a class="anchor" id="gaps"></a>
 Gaps</h2>
 <ul>
-<li><b>No AVIF output.</b> Images serves AVIF through <span class="tt">format=auto</span>. tinyimg parses the container and reports its dimensions, and encodes WebP instead, which lands 25-35% below JPEG at matched quality. See <a class="el" href="#out-of-scope" title="Out of Scope">Out of Scope</a>.</li>
+<li><b>AVIF encode has no partition search.</b> Decode is complete and matches <span class="tt">dav1d</span> exactly. The encoder uses fixed 8x8 blocks and picks the luma mode from four candidates by absolute difference, so its files run 1.1x to 1.3x libaom's size at matched quality. A partition search is where most of AV1's compression lives.</li>
+<li><b>No 10 or 12 bit AVIF.</b> The reconstruction is 8 bits a sample end to end, so an HDR AVIF is refused rather than truncated. 4:2:2 is refused too, for a reason in the format: the specification's own subsampled-size table has no answer for a tall block on such a plane.</li>
 <li><b>No animation.</b> Both decode a first frame; neither re-times or composes one.</li>
 <li><b>You own the caching.</b> Images caches derivatives at the edge as a product feature. tinyimg gives you the key and leaves the cache to you; see <a class="el" href="#caching" title="Caching">Caching</a>.</li>
 </ul>
@@ -233,7 +258,7 @@ What tinyimg Adds</h2>
 <p>Images covers resize, fit, gravity, the standard adjustments, image overlays with Porter-Duff compositing, and a rasterized text string. Past that:</p>
 <ul>
 <li><b>A drawing surface.</b> Lines, rectangles, rounded rectangles, circles, ellipses, polygons with both fill rules, linear and radial gradients, and a display list with a transform matrix stack.</li>
-<li><b>Text as layout.</b> Wrapping, alignment, text boxes and measurement, against Images' single styled string.</li>
+<li><b>Text as layout.</b> Wrapping, alignment, justification, vertical alignment, ellipsis, per-line metrics, outlines, shadows, mixed styles on one baseline, fallback chains, ligatures, GPOS kerning and variable font axes, against Images' single styled string. <span class="tt">og</span> renders a whole Open Graph card in one call.</li>
 <li><b>Raw pixels.</b> <span class="tt">decode</span> and <span class="tt">Image.pixels</span> hand back samples, so anything not in the operation set is still reachable.</li>
 <li><b>Effects and warps.</b> Sobel, emboss, morphology, median, dither, halftone, duotone, split-tone, color blindness simulation, curves, channel mixer, shear, perspective, barrel and swirl.</li>
 <li><b>Face boxes, not just face gravity.</b> <span class="tt">detectFaces</span> returns rectangles, and <span class="tt"><a class="el" href="d5/db2/image_8h.html#a37e8a884dce463daccb65809a35c6916" title="Blurs whatever the detector finds and nothing else.">tiny_image_blur_faces</a></span> and <span class="tt"><a class="el" href="d5/db2/image_8h.html#ae6dbf26b4f5bc9ce3a940514245a10ae" title="Pixelates whatever the detector finds and nothing else.">tiny_image_pixelate_faces</a></span> act on them.</li>
@@ -404,9 +429,27 @@ Codec Support</h1>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">BMP  </td><td class="markdownTableBodyNone">uncompressed and RLE8  </td><td class="markdownTableBodyNone">uncompressed  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">AVIF, HEIF  </td><td class="markdownTableBodyNone">container only; <span class="tt">probe</span> answers and decode reports a specific error  </td><td class="markdownTableBodyNone">no  </td></tr>
+<td class="markdownTableBodyNone">AVIF  </td><td class="markdownTableBodyNone">AV1 intra: every transform, all 13 intra modes, deblock and CDEF  </td><td class="markdownTableBodyNone">fixed 8x8 partitions, no rate-distortion search  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">HEIF  </td><td class="markdownTableBodyNone">container only; <span class="tt">probe</span> answers and decode reports a specific error  </td><td class="markdownTableBodyNone">no  </td></tr>
 </table>
 <p>JPEG carries true DCT-domain scaled decode at 1/2, 1/4 and 1/8, and region decode that Huffman-scans past blocks outside the box without transforming them. PNG, GIF, TIFF and BMP row-skip and column-skip.</p>
+<p>PNG and deflate-compressed TIFF take a <span class="tt">compression</span> option, which is a third axis beside quality and effort: for a lossless format the whole output is the compressor's, so quality says nothing about it.</p>
+<table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone"><span class="tt">compression</span>  </th><th class="markdownTableHeadNone">What it does  </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">auto</span>  </td><td class="markdownTableBodyNone">Reads quality, which is what every caller got before the option existed  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><span class="tt">none</span>  </td><td class="markdownTableBodyNone">Entropy codes without searching for matches, which beats <span class="tt">fast</span> on filtered photograph rows  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">fast</span>  </td><td class="markdownTableBodyNone">One hash chain probe per position  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><span class="tt">default</span>  </td><td class="markdownTableBodyNone">A bounded chain walk with lazy matching  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">best</span>  </td><td class="markdownTableBodyNone">A long chain walk  </td></tr>
+</table>
+<p>On a 96 px logo <span class="tt">best</span> is 664 bytes against 835 at <span class="tt">default</span>, for 4.3x the CPU.</p>
 <p><span class="tt">probe</span> reads headers only, for every format including the ones the library cannot decode:</p>
 <div class="fragment"><div class="line">const info = await tinyimg.probe(source);</div>
 <div class="line">// { width, height, frames, format, channels, bitDepth, hasAlpha, progressive }</div>
@@ -428,24 +471,102 @@ Effects</h1>
 <h1 class="doxsection"><a class="anchor" id="text"></a>
 Text</h1>
 <p>TrueType and OpenType with <span class="tt">glyf</span> outlines, plus PSF and BDF bitmap faces, dispatched from the magic bytes. Quadratic flattening and a scanline fill with four vertical subsamples and exact horizontal coverage.</p>
-<div class="fragment"><div class="line">const font = await env.BLOBS.get(&#39;fonts/DejaVuSans.ttf&#39;);</div>
-<div class="line">if (font) await tinyimg.loadBlob(&#39;font&#39;, &#39;sans&#39;, font.body);</div>
-</div><!-- fragment --><p><span class="tt"><a class="el" href="d9/dcc/text_8h.html#a680a482623d94058dd0c97af9f77483c" title="Draws a line of text.">tiny_image_draw_text</a></span>, <span class="tt"><a class="el" href="d9/dcc/text_8h.html#af9fd7a331310fedc25284baee5d06a04" title="Draws text wrapped and aligned inside a rectangle.">tiny_image_draw_text_box</a></span> with wrapping and alignment, and <span class="tt"><a class="el" href="d9/dcc/text_8h.html#a54b720beb190b239f705c0d54be2dba6" title="Measures a run of text without drawing it.">tiny_text_measure</a></span> share one layout walk, so measuring and then drawing at the measured position lands where the measurement said. Kern pairs are applied when the face carries a <span class="tt">kern</span> table.</p>
+<p>A Latin face is compiled into the module, so drawing text needs no setup:</p>
+<div class="fragment"><div class="line">using font = Font.load(tinyimg);</div>
+</div><!-- fragment --><p>It covers ASCII and eight accented letters in 21 kB. A wider glyph set or a different face is a blob under a name of your own, and a fallback chain puts one behind the other rather than replacing it:</p>
+<div class="fragment"><div class="line">const noto = await fetch(&#39;https://example.com/NotoSansSC-Regular.ttf&#39;);</div>
+<div class="line">await tinyimg.loadBlob(&#39;font&#39;, &#39;cjk&#39;, await noto.arrayBuffer());</div>
+</div><!-- fragment --><p><span class="tt"><a class="el" href="d9/dcc/text_8h.html#a680a482623d94058dd0c97af9f77483c" title="Draws a line of text.">tiny_image_draw_text</a></span>, <span class="tt"><a class="el" href="d9/dcc/text_8h.html#a9c847feee74df916bcf659dc5c74b8c2" title="Draws text inside a rectangle, with the box&#39;s own settings.">tiny_image_draw_text_in</a></span> and <span class="tt"><a class="el" href="d9/dcc/text_8h.html#a54b720beb190b239f705c0d54be2dba6" title="Measures a run of text without drawing it.">tiny_text_measure</a></span> share one layout walk, so measuring and then drawing at the measured position lands where the measurement said.</p>
+<h2 class="doxsection"><a class="anchor" id="setting-a-run"></a>
+Setting a Run</h2>
+<p><span class="tt"><a class="el" href="d9/dff/structTinyTextStyle.html" title="How a run of text is set.">TinyTextStyle</a></span> carries the size, tracking, line height, kerning, an outline and a shadow. <span class="tt"><a class="el" href="df/d0d/structTinyTextBox.html" title="The rectangle a run is set inside, and how it sits there.">TinyTextBox</a></span> carries the rectangle: a wrap width, a height, horizontal alignment including justify, vertical alignment, and whether text the box cannot hold is clipped or ends in an ellipsis.</p>
+<p>A run with an outline or a shadow is drawn in three passes, every shadow then every outline then every fill, so a letter's outline never prints over its neighbor's fill. The outline is a dilation of the glyph's coverage rather than an offset of its curve, which rounds a sharp interior corner that a true offset would extend to a point; at the one to four pixels a card uses the difference is not visible.</p>
+<p><span class="tt"><a class="el" href="d9/dcc/text_8h.html#ae21d33f22fdcf1153c959d0388cdccd3" title="Measures a run line by line, without drawing it.">tiny_text_lines</a></span> reports the layout one line at a time: the byte range, the width, where the line sits once aligned, its baseline, and whether the box clipped it or an ellipsis ended it. It is what tells a caller a headline was truncated before the card is served.</p>
+<h2 class="doxsection"><a class="anchor" id="mixed-styles"></a>
+Mixed Styles</h2>
+<p><span class="tt"><a class="el" href="d9/dcc/text_8h.html#ab07c76c2367ea6e4149e66b742208f18" title="Draws a sequence of styled spans as one run of text.">tiny_image_draw_text_runs</a></span> takes up to sixteen spans, each with its own face, size, color, outline and shadow, and flows them as one run: a wrap can land in the middle of a span, and a line that mixes sizes sits on one baseline, which is the largest ascent on that line. Kerning does not cross a span boundary, because a kern pair belongs to one face and the glyphs either side may not.</p>
+<h2 class="doxsection"><a class="anchor" id="what-the-face-says"></a>
+What the Face Says</h2>
+<table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone">Table  </th><th class="markdownTableHeadNone">Read for  </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">kern</span>  </td><td class="markdownTableBodyNone">Legacy pair kerning  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><span class="tt">GPOS</span>  </td><td class="markdownTableBodyNone">Pair kerning under the <span class="tt">kern</span> feature, formats 1 and 2  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">GSUB</span>  </td><td class="markdownTableBodyNone">Ligatures under the <span class="tt">liga</span> feature, longest match first  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><span class="tt">fvar</span>  </td><td class="markdownTableBodyNone">Variation axes, their ranges and their defaults  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">avar</span>  </td><td class="markdownTableBodyNone">Axis remapping, so the midpoint of an axis is where the designer put it  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><span class="tt">gvar</span>  </td><td class="markdownTableBodyNone">Outline and advance deltas, with regions and inferred points  </td></tr>
+</table>
+<p>Modern faces ship <span class="tt">GPOS</span> and often no <span class="tt">kern</span> at all, so a reader that only knew the legacy table would read most fonts as unkerned. <span class="tt">GPOS</span> is consulted first and the legacy table is the fallback.</p>
+<p>One variable file serves every weight:</p>
+<div class="fragment"><div class="line">tiny_font_set_axis(font, TINYIMG_AXIS_WEIGHT, 700);</div>
+</div><!-- fragment --><p>The outlines are interpolated from the face's own deltas, and so are the advances, which come from the same deltas' phantom points. Points no region names are inferred from their neighbors along the contour, which is what keeps an outline whole rather than torn.</p>
+<h2 class="doxsection"><a class="anchor" id="open-graph-cards"></a>
+Open Graph Cards</h2>
+<p><span class="tt">og</span> renders one:</p>
+<div class="fragment"><div class="line">const card = await og(tinyimg, {</div>
+<div class="line">    title: &#39;How a planner made the decode cheap&#39;,</div>
+<div class="line">    subtitle: &#39;Deciding what to decode before decoding it&#39;,</div>
+<div class="line">    footer: &#39;tinyimg.gmitch215.dev&#39;,</div>
+<div class="line">    background: &#39;#0b1020&#39;</div>
+<div class="line">});</div>
+<div class="line"> </div>
+<div class="line">return card.response({ &#39;cache-control&#39;: &#39;public, max-age=86400&#39; });</div>
+</div><!-- fragment --><p>1200x630 by default, with the headline wrapped, truncated with an ellipsis when it does not fit, and a shadow under the text. <span class="tt">image</span> covers the card with a photograph, fitted by the planner, so a 4000 px source is never decoded at 4000 px to end up 1200 wide. The result reports <span class="tt">titleTruncated</span> and <span class="tt">missingGlyphs</span>, which are the two ways a card goes out wrong.</p>
+<p>A Worker that serves cards for its own pages, cached so each one is rendered once:</p>
+<div class="fragment"><div class="line">import wasm from &#39;@gmitch215/tinyimg/tinyimg.wasm&#39;;</div>
+<div class="line">import { og, TinyImgModule } from &#39;@gmitch215/tinyimg&#39;;</div>
+<div class="line"> </div>
+<div class="line">const tinyimg = TinyImgModule.load(wasm);</div>
+<div class="line"> </div>
+<div class="line">export default {</div>
+<div class="line">    async fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise&lt;Response&gt; {</div>
+<div class="line">        const url = new URL(request.url);</div>
+<div class="line">        const cache = caches.default;</div>
+<div class="line"> </div>
+<div class="line">        const hit = await cache.match(request);</div>
+<div class="line">        if (hit) return hit;</div>
+<div class="line"> </div>
+<div class="line">        const card = await og(tinyimg, {</div>
+<div class="line">            title: url.searchParams.get(&#39;title&#39;) ?? &#39;Untitled&#39;,</div>
+<div class="line">            subtitle: url.searchParams.get(&#39;subtitle&#39;) ?? undefined,</div>
+<div class="line">            footer: url.hostname,</div>
+<div class="line">            background: &#39;#0b1020&#39;,</div>
+<div class="line">            format: &#39;png&#39;</div>
+<div class="line">        });</div>
+<div class="line"> </div>
+<div class="line">        if (card.missingGlyphs &gt; 0) {</div>
+<div class="line">            // the compiled-in face is a Latin subset; load a wider one for anything else</div>
+<div class="line">            console.warn(`${card.missingGlyphs} codepoints had no glyph`);</div>
+<div class="line">        }</div>
+<div class="line"> </div>
+<div class="line">        const response = card.response({</div>
+<div class="line">            &#39;cache-control&#39;: &#39;public, max-age=604800&#39;,</div>
+<div class="line">            &#39;x-title-truncated&#39;: String(card.titleTruncated)</div>
+<div class="line">        });</div>
+<div class="line"> </div>
+<div class="line">        ctx.waitUntil(cache.put(request, response.clone()));</div>
+<div class="line"> </div>
+<div class="line">        return response;</div>
+<div class="line">    }</div>
+<div class="line">};</div>
+</div><!-- fragment --><p>Nothing is loaded and no subrequest is made, so the whole card is CPU and one cache write.</p>
 <p>100 characters at 16 px cost 0.156 ms.</p>
 <h1 class="doxsection"><a class="anchor" id="face-detection"></a>
 Face Detection</h1>
 <p>An LBP cascade over an integral image, multi-scale, with union-find grouping. The cascades are OpenCV's <span class="tt">lbpcascade_frontalface_improved.xml</span> and <span class="tt">lbpcascade_profileface.xml</span>.</p>
-<p>The module carries no cascade data and no XML parser, so a cascade arrives as bytes in a packed form that <span class="tt">scripts/fixtures.ts</span> builds from the OpenCV source: 7.4 kB for the frontal cascade against 54 kB of XML. <span class="tt">loadBlob</span> rejects one still in XML. Both packed cascades are published, and <span class="tt">bun run blobs</span> rebuilds them if you would rather host your own:</p>
-<div class="fragment"><div class="line">const frontal = await fetch(&#39;https://cdn.gmitch215.dev/tinyimg/cascades/lbp-frontalface.bin&#39;);</div>
-<div class="line">const profile = await fetch(&#39;https://cdn.gmitch215.dev/tinyimg/cascades/lbp-profileface.bin&#39;);</div>
-<div class="line"> </div>
-<div class="line">await tinyimg.loadBlob(&#39;cascade&#39;, &#39;frontal&#39;, await frontal.arrayBuffer());</div>
-<div class="line">await tinyimg.loadBlob(&#39;cascade&#39;, &#39;profile&#39;, await profile.arrayBuffer());</div>
-<div class="line"> </div>
-<div class="line">const faces = await tinyimg.detectFaces(source);</div>
+<p>Both cascades are compiled into the module, so detection needs no setup:</p>
+<div class="fragment"><div class="line">const faces = await tinyimg.detectFaces(source);</div>
 <div class="line">// [{ x, y, width, height, neighbors }]</div>
-</div><!-- fragment --><p>Every resident cascade runs and the results are grouped together, so a frontal and a profile cascade find both kinds of face and a face that fires both is one box. Detections match OpenCV's own detector within a pixel on identical pixels.</p>
-<p>Feeds <span class="tt">gravity: 'face'</span>. With no cascade loaded, <span class="tt">detectFaces</span> reports a <span class="tt">TinyImgBlobError</span> and <span class="tt">gravity: 'face'</span> falls back to <span class="tt">auto</span>.</p>
+</div><!-- fragment --><p>The module carries no XML parser, so a cascade is a packed form that <span class="tt">scripts/fixtures.ts</span> builds from the OpenCV source: 7.4 kB for the frontal cascade against 54 kB of XML. <span class="tt">loadBlob</span> rejects one still in XML, and <span class="tt">bun run blobs</span> rebuilds the packed pair if you would rather train your own.</p>
+<p>Loading a cascade of your own replaces both builtins rather than joining them, which is what a host substituting a default expects. With none loaded, the two that ship both run and their results are grouped, so a frontal and a profile cascade find both kinds of face and a face that fires both is one box. Detections match OpenCV's own detector within a pixel on identical pixels.</p>
+<p>Feeds <span class="tt">gravity: 'face'</span>, which therefore works without loading anything.</p>
 <h1 class="doxsection"><a class="anchor" id="color-management"></a>
 Color Management</h1>
 <p>ICC matrix-and-TRC profiles: the <span class="tt">rXYZ</span> / <span class="tt">gXYZ</span> / <span class="tt">bXYZ</span> primaries, <span class="tt">curv</span> and parametric <span class="tt">para</span> tone curves, and Bradford chromatic adaptation folded into the matrix. Conversion between a tagged profile and sRGB agrees with ImageMagick at 49 dB.</p>
@@ -478,28 +599,38 @@ Budget and Effort</h1>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone">Decode  </td><td class="markdownTableBodyNone">WebP skips deblocking  </td><td class="markdownTableBodyNone">1.53x  </td><td class="markdownTableBodyNone">46.8 dB  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">Decode  </td><td class="markdownTableBodyNone">JPEG replicates chroma instead of filtering  </td><td class="markdownTableBodyNone">1.11x to 1.25x  </td><td class="markdownTableBodyNone">43.6 to 59.5 dB  </td></tr>
+<td class="markdownTableBodyNone">Decode  </td><td class="markdownTableBodyNone">WebP reduces in the plane domain  </td><td class="markdownTableBodyNone">2.05x to 3.35x  </td><td class="markdownTableBodyNone">38.9 dB  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">Resize  </td><td class="markdownTableBodyNone">Bilinear instead of Catmull-Rom, enlarging  </td><td class="markdownTableBodyNone">3.2x  </td><td class="markdownTableBodyNone">45.7 dB  </td></tr>
+<td class="markdownTableBodyNone">Decode  </td><td class="markdownTableBodyNone">JPEG replicates chroma instead of filtering  </td><td class="markdownTableBodyNone">1.11x to 1.25x  </td><td class="markdownTableBodyNone">43.6 to 59.5 dB  </td></tr>
 <tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Resize  </td><td class="markdownTableBodyNone">Bilinear instead of Catmull-Rom, enlarging  </td><td class="markdownTableBodyNone">3.2x  </td><td class="markdownTableBodyNone">45.7 dB  </td></tr>
+<tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone">Encode  </td><td class="markdownTableBodyNone">WebP bounds the 4x4 prediction search  </td><td class="markdownTableBodyNone">1.18x to 1.45x  </td><td class="markdownTableBodyNone">within 0.05 dB  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">Encode  </td><td class="markdownTableBodyNone">PNG compresses one candidate stream, not two  </td><td class="markdownTableBodyNone">1.59x to 2.08x  </td><td class="markdownTableBodyNone">see below  </td></tr>
 </table>
-<p><b>Only a lossy format has anything to trade.</b> A lossless one defines its pixels exactly, so every step is needed to produce them: PNG, GIF, TIFF and lossless WebP decode identically at either effort, and so does a 4:4:4 JPEG, which has no chroma to upsample. A reduction also keeps its filter, because an area average is already both the cheapest and the right answer; only enlarging has a filter to step down.</p>
+<p>The plane-domain reduction reaches a scaled WebP request only, and its speed figure includes the deblocking skip on the same request. It averages the luma and chroma planes over each output pixel and converts once, where the default converts the frame and averages the result, so it also never allocates the full frame of RGBA.</p>
+<p>The PNG row is the one whose cost depends on what you are encoding. The encoder compresses an adaptively filtered stream and an unfiltered one and keeps the smaller; <span class="tt">fast</span> compresses only the adaptive one. On a photograph the adaptive stream wins anyway, so the output is byte-identical and the speed is free: <span class="tt">sf-24.jpg</span> at 800 px measured 142 ms against 68. On flat artwork the unfiltered stream is the one that would have won, so <span class="tt">fast</span> pays 7.0% more bytes on <span class="tt">base-mono.gif</span>, 17.2% on <span class="tt">webassembly.png</span> and 63.1% on a 96x96 logo. Resizing a photograph gets the speed for nothing; encoding an icon should stay at <span class="tt">fancy</span>.</p>
+<p><b>A lossy decoder has more to trade than a lossless one.</b> A lossless bitstream defines its pixels exactly, so every step is needed to produce them and PNG, GIF, TIFF and lossless WebP decode identically at either effort. So does a 4:4:4 JPEG, which has no chroma to upsample. A reduction keeps its filter too, because an area average is already both the cheapest and the right answer; only enlarging has a filter to step down. What the lossless formats do have is an encoder with a search to bound, which is the PNG row above.</p>
 <p>A filter you name is never substituted, and neither is a format. Effort decides what the library left open, not what you asked for.</p>
-<p>End to end, on requests through the whole pipeline:</p>
+<p>End to end, on requests through the whole pipeline. Fastest of 25 interleaved runs, so contention moves a row one way only:</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
-<th class="markdownTableHeadNone">Request  </th><th class="markdownTableHeadRight"><span class="tt">fancy</span>  </th><th class="markdownTableHeadRight"><span class="tt">fast</span>  </th><th class="markdownTableHeadRight"></th></tr>
+<th class="markdownTableHeadNone">Request  </th><th class="markdownTableHeadRight"><span class="tt">fancy</span>  </th><th class="markdownTableHeadRight"><span class="tt">fast</span>  </th><th class="markdownTableHeadNone"></th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">200 px, WebP source, WebP out  </td><td class="markdownTableBodyRight">18.5 ms  </td><td class="markdownTableBodyRight">13.5 ms  </td><td class="markdownTableBodyRight">1.38x  </td></tr>
+<td class="markdownTableBodyNone">200 px, WebP source, WebP out  </td><td class="markdownTableBodyRight">15 ms  </td><td class="markdownTableBodyRight">7.6 ms  </td><td class="markdownTableBodyNone">1.9x  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">800 px, WebP source, WebP out  </td><td class="markdownTableBodyRight">54.6 ms  </td><td class="markdownTableBodyRight">42.2 ms  </td><td class="markdownTableBodyRight">1.29x  </td></tr>
+<td class="markdownTableBodyNone">800 px, JPEG source, PNG out  </td><td class="markdownTableBodyRight">103 ms  </td><td class="markdownTableBodyRight">57 ms  </td><td class="markdownTableBodyNone">1.8x  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">800 px, JPEG source, WebP out  </td><td class="markdownTableBodyRight">42.2 ms  </td><td class="markdownTableBodyRight">34.0 ms  </td><td class="markdownTableBodyRight">1.24x  </td></tr>
+<td class="markdownTableBodyNone">800 px, WebP source, WebP out  </td><td class="markdownTableBodyRight">44 ms  </td><td class="markdownTableBodyRight">36 ms  </td><td class="markdownTableBodyNone">1.3x  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone">800 px, JPEG source, JPEG out  </td><td class="markdownTableBodyRight">21.6 ms  </td><td class="markdownTableBodyRight">21.5 ms  </td><td class="markdownTableBodyRight">1.01x  </td></tr>
+<td class="markdownTableBodyNone">800 px, JPEG source, WebP out  </td><td class="markdownTableBodyRight">28 ms  </td><td class="markdownTableBodyRight">22 ms  </td><td class="markdownTableBodyNone">1.1x-1.4x  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone">800 px, JPEG source, JPEG out  </td><td class="markdownTableBodyRight">17 ms  </td><td class="markdownTableBodyRight">17 ms  </td><td class="markdownTableBodyNone">no lever  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone">800 px, JPEG source, AVIF out  </td><td class="markdownTableBodyRight">53 ms  </td><td class="markdownTableBodyRight">53 ms  </td><td class="markdownTableBodyNone">no lever  </td></tr>
 </table>
-<p>A WebP source gains most, because it is the only one where both the decode and the encode have something to give. The last row is the contract working rather than a failure: a 4:4:4 JPEG decoded and re-encoded as JPEG has no deblocking pass, no chroma to replicate and no prediction search, so there is nothing for effort to spend.</p>
+<p>A WebP source gains most at 200 px, where both the decode and the encode have something to give and the decode additionally reduces in the plane domain. The two bottom rows produce byte-identical output at either effort, which is how you can tell there is nothing to spend rather than something being spent badly: a 4:4:4 JPEG re-encoded as JPEG has no deblocking pass, no chroma to replicate and no prediction search, and the AVIF encoder does not read the effort field at all. Timings on those rows differ between runs by a few percent in either direction, which is the machine.</p>
 <p>Encoded size can go either way under <span class="tt">fast</span>, because the per-subblock choice minimizes prediction error rather than rate: a diagonal mode can win on error and then cost more bits to code. Flat-color illustrations pay the most, and hard diagonal edges are what those modes exist for.</p>
 <p><b><span class="tt">decide().estimateMs</span> prices a plan before it runs, and <span class="tt">budgetMs</span> acts on it.</b> The encoders differ by roughly a factor of five per sample, so <span class="tt">format: 'auto'</span> with a budget takes WebP when it fits and JPEG when it does not:</p>
 <div class="fragment"><div class="line">const result = await transform(tinyimg, source, {</div>
@@ -511,6 +642,25 @@ Budget and Effort</h1>
 <div class="line"> </div>
 <div class="line">result.format; // &#39;webp&#39; if it fits inside 7 ms, otherwise &#39;jpeg&#39;</div>
 </div><!-- fragment --><p>A format you name is never substituted, however far over budget it is. The estimate is accurate to about 20% on the machine its rates were measured on, so give a budget below the limit rather than at it, and use <a class="el" href="#work-counters" title="Work Counters">`measure`</a> when you need what a request cost.</p>
+<p><b>A budget the container change cannot meet degrades the plan, and the result says what it gave up.</b> Container first, because a cheaper encoder costs bytes and nothing else; then the planner's own levers, in the order of what they cost the picture:</p>
+<table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone">Reported as  </th><th class="markdownTableHeadNone">What it gives up  </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">compression</span>  </td><td class="markdownTableBodyNone">A lossless output's compressor is turned down, which costs bytes and not fidelity  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><span class="tt">effort</span>  </td><td class="markdownTableBodyNone">The decode runs fast, and an enlargement left open steps down a filter  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">filter</span>  </td><td class="markdownTableBodyNone">A filter left open goes to nearest  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><span class="tt">scale</span>  </td><td class="markdownTableBodyNone">The decoder is asked for a coarser grid than the output needs, so the result is softer  </td></tr>
+</table>
+<p><span class="tt">compression</span> comes first because on a PNG or TIFF output the encoder costs more than everything the planner controls, so softening the picture to pay for the compressor would be the wrong trade. It measured 2.8x to 3.7x on a budgeted PNG request. Naming <span class="tt">compression</span> pins the level and the planner degrades instead.</p>
+<div class="fragment"><div class="line">const result = await transform(tinyimg, source, { width: 600, budgetMs: 4 });</div>
+<div class="line"> </div>
+<div class="line">result.degraded; // [&#39;effort&#39;] when the effort tier was enough to fit</div>
+</div><!-- fragment --><p>The order is not the intuitive one, and a measurement decided it: reducing the decode before the filter turns a cheap box reduction into an interpolating enlargement, which on one 600 px request measured 22,780 microseconds against 21,801 for no degradation at all. A rung that is not cheaper is skipped, so what comes back is never softer for more CPU than the undegraded plan.</p>
+<p>The output extent never changes. A budget decides how the pixels are made, not how many, and nothing is degraded when the estimate already fits. <span class="tt">degraded</span> is empty on a pass-through, which needs no lever at all.</p>
 <h1 class="doxsection"><a class="anchor" id="caching"></a>
 Caching</h1>
 <p>A cache hit costs no CPU at all, which is how a request too expensive to serve synchronously still gets served: it is computed once. <span class="tt">artifactKey</span> builds the canonical key, identifying the source by the hash of its bytes so the same picture from two places is one artifact:</p>
@@ -537,7 +687,9 @@ Work Counters</h1>
 </div><!-- fragment --><p><span class="tt">samplesPerTransform</span> is the one to read for a scaled decode: a decode transforming whole blocks and averaging them away reads 64 whatever its name is.</p>
 <h1 class="doxsection"><a class="anchor" id="blobs"></a>
 Blobs</h1>
-<p>Three kinds of data load at runtime rather than shipping in the module: fonts, ICC profiles and detection cascades. <span class="tt">loadBlob</span> takes bytes from anywhere, so there are three ways to deliver them and no code change between them.</p>
+<p>A default of each kind is compiled into the module: a Latin face, the four ICC profiles and both LBP cascades, about 45 kB. Text, profile conversion and face detection therefore work off a bare instantiate, and <span class="tt">builtinBlobs</span> lists what is there.</p>
+<p>A blob is how you replace one or add to it: a wider glyph set, another cascade, a profile of your own. <span class="tt">loadBlob</span> takes bytes from anywhere, so there are three ways to deliver them and no code change between them.</p>
+<p>A name resolves against the loaded blobs first and then the builtins, so <span class="tt">sans</span> always answers. An enumeration is different: one loaded blob of a kind hides every builtin of that kind, which is what stops a host that installed its own cascade from also running the two that ship.</p>
 <p>The prebuilt set is published at <span class="tt"><a href="https://cdn.gmitch215.dev/tinyimg/">https://cdn.gmitch215.dev/tinyimg/</a></span>, with <span class="tt"><a href="https://cdn.gmitch215.xyz/tinyimg/">https://cdn.gmitch215.xyz/tinyimg/</a></span> and <span class="tt"><a href="https://cdn.gmitch215.blog/tinyimg/">https://cdn.gmitch215.blog/tinyimg/</a></span> as mirrors. <span class="tt">blobs.json</span> sits at that prefix and each entry's <span class="tt">path</span> resolves against it, so one URL is enough to find the rest. A plain <span class="tt">fetch</span> needs no binding and costs one subrequest:</p>
 <div class="fragment"><div class="line">const font = await fetch(&#39;https://cdn.gmitch215.dev/tinyimg/fonts/DejaVuSans.ttf&#39;);</div>
 <div class="line">await tinyimg.loadBlob(&#39;font&#39;, &#39;sans&#39;, await font.arrayBuffer());</div>
@@ -550,7 +702,8 @@ Blobs</h1>
 </div><!-- fragment --><p>Or bundle one as a wrangler Data module, which costs bundle bytes and no latency:</p>
 <div class="fragment"><div class="line">import cascade from &#39;./lbp-frontalface.bin&#39;;</div>
 <div class="line">await tinyimg.loadBlob(&#39;cascade&#39;, &#39;frontal&#39;, cascade);</div>
-</div><!-- fragment --><p>Eight blobs can be resident at once. <span class="tt">freeBlob</span> releases one and <span class="tt">freeBlobs</span> releases all. A cascade is parsed at load, so a bad one fails at startup instead of becoming a search that finds nothing.</p>
+</div><!-- fragment --><p>Eight blobs can be resident at once. <span class="tt">freeBlob</span> releases one and <span class="tt">freeBlobs</span> releases all; neither touches a builtin, which lives in the module's data section. A cascade is parsed at load, so a bad one fails at startup instead of becoming a search that finds nothing.</p>
+<p>The face and the cascades are third-party data. Their notices are in <span class="tt">LICENSES/</span>.</p>
 <h1 class="doxsection"><a class="anchor" id="error-handling"></a>
 Error Handling</h1>
 <p>Every failure carries the module's own error code and its stable name, so a caller branches on the code rather than on a message.</p>
@@ -586,30 +739,32 @@ Error Handling</h1>
 </table>
 <h1 class="doxsection"><a class="anchor" id="size"></a>
 Size</h1>
-<p>Small size is the primary goal, ahead of speed and then memory. The published package is 138.7 kB, of which the wasm module is 90.4 kB gzipped and the wrapper is 7.8 kB. <span class="tt">bun run size</span> prints the breakdown.</p>
+<p>The wasm module is 778 kB, of which 45 kB is the data it carries: a Latin face, four ICC profiles and two detection cascades. The AV1 codec behind AVIF is 283 kB of it, about half of that in generated tables. The wrapper is 52 kB of JavaScript. <span class="tt">bun run size</span> prints the breakdown per translation unit.</p>
+<p>Speed comes first, then size, then memory. Size still gets measured, because a bigger module costs startup time and <span class="tt">tiny</span> is in the name, but it no longer wins an argument against speed.</p>
 <p>Every codec can be compiled out, so a caller who only handles PNG can link a module with nothing else in it. <span class="tt">--gc-sections</span> then drops the implementation along with its registry entry.</p>
 <div class="fragment"><div class="line">cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/wasm32.cmake \</div>
-<div class="line">  -DCMAKE_C_FLAGS=&quot;-DTINYIMG_NO_WEBP -DTINYIMG_NO_TIFF -DTINYIMG_NO_GIF&quot;</div>
+<div class="line">  -DCMAKE_C_FLAGS=&quot;-DTINYIMG_NO_WEBP -DTINYIMG_NO_TIFF -DTINYIMG_NO_GIF -DTINYIMG_NO_AVIF&quot;</div>
 <div class="line">cmake --build build</div>
-</div><!-- fragment --><p>That build is 65.4 kB gzipped against 90.4, and <span class="tt">tinyimg.features</span> reports the three as absent, so a caller can check before offering a format rather than calling and handling a failure.</p>
+</div><!-- fragment --><p>That build is 366 kB, and <span class="tt">tinyimg.features</span> reports the four as absent, so a caller can check before offering a format rather than calling and handling a failure.</p>
 <p>Build it into its own directory and <span class="tt">bin/tinyimg.wasm</span> is still where it lands, because that path is absolute in <span class="tt">CMakeLists.txt</span>. Run <span class="tt">bun run build:wasm</span> afterwards to put the full module back.</p>
 <h1 class="doxsection"><a class="anchor" id="platform-limits"></a>
 Platform Limits</h1>
 <ul>
 <li><b>The module must arrive compiled.</b> workerd refuses <span class="tt">WebAssembly.Module(bytes)</span> with "Wasm code
   generation disallowed by embedder". Import the <span class="tt">.wasm</span> file; <span class="tt">loadBytes</span> is for node, bun and the browser and throws on Workers.</li>
-<li><b>The Workers Free plan allows 10 ms of CPU per request</b>, which is not configurable and is below the cost of most transformations; see <a class="el" href="#speed" title="Speed">Speed</a>. Workers Paid defaults to 30 seconds and goes to 5 minutes with <span class="tt">limits.cpu_ms</span>. A Worker over the limit returns error 1102.</li>
+<li><b>The Workers Free plan allows 10 ms of CPU per request</b>, which is not configurable and is below the cost of most transformations; see <a class="el" href="#speed" title="Speed">Speed</a>. Workers Paid defaults to 30 seconds and goes to 5 minutes with <span class="tt">limits.cpu_ms</span>. A Worker over the limit returns error 1102. Enforcement is elastic, so an isolated request over the limit may still complete; sustained ones do not, and a single test request that passed is not evidence that a request fits.</li>
+<li><b>Response body bytes are not billed as CPU.</b> A 2.88 MB body measured 99 ms of wall clock and zero CPU, so the limit applies to the transformation and not to serving it.</li>
 <li><b>32 MiB per decoded image</b>, inside 64 MiB of linear memory, with a 16 megapixel ceiling on top that only grayscale reaches. The byte cap is the one that binds, because an allocation is bytes: it allows 11.2 megapixels of RGB and 8.4 of RGBA. Past either, the library reports <span class="tt">TinyImgTooLargeError</span>, whose remedy is a smaller decode rather than more memory. A larger source is still usable; that is what a scaled or region decode is for, and the planner reaches for one on its own.</li>
 <li><b>Progressive JPEG cannot stream a region.</b> Successive approximation needs the whole coefficient plane before any pixel is final, so a region request on a progressive file decodes the plane and then crops. <span class="tt">probe</span> reports <span class="tt">progressive</span> so a caller can tell in advance.</li>
 <li><b>One module owns one linear memory.</b> Load more than one for isolation between concurrent requests; sharing one is normally what you want, and the allocator returns every buffer at the end of a call.</li>
 <li><b>Animation is first-frame only.</b> GIF and WebP animations decode their first frame, and <span class="tt">probe</span> reports the frame count. A request with nothing to do passes the source through whole, so serving an animation unchanged keeps every frame; a request that has real work sets <span class="tt">flattened</span> on the result, because there is no animated encoder to write the rest back. Transforming all 57 frames of an 800x600 GIF to a 200 px thumbnail measures 335 ms, which is why the first frame is the default rather than a limitation waiting to be lifted.</li>
 <li><b>A cascade is scale-dependent.</b> No single search setting finds every face: a frontal face is found at a moderate reduction and lost at full resolution, and a side-facing one can be the reverse. <span class="tt">detectFaces</span> picks a default that suits frontal faces; the C entry point <span class="tt"><a class="el" href="de/d15/detect_8h.html#ae9924f6c06b531ef8a5a2115cfb051c6" title="Finds faces exactly as asked, on the pixels given.">tiny_image_detect_faces_ex</a></span> searches exactly what it is told.</li>
-<li><b><span class="tt">-msimd128</span> currently buys nothing.</b> No code path uses SIMD intrinsics, so the flag only enables an autovectorizer that <span class="tt">-Oz</span> disables. Measured at 0.97-1.02x on three operations.</li>
+<li><b>No hand-written SIMD kernels.</b> The flag is on and the autovectorizer runs, which is worth 1.04x to 1.15x now that the build is <span class="tt">-O2</span> rather than <span class="tt">-Oz</span>. Nothing uses intrinsics directly, so the widest stages are still scalar.</li>
 </ul>
 <h1 class="doxsection"><a class="anchor" id="out-of-scope"></a>
 Out of Scope</h1>
 <ul>
-<li><b>AVIF and HEIF decode and encode.</b> An AV1 intra decoder is 8-10k lines against 8-10k for the rest of the library, decode runs 4-12x the JPEG path per pixel, and encode needs a rate-distortion search that costs seconds per image in wasm. The container parse ships so <span class="tt">probe</span> answers. Codecs register through a table, so a second module can carry AV1 for callers who ask.</li>
+<li><b>HEIF decode and encode.</b> HEIF shares AVIF's container and carries HEVC rather than AV1. HEVC decoders are covered by active patent pools, which is a licensing question rather than a technical one and the reason this is declined rather than queued. The container parse ships so <span class="tt">probe</span> answers, and Safari is the only browser that displays HEIF, so it matters as a camera source format rather than an output one.</li>
 <li><b>JPEG XL.</b> No browser ships it by default.</li>
 <li><b>Animation editing.</b> Composing or re-timing frames is a different product.</li>
 <li><b>LUT-based ICC profiles.</b> Rejected with a specific error rather than approximated.</li>
@@ -626,7 +781,8 @@ Contributing</h1>
 <div class="line">bun run test</div>
 </div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="license"></a>
 License</h1>
-<p>MIT </p>
+<p>MIT.</p>
+<p>The module compiles in two third-party works, and their notices ship with the package in <span class="tt">LICENSES/</span>. The Latin face is a subset of DejaVu Sans, under the Bitstream Vera Fonts license (<span class="tt">LICENSES/DejaVu.txt</span>). The two face cascades are packed from OpenCV's LBP data files, under the 3-clause BSD license (<span class="tt">LICENSES/OpenCV-LBP-Cascades.txt</span>). The four ICC profiles are generated from published primaries and transfer curves rather than copied from anyone's files. </p>
 </div></div><!-- PageDoc -->
 <a href="doxygen_crawl.html"></a>
 </div><!-- contents -->

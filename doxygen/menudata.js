@@ -88,8 +88,10 @@ var menudata={children:[
 {text:"Functions",url:"globals_func.html",children:[
 {text:"t",url:"globals_func.html#index_t"}]},
 {text:"Variables",url:"globals_vars.html"},
-{text:"Typedefs",url:"globals_type.html"},
+{text:"Typedefs",url:"globals_type.html",children:[
+{text:"t",url:"globals_type.html#index_t"}]},
 {text:"Enumerations",url:"globals_enum.html"},
 {text:"Enumerator",url:"globals_eval.html",children:[
 {text:"t",url:"globals_eval.html#index_t"}]},
-{text:"Macros",url:"globals_defs.html"}]}]}]}
+{text:"Macros",url:"globals_defs.html",children:[
+{text:"t",url:"globals_defs.html#index_t"}]}]}]}]}

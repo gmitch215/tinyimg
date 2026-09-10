@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -121,7 +121,8 @@ Public Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Options a decoder honors when only part of an image is wanted. </p>
 <p>The rectangle is in source pixels and is clamped to the image. A width or height of zero means the full extent in that axis. <span class="tt"><a class="el" href="#ab5e16c332559dd0257e7337c13300028">scale_den</a></span> then subsamples that rectangle, so the decoded image is ceil(width / scale_den) across.</p>
-<p>Every codec box averages when downscaling, so a scaled decode is a real reduction rather than a nearest neighbor pick. JPEG additionally does the work in the DCT domain, which is why its scaled decode is cheaper as well as smaller. </p>
+<p>Every codec box averages when downscaling, so a scaled decode is a real reduction rather than a nearest neighbor pick. JPEG additionally does the work in the DCT domain, which is why its scaled decode is cheaper as well as smaller.</p>
+<p>That average is exact at TINYIMG_EFFORT_FANCY, which is what lets a scaled decode of one picture agree across formats. WebP's FAST tier averages its planes instead of the pixels it converts from them, which is a reduction of the same picture and not the same bytes; <span class="tt"><a class="el" href="#ac22fb286f5dc36784f48dd48cd1d52b0" title="How much computation the decoder may spend; a TinyEffort.">effort</a></span> documents the floor. </p>
 </div><a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Member Data Documentation</h2>
 <a id="af18089665606ec413940e2c0ef4b83e9" name="af18089665606ec413940e2c0ef4b83e9"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af18089665606ec413940e2c0ef4b83e9">&#9670;&#160;</a></span>channels</h2>
@@ -153,11 +154,12 @@ Public Attributes</h2></td></tr>
 <p>How much computation the decoder may spend; a <a class="el" href="../../d5/db2/image_8h.html#a8f3b99eeaa1cd08f18cd2f9e9a898a61" title="How much computation an operation may spend to do its best work.">TinyEffort</a>. </p>
 <p>Zero is TINYIMG_EFFORT_FANCY, the default, which decodes to the bitstream's own definition.</p>
 <p>Only a lossy decoder has anything to drop, and the reason is structural: a lossless format defines its pixels exactly, so every step is needed to produce them and there is no approximation available. PNG, GIF, TIFF and WebP lossless therefore decode identically at either effort.</p>
-<p>The two that do have a lever both spend it on a smoothing pass:</p>
+<p>Both lossy decoders spend it on a smoothing pass:</p>
 <ul>
 <li>VP8 skips its deblocking filter, which is 1.53x for 46.8 dB.</li>
-<li>JPEG replicates chroma instead of interpolating it, which is 1.11x to 1.25x for 43.6 to 59.5 dB. It reaches subsampled files only, so a 4:4:4 file is unaffected. </li>
+<li>JPEG replicates chroma instead of interpolating it, which is 1.11x to 1.25x for 43.6 to 59.5 dB. It reaches subsampled files only, so a 4:4:4 file is unaffected.</li>
 </ul>
+<p>VP8 has a second one that a scaled request reaches, and it is the only place here that changes how a reduction is computed rather than which passes run. At <span class="tt"><a class="el" href="#ab5e16c332559dd0257e7337c13300028">scale_den</a></span> above one it averages the luma and chroma planes over each output pixel's box and converts once, instead of converting the frame and averaging that: 2.05x to 3.35x together with the filter skip, for 38.9 dB and a worst sample 46 levels off the exact box average. Alpha carries no chroma and stays exact. </p>
 
 </div>
 </div>

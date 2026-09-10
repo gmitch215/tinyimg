@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -130,7 +130,7 @@ Macros</h2></td></tr>
 <tr class="memitem:a7e9be2b1d4ebadff6dedde223e2a793a" id="r_a7e9be2b1d4ebadff6dedde223e2a793a"><td class="memItemLeft"><a id="a7e9be2b1d4ebadff6dedde223e2a793a" name="a7e9be2b1d4ebadff6dedde223e2a793a"></a>
 #define&#160;</td><td class="memItemRight"><b>TINY_DEFLATE_WINDOW</b>&#160;&#160;&#160;32768u</td></tr>
 <tr class="memdesc:a7e9be2b1d4ebadff6dedde223e2a793a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Bytes of history a back reference can reach, which RFC 1951 fixes at 32 KiB. <br /></td></tr>
-<tr class="memitem:aa5f4eb2a248679bc3af3402e36649fd6" id="r_aa5f4eb2a248679bc3af3402e36649fd6"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#aa5f4eb2a248679bc3af3402e36649fd6">TINY_DEFLATE_FAST_BITS</a>&#160;&#160;&#160;9u</td></tr>
+<tr class="memitem:aa5f4eb2a248679bc3af3402e36649fd6" id="r_aa5f4eb2a248679bc3af3402e36649fd6"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#aa5f4eb2a248679bc3af3402e36649fd6">TINY_DEFLATE_FAST_BITS</a>&#160;&#160;&#160;11u</td></tr>
 <tr class="memdesc:aa5f4eb2a248679bc3af3402e36649fd6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Bits the Huffman decoder resolves from one table lookup.  <br /></td></tr>
 <tr class="memitem:a0ceb94d2bca517d84f9439aba92d6004" id="r_a0ceb94d2bca517d84f9439aba92d6004"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#a0ceb94d2bca517d84f9439aba92d6004">TINY_DEFLATE_MAX_READ</a>&#160;&#160;&#160;(<a class="el" href="#a7e9be2b1d4ebadff6dedde223e2a793a">TINY_DEFLATE_WINDOW</a> - 258u)</td></tr>
 <tr class="memdesc:a0ceb94d2bca517d84f9439aba92d6004"><td class="mdescLeft">&#160;</td><td class="mdescRight">Most bytes a single read may ask for.  <br /></td></tr>
@@ -176,13 +176,15 @@ Functions</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">#define TINY_DEFLATE_FAST_BITS&#160;&#160;&#160;9u</td>
+          <td class="memname">#define TINY_DEFLATE_FAST_BITS&#160;&#160;&#160;11u</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 <p>Bits the Huffman decoder resolves from one table lookup. </p>
-<p>Nine covers the overwhelming majority of codes in a real stream; longer ones fall back to walking the canonical code a bit at a time. A table this size costs 1 KiB of scratch and turns a per symbol loop of about eight iterations into a single index, which is the difference between meeting the throughput target for PNG and missing it several times over. </p>
+<p>Longer codes fall back to walking the canonical code a bit at a time. The table turns a per symbol loop of about eight iterations into a single index, which is the difference between meeting the throughput target for PNG and missing it several times over.</p>
+<p><b>Eleven rather than nine, and which file it helps is the point.</b> Widening it measured 1.10x on <span class="tt">forest.png</span> (40.28 to 36.50 ms) and 1.01x on a 2400x1350 photograph. The two differ in how well they compress: forest is 3.74 MB of IDAT for 4.99 MB of pixels, so its literals carry long codes that a nine bit table misses, while the photograph compresses 10.9x and its codes were already covered. The win lands on the low-ratio files, which are the expensive ones. Twelve bits was worth a further 0.6% for twice the table and is not taken.</p>
+<p>Costs 4 KiB of scratch per table against 1 KiB, and two are live at once, so 6 KiB of arena. Nothing holds one on the stack. </p>
 
 </div>
 </div>

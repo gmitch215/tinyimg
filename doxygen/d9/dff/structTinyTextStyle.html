@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -113,7 +113,17 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:a514f2c0a6f98056531f1d22862d9350d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Em size in pixels. Ignored by a bitmap face, which has one size.  <br /></td></tr>
 <tr class="memitem:a4b9c9a55acf9675b3c0e2147ec3ebeb8" id="r_a4b9c9a55acf9675b3c0e2147ec3ebeb8"><td class="memItemLeft">float&#160;</td><td class="memItemRight"><a class="el" href="#a4b9c9a55acf9675b3c0e2147ec3ebeb8">tracking</a></td></tr>
 <tr class="memitem:ae8afb2f9120ebca39169205febae521f" id="r_ae8afb2f9120ebca39169205febae521f"><td class="memItemLeft">float&#160;</td><td class="memItemRight"><a class="el" href="#ae8afb2f9120ebca39169205febae521f">line_height</a></td></tr>
+<tr class="memitem:a641aaf18f67caefc445ea090774c6cee" id="r_a641aaf18f67caefc445ea090774c6cee"><td class="memItemLeft">float&#160;</td><td class="memItemRight"><a class="el" href="#a641aaf18f67caefc445ea090774c6cee">stroke</a></td></tr>
+<tr class="memdesc:a641aaf18f67caefc445ea090774c6cee"><td class="mdescLeft">&#160;</td><td class="mdescRight">Outline width in pixels, or zero for none.  <br /></td></tr>
+<tr class="memitem:a21ab2bc08f8e0809e674cfe34baf30e8" id="r_a21ab2bc08f8e0809e674cfe34baf30e8"><td class="memItemLeft">float&#160;</td><td class="memItemRight"><a class="el" href="#a21ab2bc08f8e0809e674cfe34baf30e8">shadow_x</a></td></tr>
+<tr class="memitem:a1158771823ec487dfa5253c77e1ff7cf" id="r_a1158771823ec487dfa5253c77e1ff7cf"><td class="memItemLeft">float&#160;</td><td class="memItemRight"><a class="el" href="#a1158771823ec487dfa5253c77e1ff7cf">shadow_y</a></td></tr>
+<tr class="memitem:a8e12f460c80169c628f0bb4d37a161bd" id="r_a8e12f460c80169c628f0bb4d37a161bd"><td class="memItemLeft">float&#160;</td><td class="memItemRight"><a class="el" href="#a8e12f460c80169c628f0bb4d37a161bd">shadow_blur</a></td></tr>
+<tr class="memdesc:a8e12f460c80169c628f0bb4d37a161bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Shadow softness in pixels, or zero for a hard offset copy.  <br /></td></tr>
 <tr class="memitem:a39e1635bbce38e82682fba2a2a4b5f88" id="r_a39e1635bbce38e82682fba2a2a4b5f88"><td class="memItemLeft">uint8_t&#160;</td><td class="memItemRight"><a class="el" href="#a39e1635bbce38e82682fba2a2a4b5f88">kerning</a></td></tr>
+<tr class="memitem:a6025c49604d87bda28c921eea5ab1789" id="r_a6025c49604d87bda28c921eea5ab1789"><td class="memItemLeft">uint8_t&#160;</td><td class="memItemRight"><a class="el" href="#a6025c49604d87bda28c921eea5ab1789">stroke_color</a> [4]</td></tr>
+<tr class="memdesc:a6025c49604d87bda28c921eea5ab1789"><td class="mdescLeft">&#160;</td><td class="mdescRight">The outline's color, as many channels as the image has.  <br /></td></tr>
+<tr class="memitem:aa610bf3fb771cd406276cfdcfef0962b" id="r_aa610bf3fb771cd406276cfdcfef0962b"><td class="memItemLeft">uint8_t&#160;</td><td class="memItemRight"><a class="el" href="#aa610bf3fb771cd406276cfdcfef0962b">shadow_color</a> [4]</td></tr>
+<tr class="memdesc:aa610bf3fb771cd406276cfdcfef0962b"><td class="mdescLeft">&#160;</td><td class="mdescRight">The shadow's color, as many channels as the image has.  <br /></td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>How a run of text is set. </p>
@@ -149,6 +159,70 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a8e12f460c80169c628f0bb4d37a161bd" name="a8e12f460c80169c628f0bb4d37a161bd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8e12f460c80169c628f0bb4d37a161bd">&#9670;&#160;</a></span>shadow_blur</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float TinyTextStyle::shadow_blur</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Shadow softness in pixels, or zero for a hard offset copy. </p>
+<p>Three box passes over the coverage, which is the usual approximation of a gaussian and is within a level of one at this radius. </p>
+
+</div>
+</div>
+<a id="aa610bf3fb771cd406276cfdcfef0962b" name="aa610bf3fb771cd406276cfdcfef0962b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa610bf3fb771cd406276cfdcfef0962b">&#9670;&#160;</a></span>shadow_color</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint8_t TinyTextStyle::shadow_color[4]</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The shadow's color, as many channels as the image has. </p>
+<p>Read only when a shadow is asked for, which is any non-zero offset or blur. An alpha below 255 in the fourth channel is honored on an image that has alpha. </p>
+
+</div>
+</div>
+<a id="a21ab2bc08f8e0809e674cfe34baf30e8" name="a21ab2bc08f8e0809e674cfe34baf30e8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a21ab2bc08f8e0809e674cfe34baf30e8">&#9670;&#160;</a></span>shadow_x</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float TinyTextStyle::shadow_x</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Horizontal shadow offset in pixels. Negative is left. </p>
+
+</div>
+</div>
+<a id="a1158771823ec487dfa5253c77e1ff7cf" name="a1158771823ec487dfa5253c77e1ff7cf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1158771823ec487dfa5253c77e1ff7cf">&#9670;&#160;</a></span>shadow_y</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float TinyTextStyle::shadow_y</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Vertical shadow offset in pixels. Negative is up. </p>
+
+</div>
+</div>
 <a id="a514f2c0a6f98056531f1d22862d9350d" name="a514f2c0a6f98056531f1d22862d9350d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a514f2c0a6f98056531f1d22862d9350d">&#9670;&#160;</a></span>size</h2>
 
@@ -163,6 +237,41 @@ Public Attributes</h2></td></tr>
 
 <p>Em size in pixels. Ignored by a bitmap face, which has one size. </p>
 <p>Zero means the face's own em, so a zeroed style draws. A negative size is a caller error and reports TINYIMG_ERR_RANGE. </p>
+
+</div>
+</div>
+<a id="a641aaf18f67caefc445ea090774c6cee" name="a641aaf18f67caefc445ea090774c6cee"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a641aaf18f67caefc445ea090774c6cee">&#9670;&#160;</a></span>stroke</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float TinyTextStyle::stroke</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Outline width in pixels, or zero for none. </p>
+<p><b>A dilation of the glyph's coverage rather than an offset of its outline</b>, which is what makes it one pass over a small mask instead of a second rasterization. The difference shows at a sharp interior corner, where a true offset curve would extend the two edges to a point and this rounds it. At the one to four pixels an OG card uses it is not visible; at twenty it is.</p>
+<p>Drawn under the fill for the whole run, so a stroke never prints over a neighboring glyph's fill. </p>
+
+</div>
+</div>
+<a id="a6025c49604d87bda28c921eea5ab1789" name="a6025c49604d87bda28c921eea5ab1789"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6025c49604d87bda28c921eea5ab1789">&#9670;&#160;</a></span>stroke_color</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint8_t TinyTextStyle::stroke_color[4]</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The outline's color, as many channels as the image has. </p>
+<p>Read only when <span class="tt"><a class="el" href="#a641aaf18f67caefc445ea090774c6cee" title="Outline width in pixels, or zero for none.">stroke</a></span> is above zero. A zeroed style therefore needs no color at all. </p>
 
 </div>
 </div>

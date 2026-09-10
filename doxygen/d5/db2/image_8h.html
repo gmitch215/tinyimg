@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -148,6 +148,8 @@ Typedefs</h2></td></tr>
 <tr class="memdesc:a4a929023ab7a58ccd426b7174d0bf08d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Metadata carried alongside the pixels.  <br /></td></tr>
 <tr class="memitem:ae6f0113f42e891979fd98e7ef57e779b" id="r_ae6f0113f42e891979fd98e7ef57e779b"><td class="memItemLeft">typedef enum <a class="el" href="#a8f3b99eeaa1cd08f18cd2f9e9a898a61">TinyEffort</a>&#160;</td><td class="memItemRight"><a class="el" href="#ae6f0113f42e891979fd98e7ef57e779b">TinyEffort</a></td></tr>
 <tr class="memdesc:ae6f0113f42e891979fd98e7ef57e779b"><td class="mdescLeft">&#160;</td><td class="mdescRight">How much computation an operation may spend to do its best work.  <br /></td></tr>
+<tr class="memitem:a6842463f68375052450a86a2bc97c138" id="r_a6842463f68375052450a86a2bc97c138"><td class="memItemLeft">typedef enum <a class="el" href="#a793fcaf9f7129350c2c44772cd58dd1d">TinyCompression</a>&#160;</td><td class="memItemRight"><a class="el" href="#a6842463f68375052450a86a2bc97c138">TinyCompression</a></td></tr>
+<tr class="memdesc:a6842463f68375052450a86a2bc97c138"><td class="mdescLeft">&#160;</td><td class="mdescRight">How hard a lossless encoder should compress.  <br /></td></tr>
 <tr class="memitem:a879a888c572b5086d30b85dd132b3ace" id="r_a879a888c572b5086d30b85dd132b3ace"><td class="memItemLeft">typedef enum <a class="el" href="#a9c6d4a03691a288d69cf1b6f8459ada1">TinyBlendMode</a>&#160;</td><td class="memItemRight"><a class="el" href="#a879a888c572b5086d30b85dd132b3ace">TinyBlendMode</a></td></tr>
 <tr class="memdesc:a879a888c572b5086d30b85dd132b3ace"><td class="mdescLeft">&#160;</td><td class="mdescRight">How a shape's color is combined with what is already there.  <br /></td></tr>
 <tr class="memitem:af7816b1a57a5de15e4d6be22d1243f6b" id="r_af7816b1a57a5de15e4d6be22d1243f6b"><td class="memItemLeft">typedef enum <a class="el" href="#a56e02aa6587965023d7354983c3e9fc2">TinyFillRule</a>&#160;</td><td class="memItemRight"><a class="el" href="#af7816b1a57a5de15e4d6be22d1243f6b">TinyFillRule</a></td></tr>
@@ -192,6 +194,16 @@ Enumerations</h2></td></tr>
 , <a class="el" href="#a8f3b99eeaa1cd08f18cd2f9e9a898a61acf0379a542032b8cc344d6a8330979e0">TINYIMG_EFFORT_FAST</a> = 1
  }</td></tr>
 <tr class="memdesc:a8f3b99eeaa1cd08f18cd2f9e9a898a61"><td class="mdescLeft">&#160;</td><td class="mdescRight">How much computation an operation may spend to do its best work.  <a href="#a8f3b99eeaa1cd08f18cd2f9e9a898a61">More...</a><br /></td></tr>
+<tr class="memitem:a793fcaf9f7129350c2c44772cd58dd1d" id="r_a793fcaf9f7129350c2c44772cd58dd1d"><td class="memItemLeft">enum &#160;</td><td class="memItemRight"><a class="el" href="#a793fcaf9f7129350c2c44772cd58dd1d">TinyCompression</a> { <br />
+&#160;&#160;<a class="el" href="#a793fcaf9f7129350c2c44772cd58dd1da74daa91e7c6fb2367d505f7e2ccc6bd9">TINYIMG_COMPRESSION_AUTO</a> = 0
+, <a class="el" href="#a793fcaf9f7129350c2c44772cd58dd1da3cb57a38081e88a4cfbd3df3451f50b1">TINYIMG_COMPRESSION_NONE</a> = 1
+, <a class="el" href="#a793fcaf9f7129350c2c44772cd58dd1da9653b184c5b3d7cd277628d2ac6ce961">TINYIMG_COMPRESSION_FAST</a> = 2
+, <a class="el" href="#a793fcaf9f7129350c2c44772cd58dd1dabdc56292071739161c331c3c272cff1e">TINYIMG_COMPRESSION_DEFAULT</a> = 3
+, <br />
+&#160;&#160;<a class="el" href="#a793fcaf9f7129350c2c44772cd58dd1da88e429b6682aa3d5650e037282a3de75">TINYIMG_COMPRESSION_BEST</a> = 4
+<br />
+ }</td></tr>
+<tr class="memdesc:a793fcaf9f7129350c2c44772cd58dd1d"><td class="mdescLeft">&#160;</td><td class="mdescRight">How hard a lossless encoder should compress.  <a href="#a793fcaf9f7129350c2c44772cd58dd1d">More...</a><br /></td></tr>
 <tr class="memitem:a9c6d4a03691a288d69cf1b6f8459ada1" id="r_a9c6d4a03691a288d69cf1b6f8459ada1"><td class="memItemLeft">enum &#160;</td><td class="memItemRight"><a class="el" href="#a9c6d4a03691a288d69cf1b6f8459ada1">TinyBlendMode</a> { <br />
 &#160;&#160;<a class="el" href="#a9c6d4a03691a288d69cf1b6f8459ada1a311af0e7225cda3582cb66b41dcc2ecb">TINYIMG_BLEND_NORMAL</a> = 0
 , <a class="el" href="#a9c6d4a03691a288d69cf1b6f8459ada1ab0d8ac3e6eea2795b6b7ce51bcc2594b">TINYIMG_BLEND_REPLACE</a> = 1
@@ -321,6 +333,8 @@ Functions</h2></td></tr>
 <tr class="memdesc:a3f79659d6cec2f85d104cb00f09c2137"><td class="mdescLeft">&#160;</td><td class="mdescRight">Writes the pixel value at the specified (x, y) coordinates in the image.  <br /></td></tr>
 <tr class="memitem:a39ed6218681405e0081c02eaa5ec5f3f" id="r_a39ed6218681405e0081c02eaa5ec5f3f"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a39ed6218681405e0081c02eaa5ec5f3f">tiny_image_info_sizeof</a> (void)</td></tr>
 <tr class="memdesc:a39ed6218681405e0081c02eaa5ec5f3f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of a <a class="el" href="../../d0/df3/structTinyImageInfo.html" title="What a format&#39;s header says about an image, before any pixel is decoded.">TinyImageInfo</a>, for a host allocating one across the wasm boundary.  <br /></td></tr>
+<tr class="memitem:a3e9020577c42fe4376ed143b3dd14017" id="r_a3e9020577c42fe4376ed143b3dd14017"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a3e9020577c42fe4376ed143b3dd14017">tiny_encode_opts_sizeof</a> (void)</td></tr>
+<tr class="memdesc:a3e9020577c42fe4376ed143b3dd14017"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of a <a class="el" href="../../d8/db2/structTinyEncodeOpts.html" title="Options an encoder honors.">TinyEncodeOpts</a>, for a host allocating one across the wasm boundary.  <br /></td></tr>
 <tr class="memitem:a1fd54db05105a009bb3b6c3d1fa20604" id="r_a1fd54db05105a009bb3b6c3d1fa20604"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a1fd54db05105a009bb3b6c3d1fa20604">tiny_image_sizeof</a> (void)</td></tr>
 <tr class="memdesc:a1fd54db05105a009bb3b6c3d1fa20604"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of a <a class="el" href="../../d5/d8c/structTinyImage.html" title="Represents an image with its width, height, and pixel data.">TinyImage</a>, for a host allocating one across the wasm boundary.  <br /></td></tr>
 <tr class="memitem:a63d3f807bbe7f52ce14ddc97e3366593" id="r_a63d3f807bbe7f52ce14ddc97e3366593"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a63d3f807bbe7f52ce14ddc97e3366593">tiny_image_getwidth</a> (const <a class="el" href="../../d5/d8c/structTinyImage.html">TinyImage</a> *image)</td></tr>
@@ -764,6 +778,24 @@ int&#160;</td><td class="memItemRight"><b>tiny_draw_coverage</b> (<a class="el" 
 
 </div>
 </div>
+<a id="a6842463f68375052450a86a2bc97c138" name="a6842463f68375052450a86a2bc97c138"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6842463f68375052450a86a2bc97c138">&#9670;&#160;</a></span>TinyCompression</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef enum <a class="el" href="#a793fcaf9f7129350c2c44772cd58dd1d">TinyCompression</a> <a class="el" href="#a793fcaf9f7129350c2c44772cd58dd1d">TinyCompression</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>How hard a lossless encoder should compress. </p>
+<p>A third axis, separate from quality and effort, because for PNG and deflate-compressed TIFF the whole output is the compressor's: there is no quantizer to turn down, so quality says nothing and effort only decides how many candidate streams get compressed.</p>
+<p>The default reads the other two, which is what every caller got before this existed: quality 90 or more asks for the long chain walk, anything else takes the bounded one. </p>
+
+</div>
+</div>
 <a id="ae6f0113f42e891979fd98e7ef57e779b" name="ae6f0113f42e891979fd98e7ef57e779b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae6f0113f42e891979fd98e7ef57e779b">&#9670;&#160;</a></span>TinyEffort</h2>
 
@@ -1013,6 +1045,37 @@ int&#160;</td><td class="memItemRight"><b>tiny_draw_coverage</b> (<a class="el" 
 <tr><td class="fieldname"><a id="a6ca4f10c9ff86b89b730a7e62dcb4403a4d5804a4d8ebdf34240ff7cc14c29905" name="a6ca4f10c9ff86b89b730a7e62dcb4403a4d5804a4d8ebdf34240ff7cc14c29905"></a>TINYIMG_COLORBLIND_TRITANOPIA&#160;</td><td class="fielddoc"><p>No short-wavelength cone; blue and yellow confuse. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a6ca4f10c9ff86b89b730a7e62dcb4403ad4f32615d06e4a6843c609c32fdd78a8" name="a6ca4f10c9ff86b89b730a7e62dcb4403ad4f32615d06e4a6843c609c32fdd78a8"></a>TINYIMG_COLORBLIND_ACHROMATOPSIA&#160;</td><td class="fielddoc"><p>No color at all. </p>
+</td></tr>
+</table>
+
+</div>
+</div>
+<a id="a793fcaf9f7129350c2c44772cd58dd1d" name="a793fcaf9f7129350c2c44772cd58dd1d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a793fcaf9f7129350c2c44772cd58dd1d">&#9670;&#160;</a></span>TinyCompression</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="#a793fcaf9f7129350c2c44772cd58dd1d">TinyCompression</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>How hard a lossless encoder should compress. </p>
+<p>A third axis, separate from quality and effort, because for PNG and deflate-compressed TIFF the whole output is the compressor's: there is no quantizer to turn down, so quality says nothing and effort only decides how many candidate streams get compressed.</p>
+<p>The default reads the other two, which is what every caller got before this existed: quality 90 or more asks for the long chain walk, anything else takes the bounded one. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a793fcaf9f7129350c2c44772cd58dd1da74daa91e7c6fb2367d505f7e2ccc6bd9" name="a793fcaf9f7129350c2c44772cd58dd1da74daa91e7c6fb2367d505f7e2ccc6bd9"></a>TINYIMG_COMPRESSION_AUTO&#160;</td><td class="fielddoc"><p>Derive it from quality, which is the historical behavior. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a793fcaf9f7129350c2c44772cd58dd1da3cb57a38081e88a4cfbd3df3451f50b1" name="a793fcaf9f7129350c2c44772cd58dd1da3cb57a38081e88a4cfbd3df3451f50b1"></a>TINYIMG_COMPRESSION_NONE&#160;</td><td class="fielddoc"><p>Entropy code without searching for matches at all. </p>
+<p>Not a stored stream: literals are still Huffman coded. The floor for a buffer that is already compressed, and measurably smaller than one greedy short match per position on filtered photograph rows. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a793fcaf9f7129350c2c44772cd58dd1da9653b184c5b3d7cd277628d2ac6ce961" name="a793fcaf9f7129350c2c44772cd58dd1da9653b184c5b3d7cd277628d2ac6ce961"></a>TINYIMG_COMPRESSION_FAST&#160;</td><td class="fielddoc"><p>One hash chain probe per position, no lazy matching. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a793fcaf9f7129350c2c44772cd58dd1dabdc56292071739161c331c3c272cff1e" name="a793fcaf9f7129350c2c44772cd58dd1dabdc56292071739161c331c3c272cff1e"></a>TINYIMG_COMPRESSION_DEFAULT&#160;</td><td class="fielddoc"><p>A bounded chain walk with lazy matching. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a793fcaf9f7129350c2c44772cd58dd1da88e429b6682aa3d5650e037282a3de75" name="a793fcaf9f7129350c2c44772cd58dd1da88e429b6682aa3d5650e037282a3de75"></a>TINYIMG_COMPRESSION_BEST&#160;</td><td class="fielddoc"><p>A long chain walk, for when output size matters more than time. </p>
 </td></tr>
 </table>
 
@@ -2007,6 +2070,26 @@ int&#160;</td><td class="memItemRight"><b>tiny_draw_coverage</b> (<a class="el" 
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK or TINYIMG_ERR_NULL. </dd></dl>
+
+</div>
+</div>
+<a id="a3e9020577c42fe4376ed143b3dd14017" name="a3e9020577c42fe4376ed143b3dd14017"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3e9020577c42fe4376ed143b3dd14017">&#9670;&#160;</a></span>tiny_encode_opts_sizeof()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t tiny_encode_opts_sizeof </td>
+          <td>(</td>
+          <td class="paramtype">void</td>          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Size of a <a class="el" href="../../d8/db2/structTinyEncodeOpts.html" title="Options an encoder honors.">TinyEncodeOpts</a>, for a host allocating one across the wasm boundary. </p>
+<dl class="section return"><dt>Returns</dt><dd>uint32_t sizeof(TinyEncodeOpts). </dd></dl>
 
 </div>
 </div>

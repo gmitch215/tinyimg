@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -208,6 +208,8 @@ Functions</h2></td></tr>
 <tr class="memdesc:a78040422d65770f45cb8589d53cdea94"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads bits, least significant first.  <br /></td></tr>
 <tr class="memitem:afaa2575d50f72051b2bf3b6dd776672e" id="r_afaa2575d50f72051b2bf3b6dd776672e"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#afaa2575d50f72051b2bf3b6dd776672e">tiny_bits_peek_lsb</a> (<a class="el" href="../../d2/ddb/structTinyBitReader.html">TinyBitReader</a> *reader, uint32_t count)</td></tr>
 <tr class="memdesc:afaa2575d50f72051b2bf3b6dd776672e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads bits without consuming them, least significant first.  <br /></td></tr>
+<tr class="memitem:a2183f02370d14f1e6885630d2d7feea5" id="r_a2183f02370d14f1e6885630d2d7feea5"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#a2183f02370d14f1e6885630d2d7feea5">tiny_bits_drop_lsb</a> (<a class="el" href="../../d2/ddb/structTinyBitReader.html">TinyBitReader</a> *reader, uint32_t count)</td></tr>
+<tr class="memdesc:a2183f02370d14f1e6885630d2d7feea5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Discards bits already peeked at, without reading them.  <br /></td></tr>
 <tr class="memitem:a973ac666106c9be5badd5f841b71e39f" id="r_a973ac666106c9be5badd5f841b71e39f"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#a973ac666106c9be5badd5f841b71e39f">tiny_bits_skip_msb</a> (<a class="el" href="../../d2/ddb/structTinyBitReader.html">TinyBitReader</a> *reader, uint32_t count)</td></tr>
 <tr class="memdesc:a973ac666106c9be5badd5f841b71e39f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Discards bits already examined with a most significant first peek.  <br /></td></tr>
 <tr class="memitem:a6196c7a14635004002ec0778bf320b5b" id="r_a6196c7a14635004002ec0778bf320b5b"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#a6196c7a14635004002ec0778bf320b5b">tiny_bits_skip_lsb</a> (<a class="el" href="../../d2/ddb/structTinyBitReader.html">TinyBitReader</a> *reader, uint32_t count)</td></tr>
@@ -352,6 +354,38 @@ Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">reader</td><td>The reader. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a2183f02370d14f1e6885630d2d7feea5" name="a2183f02370d14f1e6885630d2d7feea5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2183f02370d14f1e6885630d2d7feea5">&#9670;&#160;</a></span>tiny_bits_drop_lsb()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void tiny_bits_drop_lsb </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="../../d2/ddb/structTinyBitReader.html">TinyBitReader</a> *</td>          <td class="paramname"><span class="paramname"><em>reader</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>count</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Discards bits already peeked at, without reading them. </p>
+<p>For the case a prefix-code decoder has: peek a fixed width, resolve a symbol from a table, then consume only the bits the symbol used. Those bits are already in the accumulator, so nothing has to be refilled or assembled.</p>
+<p>Unlike tiny_bits_skip_lsb this takes at most TINY_BITS_MAX bits and does no looping, which is the whole point of it.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">reader</td><td>The reader. </td></tr>
+    <tr><td class="paramname">count</td><td>How many bits, 1 to TINY_BITS_MAX. Anything else is ignored. </td></tr>
   </table>
   </dd>
 </dl>

@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -111,6 +111,7 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <a href="#details">More...</a></p>
 <div class="textblock"><code>#include &lt;stddef.h&gt;</code><br />
 <code>#include &lt;stdint.h&gt;</code><br />
+<code>#include &quot;<a class="el" href="../../d8/dee/deflate_8h_source.html">tinyimg/codec/deflate.h</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="../../d5/db2/image_8h_source.html">tinyimg/image.h</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="../../d6/d18/tinyimg_8h_source.html">tinyimg/tinyimg.h</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="../../d8/d3c/util_8h_source.html">tinyimg/util.h</a>&quot;</code><br />
@@ -145,6 +146,8 @@ Functions</h2></td></tr>
 <tr class="memdesc:a009b33327a9c42e1b8db443d4d44351c"><td class="mdescLeft">&#160;</td><td class="mdescRight">The registered codec at an index, for enumerating the build's support.  <br /></td></tr>
 <tr class="memitem:a05eeb6a79782c246caf3c9fdd6020a31" id="r_a05eeb6a79782c246caf3c9fdd6020a31"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a05eeb6a79782c246caf3c9fdd6020a31">tiny_decode_resolve</a> (const <a class="el" href="../../dc/deb/structTinyDecodeOpts.html">TinyDecodeOpts</a> *opts, uint32_t width, uint32_t height, <a class="el" href="../../dc/deb/structTinyDecodeOpts.html">TinyDecodeOpts</a> *out, uint32_t *out_width, uint32_t *out_height)</td></tr>
 <tr class="memdesc:a05eeb6a79782c246caf3c9fdd6020a31"><td class="mdescLeft">&#160;</td><td class="mdescRight">Clamps decode options against an image's real dimensions.  <br /></td></tr>
+<tr class="memitem:af3553e1ac5cc251c5ce7c23509db2997" id="r_af3553e1ac5cc251c5ce7c23509db2997"><td class="memItemLeft"><a class="el" href="../../d8/dee/deflate_8h.html#a13863bacc9485fb9bacf96371b70fb90">TinyDeflateLevel</a>&#160;</td><td class="memItemRight"><a class="el" href="#af3553e1ac5cc251c5ce7c23509db2997">tiny_encode_level</a> (const <a class="el" href="../../d8/db2/structTinyEncodeOpts.html">TinyEncodeOpts</a> *opts)</td></tr>
+<tr class="memdesc:af3553e1ac5cc251c5ce7c23509db2997"><td class="mdescLeft">&#160;</td><td class="mdescRight">The deflate level an encoder's options ask for.  <br /></td></tr>
 <tr class="memitem:ab3c9c81a0e2f268057aa811a4f257fc6" id="r_ab3c9c81a0e2f268057aa811a4f257fc6"><td class="memItemLeft">void&#160;</td><td class="memItemRight"><a class="el" href="#ab3c9c81a0e2f268057aa811a4f257fc6">tiny_pixel_convert</a> (uint8_t *dest, uint8_t dest_channels, const uint8_t *src, uint8_t src_channels)</td></tr>
 <tr class="memdesc:ab3c9c81a0e2f268057aa811a4f257fc6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Writes one source pixel into a destination row, converting channels.  <br /></td></tr>
 </table>
@@ -414,6 +417,33 @@ Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK, TINYIMG_ERR_BOUNDS when the region starts outside the image, or TINYIMG_ERR_TOO_LARGE past TINYIMG_MAX_PIXELS. </dd></dl>
+
+</div>
+</div>
+<a id="af3553e1ac5cc251c5ce7c23509db2997" name="af3553e1ac5cc251c5ce7c23509db2997"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af3553e1ac5cc251c5ce7c23509db2997">&#9670;&#160;</a></span>tiny_encode_level()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="../../d8/dee/deflate_8h.html#a13863bacc9485fb9bacf96371b70fb90">TinyDeflateLevel</a> tiny_encode_level </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="../../d8/db2/structTinyEncodeOpts.html">TinyEncodeOpts</a> *</td>          <td class="paramname"><span class="paramname"><em>opts</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The deflate level an encoder's options ask for. </p>
+<p>Two codecs write deflate streams and both used to derive the level from <span class="tt">quality</span> inline, so a new knob had to be added in two places to work anywhere. This is that one place.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">opts</td><td>The options as the caller gave them, or NULL. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd><a class="el" href="../../d8/dee/deflate_8h.html#a13863bacc9485fb9bacf96371b70fb90" title="How hard the compressor should look for matches.">TinyDeflateLevel</a> What to compress at. </dd></dl>
 
 </div>
 </div>

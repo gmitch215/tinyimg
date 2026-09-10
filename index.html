@@ -223,7 +223,13 @@ own CPU budget.</p>
 <li><a href="#codec-support">Codec Support</a></li>
 <li><a href="#drawing">Drawing</a></li>
 <li><a href="#effects">Effects</a></li>
-<li><a href="#text">Text</a></li>
+<li><a href="#text">Text</a><ul>
+<li><a href="#setting-a-run">Setting a Run</a></li>
+<li><a href="#mixed-styles">Mixed Styles</a></li>
+<li><a href="#what-the-face-says">What the Face Says</a></li>
+<li><a href="#open-graph-cards">Open Graph Cards</a></li>
+</ul>
+</li>
 <li><a href="#face-detection">Face Detection</a></li>
 <li><a href="#color-management">Color Management</a></li>
 <li><a href="#reading-the-db-figures">Reading the dB Figures</a></li>
@@ -249,8 +255,9 @@ depends on Node, and there is no filesystem access, no subrequest and no binding
 what to decode before decoding it; see <a href="#the-planner">The Planner</a>.</li>
 <li><strong>A drawing surface.</strong> Shapes, polygons, gradients, compositing with blend modes, and a display
 list with a transform stack, which is the Canvas-shaped API the runtime does not have.</li>
-<li><strong>Nothing bundled that you might not use.</strong> Fonts, color profiles and cascades load at runtime.
-The module ships no font data.</li>
+<li><strong>Works off a bare instantiate.</strong> A Latin face, four ICC profiles and two face cascades are
+compiled in, so text, color conversion and face detection need no blob and no subrequest. A wider
+glyph set or a cascade of your own loads at runtime.</li>
 <li><strong>TypeScript-first.</strong> The types are the contract and the documentation.</li>
 </ul>
 <h2 id="compared-with-cloudflare-images">Compared With Cloudflare Images</h2>
@@ -288,12 +295,12 @@ Workers Paid plan is a resource the $5 subscription already includes 30 million 
 <tr>
 <td>AVIF output</td>
 <td>yes</td>
-<td>no</td>
+<td>yes</td>
 </tr>
 <tr>
 <td>Runs on Workers Free</td>
 <td>5,000 transforms / mo</td>
-<td>sources up to roughly 2 MP</td>
+<td>see <a href="#speed">Speed</a></td>
 </tr>
 <tr>
 <td>Raw pixel access</td>
@@ -306,14 +313,49 @@ Workers Paid plan is a resource the $5 subscription already includes 30 million 
 <td>yes</td>
 </tr>
 <tr>
-<td>Text</td>
-<td>one string, one font, one size</td>
-<td>layout, wrapping, alignment, metrics</td>
+<td>Text measurement</td>
+<td>no</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Text wrapping</td>
+<td>no</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Text stroke or shadow</td>
+<td>no</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Mixed styles in a run</td>
+<td>no</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Ligatures and GPOS</td>
+<td>no</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Variable font axes</td>
+<td>no</td>
+<td>yes</td>
 </tr>
 </tbody></table></div>
+<p>Images renders text as of 2026: <code>.text(content, options)</code> takes a font by URL (TrueType, OpenType
+or WOFF, up to 20 MB), a colour and a size, up to 1,000 characters and 4096 x 4096 pixels, positioned
+through the <code>draw</code> array with Porter-Duff compositing. The row that used to read &quot;one string, one
+font, one size&quot; understated it.</p>
+<p>What it does not do is give the caller any measurements back, so nothing can be positioned relative
+to the text. That is the difference the text rows above describe: wrapping a caption to a box,
+centring a line inside a plate, or fitting a title to a width all need the metrics first, and
+<code>measureText</code> is the entry point Images has no equivalent of. The rest follows from having a layout
+rather than a string: an outline and a shadow so a headline survives being drawn over a photograph,
+several styles on one baseline, and one variable file serving every weight.</p>
 <h3 id="cost">Cost</h3>
 <p>Past the included CPU, Workers bills $0.02 per million CPU milliseconds, so a transformation costs
-its own compute multiplied by that. Three routes to the same 800 px page:</p>
+its own compute multiplied by that. Four routes to the same 800 px page:</p>
 <div class="table"><table>
 <thead>
 <tr>
@@ -325,37 +367,52 @@ its own compute multiplied by that. Three routes to the same 800 px page:</p>
 </tr>
 </thead>
 <tbody><tr>
-<td>800 px WebP</td>
-<td>fancy</td>
-<td align="right">41.6 ms</td>
-<td align="right">$0.83</td>
-<td align="right">721,000</td>
+<td>800 px JPEG</td>
+<td>either</td>
+<td align="right">16.7 ms</td>
+<td align="right">$0.33</td>
+<td align="right">1,796,000</td>
 </tr>
 <tr>
 <td>800 px WebP</td>
 <td>fast</td>
-<td align="right">33.4 ms</td>
-<td align="right">$0.67</td>
-<td align="right">898,000</td>
+<td align="right">22.4 ms</td>
+<td align="right">$0.45</td>
+<td align="right">1,339,000</td>
 </tr>
 <tr>
-<td>800 px JPEG</td>
+<td>800 px WebP</td>
+<td>fancy</td>
+<td align="right">25.5 ms</td>
+<td align="right">$0.51</td>
+<td align="right">1,176,000</td>
+</tr>
+<tr>
+<td>800 px AVIF</td>
 <td>either</td>
-<td align="right">20.8 ms</td>
-<td align="right">$0.42</td>
-<td align="right">1,442,000</td>
+<td align="right">45 ms</td>
+<td align="right">$0.90</td>
+<td align="right">666,000</td>
 </tr>
 </tbody></table></div>
 <p>Against <strong>$500 per million</strong> for Images at $0.50 per 1,000. The absolute figures are small whichever
-route you take. What the spread buys is CPU headroom, and headroom is what the Free plan rations.</p>
+route you take. What the spread buys is CPU headroom, and headroom is what the Free plan rations.
+AVIF costs the most compute and produces the smallest file: 17,860 bytes against WebP&#39;s 20,572 and
+JPEG&#39;s 21,561 on the same 800 px request.</p>
 <p>Images bills a unique source and flag combination <strong>once per calendar month</strong> however often it is
-served, so a small set of derivatives under heavy traffic is already cheap there. tinyimg charges for
-every invocation that runs, so put <a href="https://developers.cloudflare.com/workers/cache/">Workers Cache</a>
-in front of it and a hit costs no CPU at all. tinyimg wins on many distinct derivatives, Images wins
-on few you have not cached.</p>
+served, so a small set of derivatives under heavy traffic is already cheap there. Since July 2026
+the Images binding bills the same way rather than per call, and <code>.info()</code> is not billed at all.
+tinyimg charges for every invocation that runs, so put
+<a href="https://developers.cloudflare.com/workers/cache/">Workers Cache</a> in front of it and a hit costs no
+CPU at all.</p>
+<p>The split follows from that. Images is cheaper for a fixed set of derivatives you serve repeatedly.
+tinyimg is cheaper when the derivatives are unbounded, and the clearest case is text that varies per
+request: a social card carrying a page title is a unique transformation per page, so it bills every
+page and never reuses one.</p>
 <h3 id="speed">Speed</h3>
-<p>Median wall clock in bun on darwin-arm64 over <code>sf-24.jpg</code> at 1835x1032. This is not Worker CPU time
-on Cloudflare&#39;s hardware, so profile your own images.</p>
+<p>Fastest of 15 runs in bun on darwin-arm64 over <code>sf-24.jpg</code> at 1835x1032. The minimum rather than the
+median, because a busy machine can only move a timing upward. This is not Worker CPU time on
+Cloudflare&#39;s hardware, so profile your own images.</p>
 <div class="table"><table>
 <thead>
 <tr>
@@ -366,37 +423,33 @@ on Cloudflare&#39;s hardware, so profile your own images.</p>
 </thead>
 <tbody><tr>
 <td>200 px cover, JPEG q80</td>
-<td align="right">7.2 ms</td>
-<td align="right">6.9 ms</td>
-</tr>
-<tr>
-<td>200 px cover, WebP q80</td>
-<td align="right">8.3 ms</td>
-<td align="right">7.7 ms</td>
+<td align="right">5.1 ms</td>
+<td align="right">5.0 ms</td>
 </tr>
 <tr>
 <td>400 px cover, JPEG q80</td>
-<td align="right">11.7 ms</td>
-<td align="right">11.8 ms</td>
-</tr>
-<tr>
-<td>400 px cover, WebP q80</td>
-<td align="right">17.2 ms</td>
-<td align="right">14.9 ms</td>
+<td align="right">9.1 ms</td>
+<td align="right">9.2 ms</td>
 </tr>
 <tr>
 <td>800 px cover, JPEG q80</td>
-<td align="right">20.8 ms</td>
-<td align="right">20.8 ms</td>
+<td align="right">16.7 ms</td>
+<td align="right">16.8 ms</td>
 </tr>
 <tr>
 <td>800 px cover, WebP q80</td>
-<td align="right">41.6 ms</td>
-<td align="right">33.4 ms</td>
+<td align="right">25.5 ms</td>
+<td align="right">22.4 ms</td>
+</tr>
+<tr>
+<td>800 px cover, AVIF q80</td>
+<td align="right">45 ms</td>
+<td align="right">45 ms</td>
 </tr>
 </tbody></table></div>
-<p><code>effort</code> moves WebP at every size and leaves JPEG output flat, because the WebP encoder has a 4x4
-prediction search to bound and the JPEG encoder has no equivalent.</p>
+<p><code>effort</code> moves WebP and leaves JPEG and AVIF output flat, because the WebP encoder has a 4x4
+prediction search to bound and neither of the others has an equivalent. A PNG output is the other
+one it moves; see <a href="#budget-and-effort">Budget and Effort</a>.</p>
 <p>JPEG&#39;s own lever is on the decode side, and a thumbnail cannot show it. Replicating chroma instead
 of filtering it is worth 1.11x to 1.25x on a full decode, but the saving scales with output samples
 while a reduced request&#39;s cost is dominated by the entropy decode, which the source fixes. On a
@@ -406,50 +459,79 @@ show it at any size, being 4:4:4 with no chroma to upsample.</p>
 under 0.1 ms; neither depends on effort.</p>
 <p>The Workers Free plan allows 10 ms of CPU per request and does not let a caller pay for more, so a
 request either fits or fails. Workers Paid defaults to 30 seconds, raised to 5 minutes with
-<code>limits.cpu_ms</code>, and nothing above comes close to it.</p>
+<code>limits.cpu_ms</code>, and nothing above comes close to it. Every millisecond below is measured on
+darwin-arm64; Workers is 1.9x slower at the median and up to 4.7x on the cheapest requests, which are
+the ones nearest the limit, so scale before comparing.</p>
 <p><strong>What fits Free is decided by the source, not by the size you ask for.</strong> Every row below produces
-the same 200 px thumbnail from the same eighth-scale decode, and every one of them decodes 1.57% of
-its source&#39;s samples. The spread is the entropy decode, which no output size can reduce.</p>
+the same 200 px thumbnail from the same eighth-scale decode. The spread is the entropy decode, which
+no output size can reduce.</p>
 <div class="table"><table>
 <thead>
 <tr>
 <th>Source</th>
 <th align="right">Megapixels</th>
+<th align="right">Compressed</th>
 <th align="right">200 px wide, JPEG</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>320x180</td>
-<td align="right">0.06</td>
-<td align="right">2.20 ms</td>
+<td>250x187</td>
+<td align="right">0.05</td>
+<td align="right">23 KB</td>
+<td align="right">2.2 ms</td>
 </tr>
 <tr>
-<td>1835x1032</td>
-<td align="right">1.89</td>
-<td align="right">6.80 ms</td>
+<td>2272x3000</td>
+<td align="right">6.82</td>
+<td align="right">215 KB</td>
+<td align="right">8.0 ms</td>
 </tr>
 <tr>
-<td>1920x1250</td>
-<td align="right">2.40</td>
-<td align="right">15.86 ms</td>
+<td>2308x3000</td>
+<td align="right">6.92</td>
+<td align="right">435 KB</td>
+<td align="right">12.1 ms</td>
 </tr>
 <tr>
-<td>5000x4000</td>
-<td align="right">20.00</td>
-<td align="right">25.41 ms</td>
+<td>1920x1280</td>
+<td align="right">2.46</td>
+<td align="right">828 KB</td>
+<td align="right">15.4 ms</td>
+</tr>
+<tr>
+<td>3600x2700</td>
+<td align="right">9.72</td>
+<td align="right">2721 KB</td>
+<td align="right">53 ms</td>
 </tr>
 </tbody></table></div>
-<p>So roughly two megapixels is the Free ceiling for a synchronous transformation, whatever the output
-size. Past that the artifact has to be computed once and cached; see <a href="#caching">Caching</a>.</p>
-<p>Decode is 1.2x to 2.1x behind libjpeg, libpng and libwebp, which have SIMD implementations of their
-hot kernels and tinyimg has none. WebP and PNG encode are slower still.
+<p><strong>Compressed bytes predict it and megapixels do not.</strong> The second and fourth rows make the point on
+their own: 2272x3000 carries 2.8x the pixels of 1920x1280, a quarter of the bytes, and finishes in
+half the time. Across twelve JPEGs, milliseconds per megapixel spread 7.1x while milliseconds per
+megabyte spread 1.95x at this scale. The practical rule for a 200 px thumbnail is roughly <strong>480 KB of
+compressed source</strong>, whatever its dimensions.</p>
+<p>The estimate <code>decide()</code> returns still prices against source samples and is wrong by up to 12.8x for
+that reason, so treat <code>budgetMs</code> as a coarse guard rather than a promise. Past the ceiling the
+artifact has to be computed once and cached; see <a href="#caching">Caching</a>.</p>
+<p>A progressive JPEG is the exception worth knowing about. At an eighth scale the transform reads the
+DC term alone, so the scans that carry only high-frequency detail are stepped over rather than
+decoded: <code>road.jpg</code> at 160 px goes from 28.5 ms to <strong>6.5 ms</strong>, byte-identical, which moves that
+request from outside the Free budget to inside it.</p>
+<p>JPEG and PNG decode are slightly ahead of libjpeg and libpng, at 1.06x-1.09x and 1.03x-1.08x; WebP
+decode is 0.68x-0.72x behind libwebp. JPEG and WebP encode are ahead at 3.8x-4.0x and 1.31x-1.38x.
+PNG encode is 12x behind, and that row is an operating-point difference as much as a speed one, since
+it produces a file 47% smaller; <code>compression: &#39;fast&#39;</code> closes most of it at a stated size cost.
 <a href="https://github.com/gmitch215/tinyimg/blob/master/TECHNICAL_REPORT.md"><code>TECHNICAL_REPORT.md</code></a> has
 the per-stage profile and the comparison against <code>@jsquash</code>.</p>
 <h3 id="gaps">Gaps</h3>
 <ul>
-<li><strong>No AVIF output.</strong> Images serves AVIF through <code>format=auto</code>. tinyimg parses the container and
-reports its dimensions, and encodes WebP instead, which lands 25-35% below JPEG at matched quality.
-See <a href="#out-of-scope">Out of Scope</a>.</li>
+<li><strong>AVIF encode has no partition search.</strong> Decode is complete and matches <code>dav1d</code> exactly. The
+encoder uses fixed 8x8 blocks and picks the luma mode from four candidates by absolute
+difference, so its files run 1.1x to 1.3x libaom&#39;s size at matched quality. A partition search is
+where most of AV1&#39;s compression lives.</li>
+<li><strong>No 10 or 12 bit AVIF.</strong> The reconstruction is 8 bits a sample end to end, so an HDR AVIF is
+refused rather than truncated. 4:2:2 is refused too, for a reason in the format: the
+specification&#39;s own subsampled-size table has no answer for a tall block on such a plane.</li>
 <li><strong>No animation.</strong> Both decode a first frame; neither re-times or composes one.</li>
 <li><strong>You own the caching.</strong> Images caches derivatives at the edge as a product feature. tinyimg gives
 you the key and leaves the cache to you; see <a href="#caching">Caching</a>.</li>
@@ -460,8 +542,10 @@ compositing, and a rasterized text string. Past that:</p>
 <ul>
 <li><strong>A drawing surface.</strong> Lines, rectangles, rounded rectangles, circles, ellipses, polygons with both
 fill rules, linear and radial gradients, and a display list with a transform matrix stack.</li>
-<li><strong>Text as layout.</strong> Wrapping, alignment, text boxes and measurement, against Images&#39; single styled
-string.</li>
+<li><strong>Text as layout.</strong> Wrapping, alignment, justification, vertical alignment, ellipsis, per-line
+metrics, outlines, shadows, mixed styles on one baseline, fallback chains, ligatures, GPOS kerning
+and variable font axes, against Images&#39; single styled string. <code>og</code> renders a whole Open Graph card
+in one call.</li>
 <li><strong>Raw pixels.</strong> <code>decode</code> and <code>Image.pixels</code> hand back samples, so anything not in the operation set
 is still reachable.</li>
 <li><strong>Effects and warps.</strong> Sobel, emboss, morphology, median, dither, halftone, duotone, split-tone,
@@ -758,7 +842,12 @@ through a reduced IDCT.</li>
 <td>uncompressed</td>
 </tr>
 <tr>
-<td>AVIF, HEIF</td>
+<td>AVIF</td>
+<td>AV1 intra: every transform, all 13 intra modes, deblock and CDEF</td>
+<td>fixed 8x8 partitions, no rate-distortion search</td>
+</tr>
+<tr>
+<td>HEIF</td>
 <td>container only; <code>probe</code> answers and decode reports a specific error</td>
 <td>no</td>
 </tr>
@@ -766,6 +855,37 @@ through a reduced IDCT.</li>
 <p>JPEG carries true DCT-domain scaled decode at 1/2, 1/4 and 1/8, and region decode that Huffman-scans
 past blocks outside the box without transforming them. PNG, GIF, TIFF and BMP row-skip and
 column-skip.</p>
+<p>PNG and deflate-compressed TIFF take a <code>compression</code> option, which is a third axis beside quality and
+effort: for a lossless format the whole output is the compressor&#39;s, so quality says nothing about it.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th><code>compression</code></th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>auto</code></td>
+<td>Reads quality, which is what every caller got before the option existed</td>
+</tr>
+<tr>
+<td><code>none</code></td>
+<td>Entropy codes without searching for matches, which beats <code>fast</code> on filtered photograph rows</td>
+</tr>
+<tr>
+<td><code>fast</code></td>
+<td>One hash chain probe per position</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td>A bounded chain walk with lazy matching</td>
+</tr>
+<tr>
+<td><code>best</code></td>
+<td>A long chain walk</td>
+</tr>
+</tbody></table></div>
+<p>On a 96 px logo <code>best</code> is 664 bytes against 835 at <code>default</code>, for 4.3x the CPU.</p>
 <p><code>probe</code> reads headers only, for every format including the ones the library cannot decode:</p>
 <pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> info</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">probe</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(source);</span></span>
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// { width, height, frames, format, channels, bitDepth, hasAlpha, progressive }</span></span></code></pre><h2 id="drawing">Drawing</h2>
@@ -799,30 +919,132 @@ perceptual hash with a Hamming-distance helper.</li>
 <p>TrueType and OpenType with <code>glyf</code> outlines, plus PSF and BDF bitmap faces, dispatched from the magic
 bytes. Quadratic flattening and a scanline fill with four vertical subsamples and exact horizontal
 coverage.</p>
-<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> font</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> env.</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">BLOBS</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">get</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'fonts/DejaVuSans.ttf'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">if</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> (font) </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'font'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'sans'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, font.body);</span></span></code></pre><p><code>tiny_image_draw_text</code>, <code>tiny_image_draw_text_box</code> with wrapping and alignment, and <code>tiny_text_measure</code>
-share one layout walk, so measuring and then drawing at the measured position lands where the
-measurement said. Kern pairs are applied when the face carries a <code>kern</code> table.</p>
+<p>A Latin face is compiled into the module, so drawing text needs no setup:</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">using</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> font</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> Font.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">load</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(tinyimg);</span></span></code></pre><p>It covers ASCII and eight accented letters in 21 kB. A wider glyph set or a different face is a blob
+under a name of your own, and a fallback chain puts one behind the other rather than replacing it:</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> noto</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> fetch</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'https://example.com/NotoSansSC-Regular.ttf'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'font'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cjk'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> noto.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">arrayBuffer</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">());</span></span></code></pre><p><code>tiny_image_draw_text</code>, <code>tiny_image_draw_text_in</code> and <code>tiny_text_measure</code> share one layout walk, so
+measuring and then drawing at the measured position lands where the measurement said.</p>
+<h3 id="setting-a-run">Setting a Run</h3>
+<p><code>TinyTextStyle</code> carries the size, tracking, line height, kerning, an outline and a shadow.
+<code>TinyTextBox</code> carries the rectangle: a wrap width, a height, horizontal alignment including justify,
+vertical alignment, and whether text the box cannot hold is clipped or ends in an ellipsis.</p>
+<p>A run with an outline or a shadow is drawn in three passes, every shadow then every outline then
+every fill, so a letter&#39;s outline never prints over its neighbor&#39;s fill. The outline is a dilation of
+the glyph&#39;s coverage rather than an offset of its curve, which rounds a sharp interior corner that a
+true offset would extend to a point; at the one to four pixels a card uses the difference is not
+visible.</p>
+<p><code>tiny_text_lines</code> reports the layout one line at a time: the byte range, the width, where the line
+sits once aligned, its baseline, and whether the box clipped it or an ellipsis ended it. It is what
+tells a caller a headline was truncated before the card is served.</p>
+<h3 id="mixed-styles">Mixed Styles</h3>
+<p><code>tiny_image_draw_text_runs</code> takes up to sixteen spans, each with its own face, size, color, outline
+and shadow, and flows them as one run: a wrap can land in the middle of a span, and a line that mixes
+sizes sits on one baseline, which is the largest ascent on that line. Kerning does not cross a span
+boundary, because a kern pair belongs to one face and the glyphs either side may not.</p>
+<h3 id="what-the-face-says">What the Face Says</h3>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Table</th>
+<th>Read for</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>kern</code></td>
+<td>Legacy pair kerning</td>
+</tr>
+<tr>
+<td><code>GPOS</code></td>
+<td>Pair kerning under the <code>kern</code> feature, formats 1 and 2</td>
+</tr>
+<tr>
+<td><code>GSUB</code></td>
+<td>Ligatures under the <code>liga</code> feature, longest match first</td>
+</tr>
+<tr>
+<td><code>fvar</code></td>
+<td>Variation axes, their ranges and their defaults</td>
+</tr>
+<tr>
+<td><code>avar</code></td>
+<td>Axis remapping, so the midpoint of an axis is where the designer put it</td>
+</tr>
+<tr>
+<td><code>gvar</code></td>
+<td>Outline and advance deltas, with regions and inferred points</td>
+</tr>
+</tbody></table></div>
+<p>Modern faces ship <code>GPOS</code> and often no <code>kern</code> at all, so a reader that only knew the legacy table
+would read most fonts as unkerned. <code>GPOS</code> is consulted first and the legacy table is the fallback.</p>
+<p>One variable file serves every weight:</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">tiny_font_set_axis</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(font, </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">TINYIMG_AXIS_WEIGHT</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">700</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span></code></pre><p>The outlines are interpolated from the face&#39;s own deltas, and so are the advances, which come from
+the same deltas&#39; phantom points. Points no region names are inferred from their neighbors along the
+contour, which is what keeps an outline whole rather than torn.</p>
+<h3 id="open-graph-cards">Open Graph Cards</h3>
+<p><code>og</code> renders one:</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> card</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> og</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(tinyimg, {</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">	title: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'How a planner made the decode cheap'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">	subtitle: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'Deciding what to decode before decoding it'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">	footer: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'tinyimg.gmitch215.dev'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">	background: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'#0b1020'</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">});</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">return</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> card.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">response</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">({ </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cache-control'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'public, max-age=86400'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> });</span></span></code></pre><p>1200x630 by default, with the headline wrapped, truncated with an ellipsis when it does not fit, and
+a shadow under the text. <code>image</code> covers the card with a photograph, fitted by the planner, so a
+4000 px source is never decoded at 4000 px to end up 1200 wide. The result reports <code>titleTruncated</code>
+and <code>missingGlyphs</code>, which are the two ways a card goes out wrong.</p>
+<p>A Worker that serves cards for its own pages, cached so each one is rendered once:</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">import</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> wasm </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">from</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> '@gmitch215/tinyimg/tinyimg.wasm'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">import</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> { og, TinyImgModule } </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">from</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> '@gmitch215/tinyimg'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> tinyimg</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> TinyImgModule.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">load</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(wasm);</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">export</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> default</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">	async</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> fetch</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#E36209;--shiki-dark:#FFAB70">request</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">:</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> Request</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#E36209;--shiki-dark:#FFAB70">env</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">:</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> unknown</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#E36209;--shiki-dark:#FFAB70">ctx</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">:</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> ExecutionContext</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">)</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">:</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> Promise</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">&#x3C;</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">Response</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">> {</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">		const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> url</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> new</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> URL</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(request.url);</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">		const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> cache</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> caches.default;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">		const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> hit</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> cache.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">match</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(request);</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">		if</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> (hit) </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">return</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> hit;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">		const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> card</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> og</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(tinyimg, {</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">			title: url.searchParams.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">get</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'title'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">) </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">??</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> 'Untitled'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">			subtitle: url.searchParams.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">get</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'subtitle'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">) </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">??</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> undefined</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">			footer: url.hostname,</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">			background: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'#0b1020'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">			format: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'png'</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">		});</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">		if</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> (card.missingGlyphs </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">></span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> 0</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">) {</span></span>
+<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">			// the compiled-in face is a Latin subset; load a wider one for anything else</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">			console.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">warn</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">`${</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">card</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">.</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">missingGlyphs</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">} codepoints had no glyph`</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">		}</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">		const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> response</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> card.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">response</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">({</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">			'cache-control'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'public, max-age=604800'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">			'x-title-truncated'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: </span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">String</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(card.titleTruncated)</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">		});</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">		ctx.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">waitUntil</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(cache.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">put</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(request, response.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">clone</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">()));</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">		return</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> response;</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">	}</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">};</span></span></code></pre><p>Nothing is loaded and no subrequest is made, so the whole card is CPU and one cache write.</p>
 <p>100 characters at 16 px cost 0.156 ms.</p>
 <h2 id="face-detection">Face Detection</h2>
 <p>An LBP cascade over an integral image, multi-scale, with union-find grouping. The cascades are
 OpenCV&#39;s <code>lbpcascade_frontalface_improved.xml</code> and <code>lbpcascade_profileface.xml</code>.</p>
-<p>The module carries no cascade data and no XML parser, so a cascade arrives as bytes in a packed form
-that <code>scripts/fixtures.ts</code> builds from the OpenCV source: 7.4 kB for the frontal cascade against 54 kB
-of XML. <code>loadBlob</code> rejects one still in XML. Both packed cascades are published, and
-<code>bun run blobs</code> rebuilds them if you would rather host your own:</p>
-<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> frontal</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> fetch</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'https://cdn.gmitch215.dev/tinyimg/cascades/lbp-frontalface.bin'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> profile</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> fetch</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'https://cdn.gmitch215.dev/tinyimg/cascades/lbp-profileface.bin'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span>
-<span class="line"></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'frontal'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> frontal.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">arrayBuffer</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">());</span></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'profile'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> profile.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">arrayBuffer</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">());</span></span>
-<span class="line"></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> faces</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">detectFaces</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(source);</span></span>
-<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// [{ x, y, width, height, neighbors }]</span></span></code></pre><p>Every resident cascade runs and the results are grouped together, so a frontal and a profile cascade
-find both kinds of face and a face that fires both is one box. Detections match OpenCV&#39;s own detector
-within a pixel on identical pixels.</p>
-<p>Feeds <code>gravity: &#39;face&#39;</code>. With no cascade loaded, <code>detectFaces</code> reports a <code>TinyImgBlobError</code> and
-<code>gravity: &#39;face&#39;</code> falls back to <code>auto</code>.</p>
+<p>Both cascades are compiled into the module, so detection needs no setup:</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> faces</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">detectFaces</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(source);</span></span>
+<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// [{ x, y, width, height, neighbors }]</span></span></code></pre><p>The module carries no XML parser, so a cascade is a packed form that <code>scripts/fixtures.ts</code> builds
+from the OpenCV source: 7.4 kB for the frontal cascade against 54 kB of XML. <code>loadBlob</code> rejects one
+still in XML, and <code>bun run blobs</code> rebuilds the packed pair if you would rather train your own.</p>
+<p>Loading a cascade of your own replaces both builtins rather than joining them, which is what a host
+substituting a default expects. With none loaded, the two that ship both run and their results are
+grouped, so a frontal and a profile cascade find both kinds of face and a face that fires both is one
+box. Detections match OpenCV&#39;s own detector within a pixel on identical pixels.</p>
+<p>Feeds <code>gravity: &#39;face&#39;</code>, which therefore works without loading anything.</p>
 <h2 id="color-management">Color Management</h2>
 <p>ICC matrix-and-TRC profiles: the <code>rXYZ</code> / <code>gXYZ</code> / <code>bXYZ</code> primaries, <code>curv</code> and parametric <code>para</code>
 tone curves, and Bradford chromatic adaptation folded into the matrix. Conversion between a tagged
@@ -891,6 +1113,12 @@ encode, and each part gives up something measured:</p>
 </tr>
 <tr>
 <td>Decode</td>
+<td>WebP reduces in the plane domain</td>
+<td>2.05x to 3.35x</td>
+<td>38.9 dB</td>
+</tr>
+<tr>
+<td>Decode</td>
 <td>JPEG replicates chroma instead of filtering</td>
 <td>1.11x to 1.25x</td>
 <td>43.6 to 59.5 dB</td>
@@ -907,53 +1135,86 @@ encode, and each part gives up something measured:</p>
 <td>1.18x to 1.45x</td>
 <td>within 0.05 dB</td>
 </tr>
+<tr>
+<td>Encode</td>
+<td>PNG compresses one candidate stream, not two</td>
+<td>1.59x to 2.08x</td>
+<td>see below</td>
+</tr>
 </tbody></table></div>
-<p><strong>Only a lossy format has anything to trade.</strong> A lossless one defines its pixels exactly, so every
-step is needed to produce them: PNG, GIF, TIFF and lossless WebP decode identically at either
-effort, and so does a 4:4:4 JPEG, which has no chroma to upsample. A reduction also keeps its
-filter, because an area average is already both the cheapest and the right answer; only enlarging
-has a filter to step down.</p>
+<p>The plane-domain reduction reaches a scaled WebP request only, and its speed figure includes the
+deblocking skip on the same request. It averages the luma and chroma planes over each output pixel
+and converts once, where the default converts the frame and averages the result, so it also never
+allocates the full frame of RGBA.</p>
+<p>The PNG row is the one whose cost depends on what you are encoding. The encoder compresses an
+adaptively filtered stream and an unfiltered one and keeps the smaller; <code>fast</code> compresses only the
+adaptive one. On a photograph the adaptive stream wins anyway, so the output is byte-identical and
+the speed is free: <code>sf-24.jpg</code> at 800 px measured 142 ms against 68. On flat artwork the unfiltered
+stream is the one that would have won, so <code>fast</code> pays 7.0% more bytes on <code>base-mono.gif</code>, 17.2% on
+<code>webassembly.png</code> and 63.1% on a 96x96 logo. Resizing a photograph gets the speed for nothing;
+encoding an icon should stay at <code>fancy</code>.</p>
+<p><strong>A lossy decoder has more to trade than a lossless one.</strong> A lossless bitstream defines its pixels
+exactly, so every step is needed to produce them and PNG, GIF, TIFF and lossless WebP decode
+identically at either effort. So does a 4:4:4 JPEG, which has no chroma to upsample. A reduction
+keeps its filter too, because an area average is already both the cheapest and the right answer;
+only enlarging has a filter to step down. What the lossless formats do have is an encoder with a
+search to bound, which is the PNG row above.</p>
 <p>A filter you name is never substituted, and neither is a format. Effort decides what the library
 left open, not what you asked for.</p>
-<p>End to end, on requests through the whole pipeline:</p>
+<p>End to end, on requests through the whole pipeline. Fastest of 25 interleaved runs, so contention
+moves a row one way only:</p>
 <div class="table"><table>
 <thead>
 <tr>
 <th>Request</th>
 <th align="right"><code>fancy</code></th>
 <th align="right"><code>fast</code></th>
-<th align="right"></th>
+<th></th>
 </tr>
 </thead>
 <tbody><tr>
 <td>200 px, WebP source, WebP out</td>
-<td align="right">18.5 ms</td>
-<td align="right">13.5 ms</td>
-<td align="right">1.38x</td>
+<td align="right">15 ms</td>
+<td align="right">7.6 ms</td>
+<td>1.9x</td>
+</tr>
+<tr>
+<td>800 px, JPEG source, PNG out</td>
+<td align="right">103 ms</td>
+<td align="right">57 ms</td>
+<td>1.8x</td>
 </tr>
 <tr>
 <td>800 px, WebP source, WebP out</td>
-<td align="right">54.6 ms</td>
-<td align="right">42.2 ms</td>
-<td align="right">1.29x</td>
+<td align="right">44 ms</td>
+<td align="right">36 ms</td>
+<td>1.3x</td>
 </tr>
 <tr>
 <td>800 px, JPEG source, WebP out</td>
-<td align="right">42.2 ms</td>
-<td align="right">34.0 ms</td>
-<td align="right">1.24x</td>
+<td align="right">28 ms</td>
+<td align="right">22 ms</td>
+<td>1.1x-1.4x</td>
 </tr>
 <tr>
 <td>800 px, JPEG source, JPEG out</td>
-<td align="right">21.6 ms</td>
-<td align="right">21.5 ms</td>
-<td align="right">1.01x</td>
+<td align="right">17 ms</td>
+<td align="right">17 ms</td>
+<td>no lever</td>
+</tr>
+<tr>
+<td>800 px, JPEG source, AVIF out</td>
+<td align="right">53 ms</td>
+<td align="right">53 ms</td>
+<td>no lever</td>
 </tr>
 </tbody></table></div>
-<p>A WebP source gains most, because it is the only one where both the decode and the encode have
-something to give. The last row is the contract working rather than a failure: a 4:4:4 JPEG decoded
-and re-encoded as JPEG has no deblocking pass, no chroma to replicate and no prediction search, so
-there is nothing for effort to spend.</p>
+<p>A WebP source gains most at 200 px, where both the decode and the encode have something to give and
+the decode additionally reduces in the plane domain. The two bottom rows produce byte-identical
+output at either effort, which is how you can tell there is nothing to spend rather than something
+being spent badly: a 4:4:4 JPEG re-encoded as JPEG has no deblocking pass, no chroma to replicate
+and no prediction search, and the AVIF encoder does not read the effort field at all. Timings on
+those rows differ between runs by a few percent in either direction, which is the machine.</p>
 <p>Encoded size can go either way under <code>fast</code>, because the per-subblock choice minimizes prediction
 error rather than rate: a diagonal mode can win on error and then cost more bits to code. Flat-color
 illustrations pay the most, and hard diagonal edges are what those modes exist for.</p>
@@ -970,6 +1231,46 @@ JPEG when it does not:</p>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">result.format; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// 'webp' if it fits inside 7 ms, otherwise 'jpeg'</span></span></code></pre><p>A format you name is never substituted, however far over budget it is. The estimate is accurate to
 about 20% on the machine its rates were measured on, so give a budget below the limit rather than at
 it, and use <a href="#work-counters"><code>measure</code></a> when you need what a request cost.</p>
+<p><strong>A budget the container change cannot meet degrades the plan, and the result says what it gave up.</strong>
+Container first, because a cheaper encoder costs bytes and nothing else; then the planner&#39;s own
+levers, in the order of what they cost the picture:</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Reported as</th>
+<th>What it gives up</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>compression</code></td>
+<td>A lossless output&#39;s compressor is turned down, which costs bytes and not fidelity</td>
+</tr>
+<tr>
+<td><code>effort</code></td>
+<td>The decode runs fast, and an enlargement left open steps down a filter</td>
+</tr>
+<tr>
+<td><code>filter</code></td>
+<td>A filter left open goes to nearest</td>
+</tr>
+<tr>
+<td><code>scale</code></td>
+<td>The decoder is asked for a coarser grid than the output needs, so the result is softer</td>
+</tr>
+</tbody></table></div>
+<p><code>compression</code> comes first because on a PNG or TIFF output the encoder costs more than everything the
+planner controls, so softening the picture to pay for the compressor would be the wrong trade. It
+measured 2.8x to 3.7x on a budgeted PNG request. Naming <code>compression</code> pins the level and the planner
+degrades instead.</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> result</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> transform</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(tinyimg, source, { width: </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">600</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, budgetMs: </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">4</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> });</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">result.degraded; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// ['effort'] when the effort tier was enough to fit</span></span></code></pre><p>The order is not the intuitive one, and a measurement decided it: reducing the decode before the
+filter turns a cheap box reduction into an interpolating enlargement, which on one 600 px request
+measured 22,780 microseconds against 21,801 for no degradation at all. A rung that is not cheaper is
+skipped, so what comes back is never softer for more CPU than the undegraded plan.</p>
+<p>The output extent never changes. A budget decides how the pixels are made, not how many, and nothing
+is degraded when the estimate already fits. <code>degraded</code> is empty on a pass-through, which needs no
+lever at all.</p>
 <h2 id="caching">Caching</h2>
 <p>A cache hit costs no CPU at all, which is how a request too expensive to serve synchronously still
 gets served: it is computed once. <code>artifactKey</code> builds the canonical key, identifying the source by
@@ -995,9 +1296,15 @@ evidence. <code>measure</code> returns what the module did:</p>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.filtered; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// macroblocks a region did not skip</span></span></code></pre><p><code>samplesPerTransform</code> is the one to read for a scaled decode: a decode transforming whole blocks and
 averaging them away reads 64 whatever its name is.</p>
 <h2 id="blobs">Blobs</h2>
-<p>Three kinds of data load at runtime rather than shipping in the module: fonts, ICC profiles and
-detection cascades. <code>loadBlob</code> takes bytes from anywhere, so there are three ways to deliver them and
-no code change between them.</p>
+<p>A default of each kind is compiled into the module: a Latin face, the four ICC profiles and both LBP
+cascades, about 45 kB. Text, profile conversion and face detection therefore work off a bare
+instantiate, and <code>builtinBlobs</code> lists what is there.</p>
+<p>A blob is how you replace one or add to it: a wider glyph set, another cascade, a profile of your
+own. <code>loadBlob</code> takes bytes from anywhere, so there are three ways to deliver them and no code change
+between them.</p>
+<p>A name resolves against the loaded blobs first and then the builtins, so <code>sans</code> always answers. An
+enumeration is different: one loaded blob of a kind hides every builtin of that kind, which is what
+stops a host that installed its own cascade from also running the two that ship.</p>
 <p>The prebuilt set is published at <code>https://cdn.gmitch215.dev/tinyimg/</code>, with
 <code>https://cdn.gmitch215.xyz/tinyimg/</code> and <code>https://cdn.gmitch215.blog/tinyimg/</code> as mirrors.
 <code>blobs.json</code> sits at that prefix and each entry&#39;s <code>path</code> resolves against it, so one URL is enough to
@@ -1010,8 +1317,10 @@ R2 bucket you have uploaded <code>blobs/</code> to, and an Assets binding works 
 <span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">	"r2_buckets"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: [{ </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">"binding"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"BLOBS"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">"bucket_name"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"tinyimg-blobs"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> }]</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">}</span></span></code></pre><p>Or bundle one as a wrangler Data module, which costs bundle bytes and no latency:</p>
 <pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">import</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> cascade </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">from</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> './lbp-frontalface.bin'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">;</span></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'frontal'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, cascade);</span></span></code></pre><p>Eight blobs can be resident at once. <code>freeBlob</code> releases one and <code>freeBlobs</code> releases all. A cascade
-is parsed at load, so a bad one fails at startup instead of becoming a search that finds nothing.</p>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> tinyimg.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">loadBlob</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'cascade'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'frontal'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, cascade);</span></span></code></pre><p>Eight blobs can be resident at once. <code>freeBlob</code> releases one and <code>freeBlobs</code> releases all; neither
+touches a builtin, which lives in the module&#39;s data section. A cascade is parsed at load, so a bad
+one fails at startup instead of becoming a search that finds nothing.</p>
+<p>The face and the cascades are third-party data. Their notices are in <code>LICENSES/</code>.</p>
 <h2 id="error-handling">Error Handling</h2>
 <p>Every failure carries the module&#39;s own error code and its stable name, so a caller branches on the
 code rather than on a message.</p>
@@ -1065,15 +1374,17 @@ code rather than on a message.</p>
 </tr>
 </tbody></table></div>
 <h2 id="size">Size</h2>
-<p>Small size is the primary goal, ahead of speed and then memory. The published package is 138.7 kB,
-of which the wasm module is 90.4 kB gzipped and the wrapper is 7.8 kB. <code>bun run size</code> prints the
-breakdown.</p>
-<p>Every codec can be compiled out, so a caller who only handles PNG can link a module with nothing
-else in it. <code>--gc-sections</code> then drops the implementation along with its registry entry.</p>
+<p>The wasm module is 778 kB, of which 45 kB is the data it carries: a Latin face, four ICC profiles and
+two detection cascades. The AV1 codec behind AVIF is 283 kB of it, about half of that in generated
+tables. The wrapper is 52 kB of JavaScript. <code>bun run size</code> prints the breakdown per translation unit.</p>
+<p>Speed comes first, then size, then memory. Size still gets measured, because a bigger module costs
+startup time and <code>tiny</code> is in the name, but it no longer wins an argument against speed.</p>
+<p>Every codec can be compiled out, so a caller who only handles PNG can link a module with nothing else
+in it. <code>--gc-sections</code> then drops the implementation along with its registry entry.</p>
 <pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">cmake</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> -S</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> .</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> -B</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> build</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> -DCMAKE_TOOLCHAIN_FILE=cmake/wasm32.cmake</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
-<span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">  -DCMAKE_C_FLAGS=</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"-DTINYIMG_NO_WEBP -DTINYIMG_NO_TIFF -DTINYIMG_NO_GIF"</span></span>
-<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">cmake</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --build</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> build</span></span></code></pre><p>That build is 65.4 kB gzipped against 90.4, and <code>tinyimg.features</code> reports the three as absent, so a
-caller can check before offering a format rather than calling and handling a failure.</p>
+<span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">  -DCMAKE_C_FLAGS=</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"-DTINYIMG_NO_WEBP -DTINYIMG_NO_TIFF -DTINYIMG_NO_GIF -DTINYIMG_NO_AVIF"</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">cmake</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --build</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> build</span></span></code></pre><p>That build is 366 kB, and <code>tinyimg.features</code> reports the four as absent, so a caller can check
+before offering a format rather than calling and handling a failure.</p>
 <p>Build it into its own directory and <code>bin/tinyimg.wasm</code> is still where it lands, because that path is
 absolute in <code>CMakeLists.txt</code>. Run <code>bun run build:wasm</code> afterwards to put the full module back.</p>
 <h2 id="platform-limits">Platform Limits</h2>
@@ -1083,7 +1394,11 @@ generation disallowed by embedder&quot;. Import the <code>.wasm</code> file; <co
 browser and throws on Workers.</li>
 <li><strong>The Workers Free plan allows 10 ms of CPU per request</strong>, which is not configurable and is below
 the cost of most transformations; see <a href="#speed">Speed</a>. Workers Paid defaults to 30 seconds and goes
-to 5 minutes with <code>limits.cpu_ms</code>. A Worker over the limit returns error 1102.</li>
+to 5 minutes with <code>limits.cpu_ms</code>. A Worker over the limit returns error 1102. Enforcement is
+elastic, so an isolated request over the limit may still complete; sustained ones do not, and a
+single test request that passed is not evidence that a request fits.</li>
+<li><strong>Response body bytes are not billed as CPU.</strong> A 2.88 MB body measured 99 ms of wall clock and zero
+CPU, so the limit applies to the transformation and not to serving it.</li>
 <li><strong>32 MiB per decoded image</strong>, inside 64 MiB of linear memory, with a 16 megapixel ceiling on top
 that only grayscale reaches. The byte cap is the one that binds, because an allocation is bytes: it
 allows 11.2 megapixels of RGB and 8.4 of RGBA. Past either, the library reports
@@ -1106,15 +1421,17 @@ rather than a limitation waiting to be lifted.</li>
 found at a moderate reduction and lost at full resolution, and a side-facing one can be the
 reverse. <code>detectFaces</code> picks a default that suits frontal faces; the C entry point
 <code>tiny_image_detect_faces_ex</code> searches exactly what it is told.</li>
-<li><strong><code>-msimd128</code> currently buys nothing.</strong> No code path uses SIMD intrinsics, so the flag only
-enables an autovectorizer that <code>-Oz</code> disables. Measured at 0.97-1.02x on three operations.</li>
+<li><strong>No hand-written SIMD kernels.</strong> The flag is on and the autovectorizer runs, which is worth
+1.04x to 1.15x now that the build is <code>-O2</code> rather than <code>-Oz</code>. Nothing uses intrinsics directly, so
+the widest stages are still scalar.</li>
 </ul>
 <h2 id="out-of-scope">Out of Scope</h2>
 <ul>
-<li><strong>AVIF and HEIF decode and encode.</strong> An AV1 intra decoder is 8-10k lines against 8-10k for the rest
-of the library, decode runs 4-12x the JPEG path per pixel, and encode needs a rate-distortion
-search that costs seconds per image in wasm. The container parse ships so <code>probe</code> answers. Codecs
-register through a table, so a second module can carry AV1 for callers who ask.</li>
+<li><strong>HEIF decode and encode.</strong> HEIF shares AVIF&#39;s container and carries HEVC rather than AV1. HEVC
+decoders are covered by active patent pools, which is a licensing question rather than a technical
+one and the reason this is declined rather than queued. The container parse ships so <code>probe</code>
+answers, and Safari is the only browser that displays HEIF, so it matters as a camera source
+format rather than an output one.</li>
 <li><strong>JPEG XL.</strong> No browser ships it by default.</li>
 <li><strong>Animation editing.</strong> Composing or re-timing frames is a different product.</li>
 <li><strong>LUT-based ICC profiles.</strong> Rejected with a specific error rather than approximated.</li>
@@ -1130,7 +1447,12 @@ they refuted.</p>
 <pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">bun</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> install</span></span>
 <span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">bun</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> build</span></span>
 <span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">bun</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> test</span></span></code></pre><h2 id="license">License</h2>
-<p>MIT</p>
+<p>MIT.</p>
+<p>The module compiles in two third-party works, and their notices ship with the package in
+<code>LICENSES/</code>. The Latin face is a subset of DejaVu Sans, under the Bitstream Vera Fonts license
+(<code>LICENSES/DejaVu.txt</code>). The two face cascades are packed from OpenCV&#39;s LBP data files, under the
+3-clause BSD license (<code>LICENSES/OpenCV-LBP-Cascades.txt</code>). The four ICC profiles are generated from
+published primaries and transfer curves rather than copied from anyone&#39;s files.</p>
 			</div>
 		</main>
 		<footer>

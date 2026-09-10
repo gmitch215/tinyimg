@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -112,6 +112,7 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <li>tiny_atan2f()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#ac7f2d2995748926ff9d3d59f45a98211">util.h</a></li>
 <li>tiny_bits_align_lsb()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#a8e87e9b73e27a0e5cfc83879f496bcb1">util.h</a></li>
 <li>tiny_bits_align_msb()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#aa5de860e6d808bbe6f71557d3832f278">util.h</a></li>
+<li>tiny_bits_drop_lsb()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#a2183f02370d14f1e6885630d2d7feea5">util.h</a></li>
 <li>tiny_bits_init()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#aae193ce5b345ccee9530ec200032f606">util.h</a></li>
 <li>tiny_bits_lsb()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#a78040422d65770f45cb8589d53cdea94">util.h</a></li>
 <li>tiny_bits_msb()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#a6511fa719b7e0179bb0b8109efb2c5a9">util.h</a></li>
@@ -126,6 +127,7 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <li>tiny_bitwriter_lsb()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#a108cc8d09da556be011a1802043ac7fe">util.h</a></li>
 <li>tiny_bitwriter_msb()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#ae826dd2960766f41e375a5b0ba8feea4">util.h</a></li>
 <li>tiny_blob_at()&#160;:&#160;<a class="el" href="dc/d18/memory_8h.html#a61bab985c341a132f1ded18044aca56f">memory.h</a></li>
+<li>tiny_blob_builtin_at()&#160;:&#160;<a class="el" href="dc/d18/memory_8h.html#a8f10959f6a93d648bca4648d9d2318cf">memory.h</a></li>
 <li>tiny_blob_free()&#160;:&#160;<a class="el" href="dc/d18/memory_8h.html#ab01f86b819f50884cbe95eac906e0490">memory.h</a></li>
 <li>tiny_blob_free_all()&#160;:&#160;<a class="el" href="dc/d18/memory_8h.html#afe667995bb9d214e07eb6dbc5878b248">memory.h</a></li>
 <li>tiny_blob_get()&#160;:&#160;<a class="el" href="dc/d18/memory_8h.html#a125d9f5e6ce04fcb7ff9fe320e382f77">memory.h</a></li>
@@ -164,6 +166,9 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <li>tiny_draw_coverage()&#160;:&#160;<a class="el" href="d5/db2/image_8h.html#a6dde89ed271e1056faf94dc27a88942b">image.h</a></li>
 <li>tiny_effect_apply()&#160;:&#160;<a class="el" href="d9/d4e/plan_8h.html#ac5ee9583167da505811c26dfe3eaa480">plan.h</a></li>
 <li>tiny_encode_cost()&#160;:&#160;<a class="el" href="d9/d4e/plan_8h.html#a3fd3eb159f13505b463734fadbb02f13">plan.h</a></li>
+<li>tiny_encode_cost_at()&#160;:&#160;<a class="el" href="d9/d4e/plan_8h.html#a8f309545f4260640cbcd49ce10ca9cee">plan.h</a></li>
+<li>tiny_encode_level()&#160;:&#160;<a class="el" href="d1/d16/codec_8h.html#af3553e1ac5cc251c5ce7c23509db2997">codec.h</a></li>
+<li>tiny_encode_opts_sizeof()&#160;:&#160;<a class="el" href="d5/db2/image_8h.html#a3e9020577c42fe4376ed143b3dd14017">image.h</a></li>
 <li>tiny_error_name()&#160;:&#160;<a class="el" href="d6/d18/tinyimg_8h.html#a9e0e66df0e082dfb61266ecc392234fd">tinyimg.h</a></li>
 <li>tiny_expf()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#a1b1dcf7bf4895c849747e8fb6cb7b68a">util.h</a></li>
 <li>tiny_fabsf()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#a24667e518568234eed6be4e921576845">util.h</a></li>
@@ -171,12 +176,19 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <li>tiny_features()&#160;:&#160;<a class="el" href="d6/d18/tinyimg_8h.html#ae50105efd17ff2ece77ddd24e9b81919">tinyimg.h</a></li>
 <li>tiny_floorf()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#a225232436bf2eba7078951748ad96ac5">util.h</a></li>
 <li>tiny_fmodf()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#ab99a65fa75172e25f10ade19b3be613a">util.h</a></li>
+<li>tiny_font_axis()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#aa17b0e7b3ead5ef43afe5b74255e5713">text.h</a></li>
+<li>tiny_font_axis_count()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a01c58301722aec0791135cd7e679705f">text.h</a></li>
 <li>tiny_font_free()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a9152efd19ebf9809269a964d7a0319fe">text.h</a></li>
 <li>tiny_font_has_glyph()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a7d6cf970ff119483a3aeb02aef6599a0">text.h</a></li>
 <li>tiny_font_load()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#addabc84210a9164a3ff46f8556a25ee9">text.h</a></li>
 <li>tiny_font_load_bytes()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#af28f21dffbacd0dbf8208cff07007689">text.h</a></li>
 <li>tiny_font_metrics()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a34bf176d8ac6050f45ad3d57ad929ebd">text.h</a></li>
 <li>tiny_font_metrics_sizeof()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#afd9c94800f1ff61862bfadb9d871c211">text.h</a></li>
+<li>tiny_font_reset_axes()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a6029707d78d9a2e2edb685d5af01af66">text.h</a></li>
+<li>tiny_font_set_add()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a88c95a7c313cb9b5bcb0dee2ad1629e9">text.h</a></li>
+<li>tiny_font_set_axis()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a6763cf49907da6487eac964850dd4269">text.h</a></li>
+<li>tiny_font_set_for()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a03334b2859f3f55afbcd7400d605f5e3">text.h</a></li>
+<li>tiny_font_set_init()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a5b47a776481bc17dfa69ab98f0e0706b">text.h</a></li>
 <li>tiny_font_sizeof()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#accb21f34271e11f73b382ced96ea642b">text.h</a></li>
 <li>tiny_format_extension()&#160;:&#160;<a class="el" href="d5/db2/image_8h.html#acf7d53cee124750a07a0e3b2f820d19d">image.h</a></li>
 <li>tiny_format_name()&#160;:&#160;<a class="el" href="d5/db2/image_8h.html#ad67c53613deb88ac64ac62ddca004544">image.h</a></li>
@@ -194,6 +206,7 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <li>tiny_hsl_to_rgb()&#160;:&#160;<a class="el" href="da/dec/color_8h.html#aeb446a8ba8ea20313bcbcdb6cb6961bf">color.h</a></li>
 <li>tiny_hsv_to_rgb()&#160;:&#160;<a class="el" href="da/dec/color_8h.html#ae638943e8ee851245d07384931b75892">color.h</a></li>
 <li>tiny_huffman_lengths()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#a67766b276fd21eea5d2527b9108f5bb7">util.h</a></li>
+<li>tiny_icc_builtin()&#160;:&#160;<a class="el" href="da/dec/color_8h.html#a806835272e6835bd1e50975f0e27bcbe">color.h</a></li>
 <li>tiny_icc_convert_image()&#160;:&#160;<a class="el" href="da/dec/color_8h.html#a6fc41e6ba1f09d69e088430ac80cab2e">color.h</a></li>
 <li>tiny_icc_matrix_between()&#160;:&#160;<a class="el" href="da/dec/color_8h.html#a647f5f7d846677ac4393c817ea4fb970">color.h</a></li>
 <li>tiny_icc_parse()&#160;:&#160;<a class="el" href="da/dec/color_8h.html#a18c7340fc7fcabe1284df22bdbb18b99">color.h</a></li>
@@ -256,6 +269,9 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <li>tiny_image_draw_line()&#160;:&#160;<a class="el" href="d5/db2/image_8h.html#a44fee404475596230d6b907ba24dd512">image.h</a></li>
 <li>tiny_image_draw_text()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a680a482623d94058dd0c97af9f77483c">text.h</a></li>
 <li>tiny_image_draw_text_box()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#af9fd7a331310fedc25284baee5d06a04">text.h</a></li>
+<li>tiny_image_draw_text_in()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a9c847feee74df916bcf659dc5c74b8c2">text.h</a></li>
+<li>tiny_image_draw_text_runs()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#ab07c76c2367ea6e4149e66b742208f18">text.h</a></li>
+<li>tiny_image_draw_text_set()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a5f17c2ab1c8327847e3682bbd02f85e0">text.h</a></li>
 <li>tiny_image_drop_shadow()&#160;:&#160;<a class="el" href="d5/db2/image_8h.html#ab78a34fa84a0b8f33d4b82564c8ed05c">image.h</a></li>
 <li>tiny_image_duotone()&#160;:&#160;<a class="el" href="d5/db2/image_8h.html#acb18dceba3b8dbf94748ab70b8ea78cd">image.h</a></li>
 <li>tiny_image_emboss()&#160;:&#160;<a class="el" href="d5/db2/image_8h.html#a14b999013c0f447958fddf3ed423e1bb">image.h</a></li>
@@ -440,6 +456,7 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <li>tiny_plan_rotate()&#160;:&#160;<a class="el" href="d9/d4e/plan_8h.html#abed3bf65cb93f03ff77fc2bd8a6528aa">plan.h</a></li>
 <li>tiny_plan_run()&#160;:&#160;<a class="el" href="d9/d4e/plan_8h.html#a90d15c8b1ac86382c4c594d88162722c">plan.h</a></li>
 <li>tiny_plan_saturation()&#160;:&#160;<a class="el" href="d9/d4e/plan_8h.html#aa312b25709d4c9dd88d9cf320d3b1841">plan.h</a></li>
+<li>tiny_plan_set_budget()&#160;:&#160;<a class="el" href="d9/d4e/plan_8h.html#a026954dffeec969eb31782484d704e99">plan.h</a></li>
 <li>tiny_plan_set_effort()&#160;:&#160;<a class="el" href="d9/d4e/plan_8h.html#aad126eb49d5f4996a03dfd9e6427dfa7">plan.h</a></li>
 <li>tiny_plan_set_fusion()&#160;:&#160;<a class="el" href="d9/d4e/plan_8h.html#a6b71707766bc986fe0a713da979c96f3">plan.h</a></li>
 <li>tiny_plan_sizeof()&#160;:&#160;<a class="el" href="d9/d4e/plan_8h.html#a3991a1184bb9fc410c12e87ea6f24669">plan.h</a></li>
@@ -455,7 +472,12 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <li>tiny_strcmp()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#a998d561c0a20933267e6f1e86c9e9f07">util.h</a></li>
 <li>tiny_strcopy()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#aee8bd92fda1bd148b29932f490fd8281">util.h</a></li>
 <li>tiny_strlen()&#160;:&#160;<a class="el" href="d8/d3c/util_8h.html#a855fd3870aa32e6ce6bee7fe02bfea4f">util.h</a></li>
+<li>tiny_text_box_sizeof()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#aa7fc39a3da33e7a6c36f78f0eddb51aa">text.h</a></li>
+<li>tiny_text_line_sizeof()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a852d21b8561deedd5709496941ae6e3d">text.h</a></li>
+<li>tiny_text_lines()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#ae21d33f22fdcf1153c959d0388cdccd3">text.h</a></li>
 <li>tiny_text_measure()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a54b720beb190b239f705c0d54be2dba6">text.h</a></li>
+<li>tiny_text_measure_runs()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#afed2d7ca267938d8a0673780d85cf4ff">text.h</a></li>
+<li>tiny_text_measure_set()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#aa6b665e4b9fd670dfe2cc1ac2c9370c5">text.h</a></li>
 <li>tiny_text_measure_wrapped()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#a10545164662e958f6bb3f599eb44114d">text.h</a></li>
 <li>tiny_text_metrics_sizeof()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#ae94e1d01ba74a9d8bcc1fab34e42e913">text.h</a></li>
 <li>tiny_text_style()&#160;:&#160;<a class="el" href="d9/dcc/text_8h.html#ac697e3f4c9a5c1fbb93cd60d04483ebf">text.h</a></li>

@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -114,6 +114,7 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a3e29fc5e4c283dc99b5e69bd58ec79cf" id="r_a3e29fc5e4c283dc99b5e69bd58ec79cf"><td class="memItemLeft">size_t&#160;</td><td class="memItemRight"><a class="el" href="#a3e29fc5e4c283dc99b5e69bd58ec79cf">head</a></td></tr>
 <tr class="memitem:acef96d64695fdef33a7a1044cbdf3e54" id="r_acef96d64695fdef33a7a1044cbdf3e54"><td class="memItemLeft">size_t&#160;</td><td class="memItemRight"><a class="el" href="#acef96d64695fdef33a7a1044cbdf3e54">pending</a></td></tr>
 <tr class="memitem:a6ce1a68bb45cfcc1078a336c3f120d78" id="r_a6ce1a68bb45cfcc1078a336c3f120d78"><td class="memItemLeft">size_t&#160;</td><td class="memItemRight"><a class="el" href="#a6ce1a68bb45cfcc1078a336c3f120d78">tail</a></td></tr>
+<tr class="memitem:a29825c5b9c9b9833d640677733319d80" id="r_a29825c5b9c9b9833d640677733319d80"><td class="memItemLeft">size_t&#160;</td><td class="memItemRight"><a class="el" href="#a29825c5b9c9b9833d640677733319d80">produced</a></td></tr>
 <tr class="memitem:a9fda36cef9cb22cdacecee1e1b964632" id="r_a9fda36cef9cb22cdacecee1e1b964632"><td class="memItemLeft"><a class="el" href="../../dd/de7/structTinyHuffman.html">TinyHuffman</a> *&#160;</td><td class="memItemRight"><a class="el" href="#a9fda36cef9cb22cdacecee1e1b964632">literals</a></td></tr>
 <tr class="memitem:a66695ab3f246458c6d800a834558d184" id="r_a66695ab3f246458c6d800a834558d184"><td class="memItemLeft"><a class="el" href="../../dd/de7/structTinyHuffman.html">TinyHuffman</a> *&#160;</td><td class="memItemRight"><a class="el" href="#a66695ab3f246458c6d800a834558d184">distances</a></td></tr>
 <tr class="memitem:ac67bade428c81c202d3ab7a6c49bb79f" id="r_ac67bade428c81c202d3ab7a6c49bb79f"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#ac67bade428c81c202d3ab7a6c49bb79f">done</a></td></tr>
@@ -308,6 +309,22 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Produced but not yet handed to the caller. </p>
+
+</div>
+</div>
+<a id="a29825c5b9c9b9833d640677733319d80" name="a29825c5b9c9b9833d640677733319d80"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a29825c5b9c9b9833d640677733319d80">&#9670;&#160;</a></span>produced</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t TinyInflate::produced</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Every byte produced since the stream began, which bounds a back reference.</p>
+<p>The window is a ring, so a distance larger than this names a slot that has never been written rather than one that has scrolled away. Checking only against the window size lets a crafted stream read whatever the allocator last left there and return it as image data. </p>
 
 </div>
 </div>

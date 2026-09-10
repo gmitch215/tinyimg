@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -177,6 +177,8 @@ Functions</h2></td></tr>
 <tr class="memdesc:a18c7340fc7fcabe1284df22bdbb18b99"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads a matrix and TRC profile.  <br /></td></tr>
 <tr class="memitem:a77a82bf06560a0c2081071bf70998e63" id="r_a77a82bf06560a0c2081071bf70998e63"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a77a82bf06560a0c2081071bf70998e63">tiny_icc_srgb</a> (<a class="el" href="../../dc/d47/structTinyIccProfile.html">TinyIccProfile</a> *profile)</td></tr>
 <tr class="memdesc:a77a82bf06560a0c2081071bf70998e63"><td class="mdescLeft">&#160;</td><td class="mdescRight">The sRGB profile, without needing a file for it.  <br /></td></tr>
+<tr class="memitem:a806835272e6835bd1e50975f0e27bcbe" id="r_a806835272e6835bd1e50975f0e27bcbe"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a806835272e6835bd1e50975f0e27bcbe">tiny_icc_builtin</a> (<a class="el" href="../../dc/d47/structTinyIccProfile.html">TinyIccProfile</a> *profile, const char *id)</td></tr>
+<tr class="memdesc:a806835272e6835bd1e50975f0e27bcbe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads one of the profiles the module carries.  <br /></td></tr>
 <tr class="memitem:a7bbb1f0636c7c2b2d272a3f9851ab185" id="r_a7bbb1f0636c7c2b2d272a3f9851ab185"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a7bbb1f0636c7c2b2d272a3f9851ab185">tiny_icc_to_srgb</a> (const <a class="el" href="../../dc/d47/structTinyIccProfile.html">TinyIccProfile</a> *profile, const uint8_t *in, uint8_t *out)</td></tr>
 <tr class="memdesc:a7bbb1f0636c7c2b2d272a3f9851ab185"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts one color from a profile's space to sRGB.  <br /></td></tr>
 <tr class="memitem:a6fc41e6ba1f09d69e088430ac80cab2e" id="r_a6fc41e6ba1f09d69e088430ac80cab2e"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a6fc41e6ba1f09d69e088430ac80cab2e">tiny_icc_convert_image</a> (<a class="el" href="../../d5/d8c/structTinyImage.html">TinyImage</a> *image, const <a class="el" href="../../dc/d47/structTinyIccProfile.html">TinyIccProfile</a> *profile)</td></tr>
@@ -753,6 +755,38 @@ Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>int 0 on success, non-zero on failure </dd></dl>
+
+</div>
+</div>
+<a id="a806835272e6835bd1e50975f0e27bcbe" name="a806835272e6835bd1e50975f0e27bcbe"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a806835272e6835bd1e50975f0e27bcbe">&#9670;&#160;</a></span>tiny_icc_builtin()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_icc_builtin </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="../../dc/d47/structTinyIccProfile.html">TinyIccProfile</a> *</td>          <td class="paramname"><span class="paramname"><em>profile</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char *</td>          <td class="paramname"><span class="paramname"><em>id</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Reads one of the profiles the module carries. </p>
+<p>Display P3, Adobe RGB (1998) and Rec. 2020 are compiled in beside sRGB, so converting an image between two of the four spaces web images actually carry needs no host wiring. The ids are <span class="tt">srgb</span>, <span class="tt">display-p3</span>, <span class="tt">adobe-rgb-1998</span> and <span class="tt">rec2020</span>, and a resident ICC blob loaded under one of those names shadows the builtin.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">profile</td><td>Receives the parsed profile. </td></tr>
+    <tr><td class="paramname">id</td><td>Which one, or NULL for sRGB. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK, TINYIMG_ERR_NULL, or TINYIMG_ERR_BLOB_MISSING when no profile answers to that id. </dd></dl>
 
 </div>
 </div>

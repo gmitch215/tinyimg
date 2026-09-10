@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -104,7 +104,8 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <a href="#define-members">Macros</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
 <a href="#enum-members">Enumerations</a> &#124;
-<a href="#func-members">Functions</a>  </div>
+<a href="#func-members">Functions</a> &#124;
+<a href="#var-members">Variables</a>  </div>
   <div class="headertitle"><div class="title">memory.h File Reference</div></div>
 </div><!--header-->
 <div class="contents">
@@ -122,6 +123,8 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A snapshot of heap occupancy.  <a href="../../d4/d7f/structTinyHeapStats.html#details">More...</a><br /></td></tr>
 <tr class="memitem:TinyArenaMark" id="r_TinyArenaMark"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="../../d1/da0/structTinyArenaMark.html">TinyArenaMark</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A saved arena position.  <a href="../../d1/da0/structTinyArenaMark.html#details">More...</a><br /></td></tr>
+<tr class="memitem:TinyBlobBuiltin" id="r_TinyBlobBuiltin"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="../../d4/d63/structTinyBlobBuiltin.html">TinyBlobBuiltin</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A blob compiled into the module.  <a href="../../d4/d63/structTinyBlobBuiltin.html#details">More...</a><br /></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-define-members" class="groupheader"><a id="define-members" name="define-members"></a>
 Macros</h2></td></tr>
@@ -191,7 +194,7 @@ Functions</h2></td></tr>
 <tr class="memitem:a52b077876b09b6d837c8e24df24d56e3" id="r_a52b077876b09b6d837c8e24df24d56e3"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a52b077876b09b6d837c8e24df24d56e3">tiny_blob_load</a> (<a class="el" href="#a410dc62b546b7190f9708dbcd133fbdd">TinyBlobKind</a> kind, const char *id, const uint8_t *data, size_t size)</td></tr>
 <tr class="memdesc:a52b077876b09b6d837c8e24df24d56e3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Registers a blob under an id.  <br /></td></tr>
 <tr class="memitem:a125d9f5e6ce04fcb7ff9fe320e382f77" id="r_a125d9f5e6ce04fcb7ff9fe320e382f77"><td class="memItemLeft">const uint8_t *&#160;</td><td class="memItemRight"><a class="el" href="#a125d9f5e6ce04fcb7ff9fe320e382f77">tiny_blob_get</a> (<a class="el" href="#a410dc62b546b7190f9708dbcd133fbdd">TinyBlobKind</a> kind, const char *id, size_t *size)</td></tr>
-<tr class="memdesc:a125d9f5e6ce04fcb7ff9fe320e382f77"><td class="mdescLeft">&#160;</td><td class="mdescRight">Looks up a resident blob.  <br /></td></tr>
+<tr class="memdesc:a125d9f5e6ce04fcb7ff9fe320e382f77"><td class="mdescLeft">&#160;</td><td class="mdescRight">Looks up a blob.  <br /></td></tr>
 <tr class="memitem:a61bab985c341a132f1ded18044aca56f" id="r_a61bab985c341a132f1ded18044aca56f"><td class="memItemLeft">const uint8_t *&#160;</td><td class="memItemRight"><a class="el" href="#a61bab985c341a132f1ded18044aca56f">tiny_blob_at</a> (<a class="el" href="#a410dc62b546b7190f9708dbcd133fbdd">TinyBlobKind</a> kind, uint32_t index, const char **id, size_t *size)</td></tr>
 <tr class="memdesc:a61bab985c341a132f1ded18044aca56f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Walks the resident blobs of one kind.  <br /></td></tr>
 <tr class="memitem:ab01f86b819f50884cbe95eac906e0490" id="r_ab01f86b819f50884cbe95eac906e0490"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#ab01f86b819f50884cbe95eac906e0490">tiny_blob_free</a> (<a class="el" href="#a410dc62b546b7190f9708dbcd133fbdd">TinyBlobKind</a> kind, const char *id)</td></tr>
@@ -199,6 +202,17 @@ Functions</h2></td></tr>
 <tr class="memitem:afe667995bb9d214e07eb6dbc5878b248" id="r_afe667995bb9d214e07eb6dbc5878b248"><td class="memItemLeft"><a id="afe667995bb9d214e07eb6dbc5878b248" name="afe667995bb9d214e07eb6dbc5878b248"></a>
 void&#160;</td><td class="memItemRight"><b>tiny_blob_free_all</b> (void)</td></tr>
 <tr class="memdesc:afe667995bb9d214e07eb6dbc5878b248"><td class="mdescLeft">&#160;</td><td class="mdescRight">Releases every resident blob. <br /></td></tr>
+<tr class="memitem:a8f10959f6a93d648bca4648d9d2318cf" id="r_a8f10959f6a93d648bca4648d9d2318cf"><td class="memItemLeft">const uint8_t *&#160;</td><td class="memItemRight"><a class="el" href="#a8f10959f6a93d648bca4648d9d2318cf">tiny_blob_builtin_at</a> (<a class="el" href="#a410dc62b546b7190f9708dbcd133fbdd">TinyBlobKind</a> kind, uint32_t index, const char **id, size_t *size)</td></tr>
+<tr class="memdesc:a8f10959f6a93d648bca4648d9d2318cf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Walks the builtins of one kind.  <br /></td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-var-members" class="groupheader"><a id="var-members" name="var-members"></a>
+Variables</h2></td></tr>
+<tr class="memitem:a533bda39982a95137a46f7c600e6fa95" id="r_a533bda39982a95137a46f7c600e6fa95"><td class="memItemLeft"><a id="a533bda39982a95137a46f7c600e6fa95" name="a533bda39982a95137a46f7c600e6fa95"></a>
+const <a class="el" href="../../d4/d63/structTinyBlobBuiltin.html">TinyBlobBuiltin</a>&#160;</td><td class="memItemRight"><b>tiny_blob_builtins</b> []</td></tr>
+<tr class="memdesc:a533bda39982a95137a46f7c600e6fa95"><td class="mdescLeft">&#160;</td><td class="mdescRight">The builtin table, generated by <span class="tt">scripts/blobs-builtin.ts</span>. <br /></td></tr>
+<tr class="memitem:a358e0b9901c34fc3d4573233404c697f" id="r_a358e0b9901c34fc3d4573233404c697f"><td class="memItemLeft"><a id="a358e0b9901c34fc3d4573233404c697f" name="a358e0b9901c34fc3d4573233404c697f"></a>
+const uint32_t&#160;</td><td class="memItemRight"><b>tiny_blob_builtin_count</b></td></tr>
+<tr class="memdesc:a358e0b9901c34fc3d4573233404c697f"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many entries tiny_blob_builtins holds. <br /></td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Lightweight memory management implementatins in C. </p>
@@ -273,7 +287,7 @@ void&#160;</td><td class="memItemRight"><b>tiny_blob_free_all</b> (void)</td></t
 </div><div class="memdoc">
 
 <p>Kinds of data the library reads but does not ship. </p>
-<p>Anything large enough to dominate the module, or only needed by some callers, arrives at runtime instead of being linked in. The host either imports it as a wrangler Data module or fetches it from a bucket; the library only ever sees bytes already in linear memory. </p>
+<p>A default of each kind is compiled in, which is what makes text, profile conversion and face detection work off a bare instantiate. A host that wants a different face, a wider glyph set or its own cascade loads one at runtime from a wrangler Data module or a bucket; the library only ever sees bytes already in linear memory. </p>
 
 </div>
 </div>
@@ -291,7 +305,7 @@ void&#160;</td><td class="memItemRight"><b>tiny_blob_free_all</b> (void)</td></t
 </div><div class="memdoc">
 
 <p>Kinds of data the library reads but does not ship. </p>
-<p>Anything large enough to dominate the module, or only needed by some callers, arrives at runtime instead of being linked in. The host either imports it as a wrangler Data module or fetches it from a bucket; the library only ever sees bytes already in linear memory. </p>
+<p>A default of each kind is compiled in, which is what makes text, profile conversion and face detection work off a bare instantiate. A host that wants a different face, a wider glyph set or its own cascade loads one at runtime from a wrangler Data module or a bucket; the library only ever sees bytes already in linear memory. </p>
 <table class="fieldtable">
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a410dc62b546b7190f9708dbcd133fbdda2b00e23b578bc971d2006e0f005f17e9" name="a410dc62b546b7190f9708dbcd133fbdda2b00e23b578bc971d2006e0f005f17e9"></a>TINYIMG_BLOB_FONT&#160;</td><td class="fielddoc"><p>A TrueType, OpenType, PSF or BDF face. </p>
 </td></tr>
@@ -514,11 +528,56 @@ void&#160;</td><td class="memItemRight"><b>tiny_blob_free_all</b> (void)</td></t
 <p>Walks the resident blobs of one kind. </p>
 <p>The way to act on every blob of a kind without knowing what any of them is called. Face detection needs it: a caller loads whichever cascades they have and the detector runs all of them, so nothing in the library names a blob.</p>
 <p>The order is the slot order, which is not the load order once a blob has been freed and its slot reused.</p>
+<p><b>A resident blob of a kind hides every builtin of that kind.</b> Loading one cascade means a search runs that cascade and not the two that ship, which is what a host replacing a default expects; loading none means it runs both builtins. tiny_blob_get resolves by name and is not shadowed this way.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">kind</td><td>What to walk. </td></tr>
     <tr><td class="paramname">index</td><td>Which one, from zero. </td></tr>
     <tr><td class="paramname">id</td><td>Receives the id it was loaded under. May be NULL. </td></tr>
+    <tr><td class="paramname">size</td><td>Receives the byte length. May be NULL. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>const uint8_t* The bytes, or NULL once <span class="tt">index</span> is past the last one. </dd></dl>
+
+</div>
+</div>
+<a id="a8f10959f6a93d648bca4648d9d2318cf" name="a8f10959f6a93d648bca4648d9d2318cf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8f10959f6a93d648bca4648d9d2318cf">&#9670;&#160;</a></span>tiny_blob_builtin_at()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const uint8_t * tiny_blob_builtin_at </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="#a410dc62b546b7190f9708dbcd133fbdd">TinyBlobKind</a></td>          <td class="paramname"><span class="paramname"><em>kind</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>index</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char **</td>          <td class="paramname"><span class="paramname"><em>id</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t *</td>          <td class="paramname"><span class="paramname"><em>size</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Walks the builtins of one kind. </p>
+<p>Reports what the module carries whether or not anything is resident, which is what a host listing the available faces wants. Resolution is the other question and tiny_blob_get answers it.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">kind</td><td>What to walk. </td></tr>
+    <tr><td class="paramname">index</td><td>Which one, from zero. </td></tr>
+    <tr><td class="paramname">id</td><td>Receives the id. May be NULL. </td></tr>
     <tr><td class="paramname">size</td><td>Receives the byte length. May be NULL. </td></tr>
   </table>
   </dd>
@@ -547,6 +606,7 @@ void&#160;</td><td class="memItemRight"><b>tiny_blob_free_all</b> (void)</td></t
 </div><div class="memdoc">
 
 <p>Releases one resident blob. </p>
+<p>A builtin is in the module's data section, so it cannot be released and reports TINYIMG_ERR_NOT_FOUND.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">kind</td><td>What to release. </td></tr>
@@ -582,7 +642,8 @@ void&#160;</td><td class="memItemRight"><b>tiny_blob_free_all</b> (void)</td></t
       </table>
 </div><div class="memdoc">
 
-<p>Looks up a resident blob. </p>
+<p>Looks up a blob. </p>
+<p>Resident blobs first, then the builtins, so a host that loads its own face under an id shadows nothing else and a host that loads none still resolves <span class="tt">sans</span>.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">kind</td><td>What to look for. </td></tr>

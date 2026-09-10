@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -123,19 +123,20 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span>    TINYIMG_WORK_RESAMPLED = 7,</div>
 <div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>    TINYIMG_WORK_ENCODED = 8,</div>
 <div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span>    TINYIMG_WORK_PASSES = 9,</div>
-<div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span>} TinyWorkCounter;</div>
-<div class="line"><a id="l00053" name="l00053"></a><span class="lineno">   53</span></div>
-<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span><span class="keywordtype">void</span> tiny_work_reset(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>    TINYIMG_WORK_SCANS_SKIPPED = 10,</div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>} TinyWorkCounter;</div>
 <div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span></div>
-<div class="line"><a id="l00071" name="l00071"></a><span class="lineno">   71</span>uint32_t tiny_work_read(TinyWorkCounter counter);</div>
-<div class="line"><a id="l00072" name="l00072"></a><span class="lineno">   72</span></div>
-<div class="line"><a id="l00082" name="l00082"></a><span class="lineno">   82</span><span class="keywordtype">void</span> tiny_work_add(TinyWorkCounter counter, uint32_t amount);</div>
-<div class="line"><a id="l00083" name="l00083"></a><span class="lineno">   83</span> </div>
-<div class="line"><a id="l00084" name="l00084"></a><span class="lineno">   84</span><span class="preprocessor">#ifdef __cplusplus</span></div>
-<div class="line"><a id="l00085" name="l00085"></a><span class="lineno">   85</span>}</div>
-<div class="line"><a id="l00086" name="l00086"></a><span class="lineno">   86</span><span class="preprocessor">#endif</span></div>
-<div class="line"><a id="l00087" name="l00087"></a><span class="lineno">   87</span> </div>
-<div class="line"><a id="l00088" name="l00088"></a><span class="lineno">   88</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span><span class="keywordtype">void</span> tiny_work_reset(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span></div>
+<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span>uint32_t tiny_work_read(TinyWorkCounter counter);</div>
+<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span></div>
+<div class="line"><a id="l00090" name="l00090"></a><span class="lineno">   90</span><span class="keywordtype">void</span> tiny_work_add(TinyWorkCounter counter, uint32_t amount);</div>
+<div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span> </div>
+<div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span><span class="preprocessor">#ifdef __cplusplus</span></div>
+<div class="line"><a id="l00093" name="l00093"></a><span class="lineno">   93</span>}</div>
+<div class="line"><a id="l00094" name="l00094"></a><span class="lineno">   94</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00095" name="l00095"></a><span class="lineno">   95</span> </div>
+<div class="line"><a id="l00096" name="l00096"></a><span class="lineno">   96</span><span class="preprocessor">#endif</span></div>
 <div class="ttc" id="atinyimg_8h_html"><div class="ttname"><a href="../../d6/d18/tinyimg_8h.html">tinyimg.h</a></div><div class="ttdoc">Umbrella header, version and error codes.</div></div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->

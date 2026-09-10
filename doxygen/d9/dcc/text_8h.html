@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.0</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.0.1</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
   </td>
@@ -101,6 +101,7 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
+<a href="#define-members">Macros</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
 <a href="#enum-members">Enumerations</a> &#124;
 <a href="#func-members">Functions</a>  </div>
@@ -120,14 +121,35 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-nested-classes" class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:TinyFontAxis" id="r_TinyFontAxis"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="../../d1/d03/structTinyFontAxis.html">TinyFontAxis</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">One variation axis a face declares.  <a href="../../d1/d03/structTinyFontAxis.html#details">More...</a><br /></td></tr>
 <tr class="memitem:TinyFont" id="r_TinyFont"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A loaded face.  <a href="../../de/de9/structTinyFont.html#details">More...</a><br /></td></tr>
+<tr class="memitem:TinyFontSet" id="r_TinyFontSet"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="../../de/d30/structTinyFontSet.html">TinyFontSet</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">An ordered chain of faces, tried in turn for each codepoint.  <a href="../../de/d30/structTinyFontSet.html#details">More...</a><br /></td></tr>
 <tr class="memitem:TinyFontMetrics" id="r_TinyFontMetrics"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="../../dd/d89/structTinyFontMetrics.html">TinyFontMetrics</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">What a face says about itself, in pixels at a size.  <a href="../../dd/d89/structTinyFontMetrics.html#details">More...</a><br /></td></tr>
 <tr class="memitem:TinyTextStyle" id="r_TinyTextStyle"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">How a run of text is set.  <a href="../../d9/dff/structTinyTextStyle.html#details">More...</a><br /></td></tr>
 <tr class="memitem:TinyTextMetrics" id="r_TinyTextMetrics"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="../../d8/dac/structTinyTextMetrics.html">TinyTextMetrics</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">What a run of text occupies.  <a href="../../d8/dac/structTinyTextMetrics.html#details">More...</a><br /></td></tr>
+<tr class="memitem:TinyTextBox" id="r_TinyTextBox"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">The rectangle a run is set inside, and how it sits there.  <a href="../../df/d0d/structTinyTextBox.html#details">More...</a><br /></td></tr>
+<tr class="memitem:TinyTextLine" id="r_TinyTextLine"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="../../da/dfa/structTinyTextLine.html">TinyTextLine</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">What one line of a run occupies, and where it sits.  <a href="../../da/dfa/structTinyTextLine.html#details">More...</a><br /></td></tr>
+<tr class="memitem:TinyTextRun" id="r_TinyTextRun"><td class="memItemLeft">struct &#160;</td><td class="memItemRight"><a class="el" href="../../d8/d67/structTinyTextRun.html">TinyTextRun</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">One styled span of a rich run.  <a href="../../d8/d67/structTinyTextRun.html#details">More...</a><br /></td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-define-members" class="groupheader"><a id="define-members" name="define-members"></a>
+Macros</h2></td></tr>
+<tr class="memitem:ac7d4bcb7eaf6b2920cc7c0695c8bb195" id="r_ac7d4bcb7eaf6b2920cc7c0695c8bb195"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#ac7d4bcb7eaf6b2920cc7c0695c8bb195">TINYIMG_FONT_MAX_AXES</a>&#160;&#160;&#160;4</td></tr>
+<tr class="memitem:a18baefe7825f196697dd03047c926d55" id="r_a18baefe7825f196697dd03047c926d55"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#a18baefe7825f196697dd03047c926d55">TINYIMG_AXIS_WEIGHT</a>&#160;&#160;&#160;0x77676874u</td></tr>
+<tr class="memitem:a096f913562c83840ec40a6b13c9d2314" id="r_a096f913562c83840ec40a6b13c9d2314"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#a096f913562c83840ec40a6b13c9d2314">TINYIMG_AXIS_WIDTH</a>&#160;&#160;&#160;0x77647468u</td></tr>
+<tr class="memitem:a5b5a38a3a7d0cf787b413da364a484bf" id="r_a5b5a38a3a7d0cf787b413da364a484bf"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#a5b5a38a3a7d0cf787b413da364a484bf">TINYIMG_AXIS_SLANT</a>&#160;&#160;&#160;0x736C6E74u</td></tr>
+<tr class="memitem:a39aec1220e7eb45a90623fa4824cf0c3" id="r_a39aec1220e7eb45a90623fa4824cf0c3"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#a39aec1220e7eb45a90623fa4824cf0c3">TINYIMG_AXIS_ITALIC</a>&#160;&#160;&#160;0x6974616Cu</td></tr>
+<tr class="memitem:a69f46a613ea62157e40e4012e0d77ebb" id="r_a69f46a613ea62157e40e4012e0d77ebb"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#a69f46a613ea62157e40e4012e0d77ebb">TINYIMG_AXIS_OPTICAL_SIZE</a>&#160;&#160;&#160;0x6F70737Au</td></tr>
+<tr class="memitem:ae27f669ef11cb3ebcfa5e4d82c3855dc" id="r_ae27f669ef11cb3ebcfa5e4d82c3855dc"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#ae27f669ef11cb3ebcfa5e4d82c3855dc">TINYIMG_FONT_MAX_FALLBACK</a>&#160;&#160;&#160;4</td></tr>
+<tr class="memitem:a18c3da2f3b641b59653e3acfed135340" id="r_a18c3da2f3b641b59653e3acfed135340"><td class="memItemLeft">#define&#160;</td><td class="memItemRight"><a class="el" href="#a18c3da2f3b641b59653e3acfed135340">TINYIMG_TEXT_MAX_RUNS</a>&#160;&#160;&#160;16</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-typedef-members" class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
@@ -136,6 +158,11 @@ Typedefs</h2></td></tr>
 <tr class="memitem:a06a58f9c9671f747fba2747976673184" id="r_a06a58f9c9671f747fba2747976673184"><td class="memItemLeft"><a id="a06a58f9c9671f747fba2747976673184" name="a06a58f9c9671f747fba2747976673184"></a>
 typedef enum <a class="el" href="#a50e830303855b71f38ed9465edaa49c4">TinyTextAlign</a>&#160;</td><td class="memItemRight"><b>TinyTextAlign</b></td></tr>
 <tr class="memdesc:a06a58f9c9671f747fba2747976673184"><td class="mdescLeft">&#160;</td><td class="mdescRight">Where a line sits inside the width it was given. <br /></td></tr>
+<tr class="memitem:a458b64fc471131b3902a0a445aa76a4f" id="r_a458b64fc471131b3902a0a445aa76a4f"><td class="memItemLeft">typedef enum <a class="el" href="#a7cfba344b7cc82f480e21597e4670d08">TinyTextVAlign</a>&#160;</td><td class="memItemRight"><a class="el" href="#a458b64fc471131b3902a0a445aa76a4f">TinyTextVAlign</a></td></tr>
+<tr class="memdesc:a458b64fc471131b3902a0a445aa76a4f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Where a run sits inside the height it was given.  <br /></td></tr>
+<tr class="memitem:ac7eab1e54a1421382e9fa725d1bc7e42" id="r_ac7eab1e54a1421382e9fa725d1bc7e42"><td class="memItemLeft"><a id="ac7eab1e54a1421382e9fa725d1bc7e42" name="ac7eab1e54a1421382e9fa725d1bc7e42"></a>
+typedef enum <a class="el" href="#a151205679ca3d9839e69cde3ff44ee5c">TinyTextOverflow</a>&#160;</td><td class="memItemRight"><b>TinyTextOverflow</b></td></tr>
+<tr class="memdesc:ac7eab1e54a1421382e9fa725d1bc7e42"><td class="mdescLeft">&#160;</td><td class="mdescRight">What happens to text the box cannot hold. <br /></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-enum-members" class="groupheader"><a id="enum-members" name="enum-members"></a>
 Enumerations</h2></td></tr>
@@ -147,11 +174,35 @@ Enumerations</h2></td></tr>
 <tr class="memitem:a50e830303855b71f38ed9465edaa49c4" id="r_a50e830303855b71f38ed9465edaa49c4"><td class="memItemLeft">enum &#160;</td><td class="memItemRight"><a class="el" href="#a50e830303855b71f38ed9465edaa49c4">TinyTextAlign</a> { <a class="el" href="#a50e830303855b71f38ed9465edaa49c4aa8de7a044145314d1c87ac2277033aaa">TINYIMG_ALIGN_LEFT</a> = 0
 , <a class="el" href="#a50e830303855b71f38ed9465edaa49c4a818b70f13b53c099b3d5a4a31d7ffbb5">TINYIMG_ALIGN_CENTER</a> = 1
 , <a class="el" href="#a50e830303855b71f38ed9465edaa49c4a705437cb69b10e6b666beaf8c4242d03">TINYIMG_ALIGN_RIGHT</a> = 2
+, <a class="el" href="#a50e830303855b71f38ed9465edaa49c4a5edfba83a51073b1ad32402569ba4a5f">TINYIMG_ALIGN_JUSTIFY</a> = 3
  }</td></tr>
 <tr class="memdesc:a50e830303855b71f38ed9465edaa49c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Where a line sits inside the width it was given.  <a href="#a50e830303855b71f38ed9465edaa49c4">More...</a><br /></td></tr>
+<tr class="memitem:a7cfba344b7cc82f480e21597e4670d08" id="r_a7cfba344b7cc82f480e21597e4670d08"><td class="memItemLeft">enum &#160;</td><td class="memItemRight"><a class="el" href="#a7cfba344b7cc82f480e21597e4670d08">TinyTextVAlign</a> { <a class="el" href="#a7cfba344b7cc82f480e21597e4670d08abf087b2e79360a41c6dfe57099cbc01b">TINYIMG_VALIGN_TOP</a> = 0
+, <a class="el" href="#a7cfba344b7cc82f480e21597e4670d08af96677206410956235b93a2170dc557c">TINYIMG_VALIGN_MIDDLE</a> = 1
+, <a class="el" href="#a7cfba344b7cc82f480e21597e4670d08a603aba0ae8e99502127050fd1e325a58">TINYIMG_VALIGN_BOTTOM</a> = 2
+ }</td></tr>
+<tr class="memdesc:a7cfba344b7cc82f480e21597e4670d08"><td class="mdescLeft">&#160;</td><td class="mdescRight">Where a run sits inside the height it was given.  <a href="#a7cfba344b7cc82f480e21597e4670d08">More...</a><br /></td></tr>
+<tr class="memitem:a151205679ca3d9839e69cde3ff44ee5c" id="r_a151205679ca3d9839e69cde3ff44ee5c"><td class="memItemLeft">enum &#160;</td><td class="memItemRight"><a class="el" href="#a151205679ca3d9839e69cde3ff44ee5c">TinyTextOverflow</a> { <a class="el" href="#a151205679ca3d9839e69cde3ff44ee5caa773f70430b4ed172f3ccc1dfebe7d8f">TINYIMG_OVERFLOW_CLIP</a> = 0
+, <a class="el" href="#a151205679ca3d9839e69cde3ff44ee5cac8bb58a737053ef3f53a45cb95055fd8">TINYIMG_OVERFLOW_ELLIPSIS</a> = 1
+ }</td></tr>
+<tr class="memdesc:a151205679ca3d9839e69cde3ff44ee5c"><td class="mdescLeft">&#160;</td><td class="mdescRight">What happens to text the box cannot hold.  <a href="#a151205679ca3d9839e69cde3ff44ee5c">More...</a><br /></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-func-members" class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a5b47a776481bc17dfa69ab98f0e0706b" id="r_a5b47a776481bc17dfa69ab98f0e0706b"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a5b47a776481bc17dfa69ab98f0e0706b">tiny_font_set_init</a> (<a class="el" href="../../de/d30/structTinyFontSet.html">TinyFontSet</a> *set)</td></tr>
+<tr class="memdesc:a5b47a776481bc17dfa69ab98f0e0706b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Starts an empty chain.  <br /></td></tr>
+<tr class="memitem:a88c95a7c313cb9b5bcb0dee2ad1629e9" id="r_a88c95a7c313cb9b5bcb0dee2ad1629e9"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a88c95a7c313cb9b5bcb0dee2ad1629e9">tiny_font_set_add</a> (<a class="el" href="../../de/d30/structTinyFontSet.html">TinyFontSet</a> *set, const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font)</td></tr>
+<tr class="memdesc:a88c95a7c313cb9b5bcb0dee2ad1629e9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Appends a face to the end of a chain.  <br /></td></tr>
+<tr class="memitem:a03334b2859f3f55afbcd7400d605f5e3" id="r_a03334b2859f3f55afbcd7400d605f5e3"><td class="memItemLeft">const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *&#160;</td><td class="memItemRight"><a class="el" href="#a03334b2859f3f55afbcd7400d605f5e3">tiny_font_set_for</a> (const <a class="el" href="../../de/d30/structTinyFontSet.html">TinyFontSet</a> *set, uint32_t codepoint)</td></tr>
+<tr class="memdesc:a03334b2859f3f55afbcd7400d605f5e3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Which face in a chain covers a codepoint.  <br /></td></tr>
+<tr class="memitem:a01c58301722aec0791135cd7e679705f" id="r_a01c58301722aec0791135cd7e679705f"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a01c58301722aec0791135cd7e679705f">tiny_font_axis_count</a> (const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font)</td></tr>
+<tr class="memdesc:a01c58301722aec0791135cd7e679705f"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many variation axes a face declares.  <br /></td></tr>
+<tr class="memitem:aa17b0e7b3ead5ef43afe5b74255e5713" id="r_aa17b0e7b3ead5ef43afe5b74255e5713"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#aa17b0e7b3ead5ef43afe5b74255e5713">tiny_font_axis</a> (const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font, uint32_t index, <a class="el" href="../../d1/d03/structTinyFontAxis.html">TinyFontAxis</a> *out)</td></tr>
+<tr class="memdesc:aa17b0e7b3ead5ef43afe5b74255e5713"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads one of a face's variation axes.  <br /></td></tr>
+<tr class="memitem:a6763cf49907da6487eac964850dd4269" id="r_a6763cf49907da6487eac964850dd4269"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a6763cf49907da6487eac964850dd4269">tiny_font_set_axis</a> (<a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font, uint32_t tag, float value)</td></tr>
+<tr class="memdesc:a6763cf49907da6487eac964850dd4269"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets one axis, in the axis' own units.  <br /></td></tr>
+<tr class="memitem:a6029707d78d9a2e2edb685d5af01af66" id="r_a6029707d78d9a2e2edb685d5af01af66"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a6029707d78d9a2e2edb685d5af01af66">tiny_font_reset_axes</a> (<a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font)</td></tr>
+<tr class="memdesc:a6029707d78d9a2e2edb685d5af01af66"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a face to its default instance.  <br /></td></tr>
 <tr class="memitem:addabc84210a9164a3ff46f8556a25ee9" id="r_addabc84210a9164a3ff46f8556a25ee9"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#addabc84210a9164a3ff46f8556a25ee9">tiny_font_load</a> (<a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font, const char *blob_id)</td></tr>
 <tr class="memdesc:addabc84210a9164a3ff46f8556a25ee9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loads a face from a resident blob.  <br /></td></tr>
 <tr class="memitem:af28f21dffbacd0dbf8208cff07007689" id="r_af28f21dffbacd0dbf8208cff07007689"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#af28f21dffbacd0dbf8208cff07007689">tiny_font_load_bytes</a> (<a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font, const uint8_t *data, size_t size)</td></tr>
@@ -172,12 +223,28 @@ Functions</h2></td></tr>
 <tr class="memdesc:a680a482623d94058dd0c97af9f77483c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Draws a line of text.  <br /></td></tr>
 <tr class="memitem:af9fd7a331310fedc25284baee5d06a04" id="r_af9fd7a331310fedc25284baee5d06a04"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#af9fd7a331310fedc25284baee5d06a04">tiny_image_draw_text_box</a> (<a class="el" href="../../d5/d8c/structTinyImage.html">TinyImage</a> *image, const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font, const char *text, int32_t x, int32_t y, uint32_t width, uint32_t height, const <a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a> *style, <a class="el" href="#a50e830303855b71f38ed9465edaa49c4">TinyTextAlign</a> align, const uint8_t *color)</td></tr>
 <tr class="memdesc:af9fd7a331310fedc25284baee5d06a04"><td class="mdescLeft">&#160;</td><td class="mdescRight">Draws text wrapped and aligned inside a rectangle.  <br /></td></tr>
+<tr class="memitem:a9c847feee74df916bcf659dc5c74b8c2" id="r_a9c847feee74df916bcf659dc5c74b8c2"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a9c847feee74df916bcf659dc5c74b8c2">tiny_image_draw_text_in</a> (<a class="el" href="../../d5/d8c/structTinyImage.html">TinyImage</a> *image, const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font, const char *text, int32_t x, int32_t y, const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *box, const <a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a> *style, const uint8_t *color)</td></tr>
+<tr class="memdesc:a9c847feee74df916bcf659dc5c74b8c2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Draws text inside a rectangle, with the box's own settings.  <br /></td></tr>
+<tr class="memitem:a5f17c2ab1c8327847e3682bbd02f85e0" id="r_a5f17c2ab1c8327847e3682bbd02f85e0"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a5f17c2ab1c8327847e3682bbd02f85e0">tiny_image_draw_text_set</a> (<a class="el" href="../../d5/d8c/structTinyImage.html">TinyImage</a> *image, const <a class="el" href="../../de/d30/structTinyFontSet.html">TinyFontSet</a> *set, const char *text, int32_t x, int32_t y, const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *box, const <a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a> *style, const uint8_t *color)</td></tr>
+<tr class="memdesc:a5f17c2ab1c8327847e3682bbd02f85e0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Draws text through a fallback chain.  <br /></td></tr>
+<tr class="memitem:aa6b665e4b9fd670dfe2cc1ac2c9370c5" id="r_aa6b665e4b9fd670dfe2cc1ac2c9370c5"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#aa6b665e4b9fd670dfe2cc1ac2c9370c5">tiny_text_measure_set</a> (const <a class="el" href="../../de/d30/structTinyFontSet.html">TinyFontSet</a> *set, const char *text, const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *box, const <a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a> *style, <a class="el" href="../../d8/dac/structTinyTextMetrics.html">TinyTextMetrics</a> *out)</td></tr>
+<tr class="memdesc:aa6b665e4b9fd670dfe2cc1ac2c9370c5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Measures text as a fallback chain would set it.  <br /></td></tr>
+<tr class="memitem:ab07c76c2367ea6e4149e66b742208f18" id="r_ab07c76c2367ea6e4149e66b742208f18"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#ab07c76c2367ea6e4149e66b742208f18">tiny_image_draw_text_runs</a> (<a class="el" href="../../d5/d8c/structTinyImage.html">TinyImage</a> *image, const <a class="el" href="../../d8/d67/structTinyTextRun.html">TinyTextRun</a> *runs, uint32_t count, int32_t x, int32_t y, const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *box, const uint8_t *color)</td></tr>
+<tr class="memdesc:ab07c76c2367ea6e4149e66b742208f18"><td class="mdescLeft">&#160;</td><td class="mdescRight">Draws a sequence of styled spans as one run of text.  <br /></td></tr>
+<tr class="memitem:afed2d7ca267938d8a0673780d85cf4ff" id="r_afed2d7ca267938d8a0673780d85cf4ff"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#afed2d7ca267938d8a0673780d85cf4ff">tiny_text_measure_runs</a> (const <a class="el" href="../../d8/d67/structTinyTextRun.html">TinyTextRun</a> *runs, uint32_t count, const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *box, <a class="el" href="../../d8/dac/structTinyTextMetrics.html">TinyTextMetrics</a> *out)</td></tr>
+<tr class="memdesc:afed2d7ca267938d8a0673780d85cf4ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">Measures a sequence of styled spans without drawing them.  <br /></td></tr>
+<tr class="memitem:ae21d33f22fdcf1153c959d0388cdccd3" id="r_ae21d33f22fdcf1153c959d0388cdccd3"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#ae21d33f22fdcf1153c959d0388cdccd3">tiny_text_lines</a> (const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font, const char *text, const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *box, const <a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a> *style, <a class="el" href="../../da/dfa/structTinyTextLine.html">TinyTextLine</a> *lines, uint32_t capacity, uint32_t *count)</td></tr>
+<tr class="memdesc:ae21d33f22fdcf1153c959d0388cdccd3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Measures a run line by line, without drawing it.  <br /></td></tr>
 <tr class="memitem:a54b720beb190b239f705c0d54be2dba6" id="r_a54b720beb190b239f705c0d54be2dba6"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a54b720beb190b239f705c0d54be2dba6">tiny_text_measure</a> (const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font, const char *text, const <a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a> *style, <a class="el" href="../../d8/dac/structTinyTextMetrics.html">TinyTextMetrics</a> *out)</td></tr>
 <tr class="memdesc:a54b720beb190b239f705c0d54be2dba6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Measures a run of text without drawing it.  <br /></td></tr>
 <tr class="memitem:a10545164662e958f6bb3f599eb44114d" id="r_a10545164662e958f6bb3f599eb44114d"><td class="memItemLeft">int&#160;</td><td class="memItemRight"><a class="el" href="#a10545164662e958f6bb3f599eb44114d">tiny_text_measure_wrapped</a> (const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *font, const char *text, uint32_t width, const <a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a> *style, <a class="el" href="../../d8/dac/structTinyTextMetrics.html">TinyTextMetrics</a> *out)</td></tr>
 <tr class="memdesc:a10545164662e958f6bb3f599eb44114d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Measures a run of text as it would be wrapped inside a width.  <br /></td></tr>
 <tr class="memitem:a79784470ce64eac1495a85743306c14f" id="r_a79784470ce64eac1495a85743306c14f"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a79784470ce64eac1495a85743306c14f">tiny_text_style_sizeof</a> (void)</td></tr>
 <tr class="memdesc:a79784470ce64eac1495a85743306c14f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of a <a class="el" href="../../d9/dff/structTinyTextStyle.html" title="How a run of text is set.">TinyTextStyle</a>, for a host allocating one across the wasm boundary.  <br /></td></tr>
+<tr class="memitem:aa7fc39a3da33e7a6c36f78f0eddb51aa" id="r_aa7fc39a3da33e7a6c36f78f0eddb51aa"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#aa7fc39a3da33e7a6c36f78f0eddb51aa">tiny_text_box_sizeof</a> (void)</td></tr>
+<tr class="memdesc:aa7fc39a3da33e7a6c36f78f0eddb51aa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of a <a class="el" href="../../df/d0d/structTinyTextBox.html" title="The rectangle a run is set inside, and how it sits there.">TinyTextBox</a>, for the same reason.  <br /></td></tr>
+<tr class="memitem:a852d21b8561deedd5709496941ae6e3d" id="r_a852d21b8561deedd5709496941ae6e3d"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a852d21b8561deedd5709496941ae6e3d">tiny_text_line_sizeof</a> (void)</td></tr>
+<tr class="memdesc:a852d21b8561deedd5709496941ae6e3d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of a <a class="el" href="../../da/dfa/structTinyTextLine.html" title="What one line of a run occupies, and where it sits.">TinyTextLine</a>, for the same reason.  <br /></td></tr>
 <tr class="memitem:ae94e1d01ba74a9d8bcc1fab34e42e913" id="r_ae94e1d01ba74a9d8bcc1fab34e42e913"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#ae94e1d01ba74a9d8bcc1fab34e42e913">tiny_text_metrics_sizeof</a> (void)</td></tr>
 <tr class="memdesc:ae94e1d01ba74a9d8bcc1fab34e42e913"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of a <a class="el" href="../../d8/dac/structTinyTextMetrics.html" title="What a run of text occupies.">TinyTextMetrics</a>, for the same reason.  <br /></td></tr>
 </table>
@@ -187,7 +254,128 @@ Functions</h2></td></tr>
 <dl class="section version"><dt>Version</dt><dd>1.0.0 </dd></dl>
 <dl class="section date"><dt>Date</dt><dd>2026-09-03</dd></dl>
 <dl class="section copyright"><dt>Copyright</dt><dd>Copyright (c) 2026 </dd></dl>
-</div><a name="doc-typedef-members" id="doc-typedef-members"></a><h2 id="header-doc-typedef-members" class="groupheader">Typedef Documentation</h2>
+</div><a name="doc-define-members" id="doc-define-members"></a><h2 id="header-doc-define-members" class="groupheader">Macro Definition Documentation</h2>
+<a id="a39aec1220e7eb45a90623fa4824cf0c3" name="a39aec1220e7eb45a90623fa4824cf0c3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a39aec1220e7eb45a90623fa4824cf0c3">&#9670;&#160;</a></span>TINYIMG_AXIS_ITALIC</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define TINYIMG_AXIS_ITALIC&#160;&#160;&#160;0x6974616Cu</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>The <span class="tt">ital</span> axis, 0 or 1. </p>
+
+</div>
+</div>
+<a id="a69f46a613ea62157e40e4012e0d77ebb" name="a69f46a613ea62157e40e4012e0d77ebb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a69f46a613ea62157e40e4012e0d77ebb">&#9670;&#160;</a></span>TINYIMG_AXIS_OPTICAL_SIZE</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define TINYIMG_AXIS_OPTICAL_SIZE&#160;&#160;&#160;0x6F70737Au</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>The <span class="tt">opsz</span> axis, the size the design is optimized for. </p>
+
+</div>
+</div>
+<a id="a5b5a38a3a7d0cf787b413da364a484bf" name="a5b5a38a3a7d0cf787b413da364a484bf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5b5a38a3a7d0cf787b413da364a484bf">&#9670;&#160;</a></span>TINYIMG_AXIS_SLANT</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define TINYIMG_AXIS_SLANT&#160;&#160;&#160;0x736C6E74u</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>The <span class="tt">slnt</span> axis, degrees clockwise from upright. </p>
+
+</div>
+</div>
+<a id="a18baefe7825f196697dd03047c926d55" name="a18baefe7825f196697dd03047c926d55"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a18baefe7825f196697dd03047c926d55">&#9670;&#160;</a></span>TINYIMG_AXIS_WEIGHT</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define TINYIMG_AXIS_WEIGHT&#160;&#160;&#160;0x77676874u</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>The <span class="tt">wght</span> axis, 1 to 1000 by convention. </p>
+
+</div>
+</div>
+<a id="a096f913562c83840ec40a6b13c9d2314" name="a096f913562c83840ec40a6b13c9d2314"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a096f913562c83840ec40a6b13c9d2314">&#9670;&#160;</a></span>TINYIMG_AXIS_WIDTH</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define TINYIMG_AXIS_WIDTH&#160;&#160;&#160;0x77647468u</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>The <span class="tt">wdth</span> axis, a percentage. </p>
+
+</div>
+</div>
+<a id="ac7d4bcb7eaf6b2920cc7c0695c8bb195" name="ac7d4bcb7eaf6b2920cc7c0695c8bb195"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac7d4bcb7eaf6b2920cc7c0695c8bb195">&#9670;&#160;</a></span>TINYIMG_FONT_MAX_AXES</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define TINYIMG_FONT_MAX_AXES&#160;&#160;&#160;4</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>How many variation axes one face may be set on at once. </p>
+
+</div>
+</div>
+<a id="ae27f669ef11cb3ebcfa5e4d82c3855dc" name="ae27f669ef11cb3ebcfa5e4d82c3855dc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae27f669ef11cb3ebcfa5e4d82c3855dc">&#9670;&#160;</a></span>TINYIMG_FONT_MAX_FALLBACK</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define TINYIMG_FONT_MAX_FALLBACK&#160;&#160;&#160;4</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>How many faces one fallback chain holds. </p>
+
+</div>
+</div>
+<a id="a18c3da2f3b641b59653e3acfed135340" name="a18c3da2f3b641b59653e3acfed135340"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a18c3da2f3b641b59653e3acfed135340">&#9670;&#160;</a></span>TINYIMG_TEXT_MAX_RUNS</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define TINYIMG_TEXT_MAX_RUNS&#160;&#160;&#160;16</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>How many styled spans one rich run holds. </p>
+
+</div>
+</div>
+<a name="doc-typedef-members" id="doc-typedef-members"></a><h2 id="header-doc-typedef-members" class="groupheader">Typedef Documentation</h2>
 <a id="a51264739f6e9fc0d0ffeb23de13e172c" name="a51264739f6e9fc0d0ffeb23de13e172c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a51264739f6e9fc0d0ffeb23de13e172c">&#9670;&#160;</a></span>TinyFontKind</h2>
 
@@ -202,6 +390,23 @@ Functions</h2></td></tr>
 
 <p>Outline and bitmap face formats. </p>
 <p>Dispatched from the first four bytes, so a caller never says which one they have. The three are genuinely different shapes rather than variants of one: an outline face has a curve per glyph and scales to any size, and a bitmap face has a fixed grid and one size. </p>
+
+</div>
+</div>
+<a id="a458b64fc471131b3902a0a445aa76a4f" name="a458b64fc471131b3902a0a445aa76a4f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a458b64fc471131b3902a0a445aa76a4f">&#9670;&#160;</a></span>TinyTextVAlign</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef enum <a class="el" href="#a7cfba344b7cc82f480e21597e4670d08">TinyTextVAlign</a> <a class="el" href="#a7cfba344b7cc82f480e21597e4670d08">TinyTextVAlign</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Where a run sits inside the height it was given. </p>
+<p>Needs a box height to mean anything; with none, every value is the same as TINYIMG_VALIGN_TOP. </p>
 
 </div>
 </div>
@@ -252,11 +457,126 @@ Functions</h2></td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="a50e830303855b71f38ed9465edaa49c4a705437cb69b10e6b666beaf8c4242d03" name="a50e830303855b71f38ed9465edaa49c4a705437cb69b10e6b666beaf8c4242d03"></a>TINYIMG_ALIGN_RIGHT&#160;</td><td class="fielddoc"><p>Against the right edge. </p>
 </td></tr>
+<tr><td class="fieldname"><a id="a50e830303855b71f38ed9465edaa49c4a5edfba83a51073b1ad32402569ba4a5f" name="a50e830303855b71f38ed9465edaa49c4a5edfba83a51073b1ad32402569ba4a5f"></a>TINYIMG_ALIGN_JUSTIFY&#160;</td><td class="fielddoc"><p>Both edges, by widening the spaces. </p>
+<p>The last line of a paragraph is set left, which is what every typesetter does: stretching four words across a full measure is worse than the ragged edge it was avoiding. A line with no space to widen is also set left rather than having its letters spaced. </p>
+</td></tr>
+</table>
+
+</div>
+</div>
+<a id="a151205679ca3d9839e69cde3ff44ee5c" name="a151205679ca3d9839e69cde3ff44ee5c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a151205679ca3d9839e69cde3ff44ee5c">&#9670;&#160;</a></span>TinyTextOverflow</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="#a151205679ca3d9839e69cde3ff44ee5c">TinyTextOverflow</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>What happens to text the box cannot hold. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a151205679ca3d9839e69cde3ff44ee5caa773f70430b4ed172f3ccc1dfebe7d8f" name="a151205679ca3d9839e69cde3ff44ee5caa773f70430b4ed172f3ccc1dfebe7d8f"></a>TINYIMG_OVERFLOW_CLIP&#160;</td><td class="fielddoc"><p>Lines past the box are not drawn. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a151205679ca3d9839e69cde3ff44ee5cac8bb58a737053ef3f53a45cb95055fd8" name="a151205679ca3d9839e69cde3ff44ee5cac8bb58a737053ef3f53a45cb95055fd8"></a>TINYIMG_OVERFLOW_ELLIPSIS&#160;</td><td class="fielddoc"><p>The last line that fits ends in an ellipsis. </p>
+<p>A single U+2026, and a face without that glyph gets three full stops instead, so a subset face that never included the character still produces something a reader recognizes rather than a missing glyph box. </p>
+</td></tr>
+</table>
+
+</div>
+</div>
+<a id="a7cfba344b7cc82f480e21597e4670d08" name="a7cfba344b7cc82f480e21597e4670d08"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7cfba344b7cc82f480e21597e4670d08">&#9670;&#160;</a></span>TinyTextVAlign</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="#a7cfba344b7cc82f480e21597e4670d08">TinyTextVAlign</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Where a run sits inside the height it was given. </p>
+<p>Needs a box height to mean anything; with none, every value is the same as TINYIMG_VALIGN_TOP. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a7cfba344b7cc82f480e21597e4670d08abf087b2e79360a41c6dfe57099cbc01b" name="a7cfba344b7cc82f480e21597e4670d08abf087b2e79360a41c6dfe57099cbc01b"></a>TINYIMG_VALIGN_TOP&#160;</td><td class="fielddoc"><p>First line box against the top edge. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a7cfba344b7cc82f480e21597e4670d08af96677206410956235b93a2170dc557c" name="a7cfba344b7cc82f480e21597e4670d08af96677206410956235b93a2170dc557c"></a>TINYIMG_VALIGN_MIDDLE&#160;</td><td class="fielddoc"><p>The run centered in the height. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a7cfba344b7cc82f480e21597e4670d08a603aba0ae8e99502127050fd1e325a58" name="a7cfba344b7cc82f480e21597e4670d08a603aba0ae8e99502127050fd1e325a58"></a>TINYIMG_VALIGN_BOTTOM&#160;</td><td class="fielddoc"><p>Last line box against the bottom edge. </p>
+</td></tr>
 </table>
 
 </div>
 </div>
 <a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Function Documentation</h2>
+<a id="aa17b0e7b3ead5ef43afe5b74255e5713" name="aa17b0e7b3ead5ef43afe5b74255e5713"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa17b0e7b3ead5ef43afe5b74255e5713">&#9670;&#160;</a></span>tiny_font_axis()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_font_axis </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *</td>          <td class="paramname"><span class="paramname"><em>font</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>index</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="../../d1/d03/structTinyFontAxis.html">TinyFontAxis</a> *</td>          <td class="paramname"><span class="paramname"><em>out</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Reads one of a face's variation axes. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">font</td><td>The face. </td></tr>
+    <tr><td class="paramname">index</td><td>Zero based, below tiny_font_axis_count. </td></tr>
+    <tr><td class="paramname">out</td><td>Receives the axis. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK, TINYIMG_ERR_NULL, or TINYIMG_ERR_BOUNDS. </dd></dl>
+
+</div>
+</div>
+<a id="a01c58301722aec0791135cd7e679705f" name="a01c58301722aec0791135cd7e679705f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a01c58301722aec0791135cd7e679705f">&#9670;&#160;</a></span>tiny_font_axis_count()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t tiny_font_axis_count </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *</td>          <td class="paramname"><span class="paramname"><em>font</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>How many variation axes a face declares. </p>
+<p>Zero for a static face, which is every face that carries no <span class="tt">fvar</span> table.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">font</td><td>The face. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>uint32_t The count, capped at TINYIMG_FONT_MAX_AXES. </dd></dl>
+
+</div>
+</div>
 <a id="a9152efd19ebf9809269a964d7a0319fe" name="a9152efd19ebf9809269a964d7a0319fe"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9152efd19ebf9809269a964d7a0319fe">&#9670;&#160;</a></span>tiny_font_free()</h2>
 
@@ -441,6 +761,160 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="a6029707d78d9a2e2edb685d5af01af66" name="a6029707d78d9a2e2edb685d5af01af66"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6029707d78d9a2e2edb685d5af01af66">&#9670;&#160;</a></span>tiny_font_reset_axes()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_font_reset_axes </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *</td>          <td class="paramname"><span class="paramname"><em>font</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns a face to its default instance. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">font</td><td>The face. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK or TINYIMG_ERR_NULL. </dd></dl>
+
+</div>
+</div>
+<a id="a88c95a7c313cb9b5bcb0dee2ad1629e9" name="a88c95a7c313cb9b5bcb0dee2ad1629e9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a88c95a7c313cb9b5bcb0dee2ad1629e9">&#9670;&#160;</a></span>tiny_font_set_add()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_font_set_add </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="../../de/d30/structTinyFontSet.html">TinyFontSet</a> *</td>          <td class="paramname"><span class="paramname"><em>set</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *</td>          <td class="paramname"><span class="paramname"><em>font</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Appends a face to the end of a chain. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">set</td><td>The chain. </td></tr>
+    <tr><td class="paramname">font</td><td>The face, which the chain borrows. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK, TINYIMG_ERR_NULL, or TINYIMG_ERR_RANGE past TINYIMG_FONT_MAX_FALLBACK. </dd></dl>
+
+</div>
+</div>
+<a id="a6763cf49907da6487eac964850dd4269" name="a6763cf49907da6487eac964850dd4269"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6763cf49907da6487eac964850dd4269">&#9670;&#160;</a></span>tiny_font_set_axis()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_font_set_axis </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *</td>          <td class="paramname"><span class="paramname"><em>font</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>tag</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">float</td>          <td class="paramname"><span class="paramname"><em>value</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Sets one axis, in the axis' own units. </p>
+<p><span class="tt"><a class="el" href="#a6763cf49907da6487eac964850dd4269" title="Sets one axis, in the axis&#39; own units.">tiny_font_set_axis</a>(&amp;font, <a class="el" href="#a18baefe7825f196697dd03047c926d55">TINYIMG_AXIS_WEIGHT</a>, 700.0f)</span> is a bold instance of one variable file, drawn from the same bytes as the regular one. The value is clamped to the axis' range, so 900 on an axis that stops at 800 is 800 rather than an error.</p>
+<p>The outlines are interpolated from the face's <span class="tt">gvar</span> deltas, which is what the format defines rather than an approximation of it: the deltas of every region the coordinate falls in are scaled and summed, and points no region mentions are inferred from their neighbors along the contour. <b>Advances vary too</b>, from the same deltas' phantom points, so a bolder instance is spaced as its designer set it.</p>
+<p>A face with no <span class="tt">fvar</span> reports TINYIMG_ERR_UNSUPPORTED_VARIANT, and a tag it does not declare reports TINYIMG_ERR_NOT_FOUND. Neither is a failure a caller has to prevent: ask the face what it has with tiny_font_axis first, or ignore the result and get the default instance.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">font</td><td>The face, whose variation state this changes. </td></tr>
+    <tr><td class="paramname">tag</td><td>The axis tag. </td></tr>
+    <tr><td class="paramname">value</td><td>The value, in the axis' units. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK, TINYIMG_ERR_NULL, TINYIMG_ERR_UNSUPPORTED_VARIANT for a static face, or TINYIMG_ERR_NOT_FOUND for an axis the face does not declare. </dd></dl>
+
+</div>
+</div>
+<a id="a03334b2859f3f55afbcd7400d605f5e3" name="a03334b2859f3f55afbcd7400d605f5e3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a03334b2859f3f55afbcd7400d605f5e3">&#9670;&#160;</a></span>tiny_font_set_for()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> * tiny_font_set_for </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="../../de/d30/structTinyFontSet.html">TinyFontSet</a> *</td>          <td class="paramname"><span class="paramname"><em>set</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>codepoint</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Which face in a chain covers a codepoint. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">set</td><td>The chain. </td></tr>
+    <tr><td class="paramname">codepoint</td><td>The character. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>const TinyFont* The first face with a glyph for it, or the first face in the chain when none has one, so a caller always has something to draw. </dd></dl>
+
+</div>
+</div>
+<a id="a5b47a776481bc17dfa69ab98f0e0706b" name="a5b47a776481bc17dfa69ab98f0e0706b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5b47a776481bc17dfa69ab98f0e0706b">&#9670;&#160;</a></span>tiny_font_set_init()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_font_set_init </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="../../de/d30/structTinyFontSet.html">TinyFontSet</a> *</td>          <td class="paramname"><span class="paramname"><em>set</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Starts an empty chain. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">set</td><td>The chain to initialize. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK or TINYIMG_ERR_NULL. </dd></dl>
+
+</div>
+</div>
 <a id="accb21f34271e11f73b382ced96ea642b" name="accb21f34271e11f73b382ced96ea642b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#accb21f34271e11f73b382ced96ea642b">&#9670;&#160;</a></span>tiny_font_sizeof()</h2>
 
@@ -604,6 +1078,308 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="a9c847feee74df916bcf659dc5c74b8c2" name="a9c847feee74df916bcf659dc5c74b8c2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9c847feee74df916bcf659dc5c74b8c2">&#9670;&#160;</a></span>tiny_image_draw_text_in()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_image_draw_text_in </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="../../d5/d8c/structTinyImage.html">TinyImage</a> *</td>          <td class="paramname"><span class="paramname"><em>image</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *</td>          <td class="paramname"><span class="paramname"><em>font</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char *</td>          <td class="paramname"><span class="paramname"><em>text</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int32_t</td>          <td class="paramname"><span class="paramname"><em>x</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int32_t</td>          <td class="paramname"><span class="paramname"><em>y</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *</td>          <td class="paramname"><span class="paramname"><em>box</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a> *</td>          <td class="paramname"><span class="paramname"><em>style</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const uint8_t *</td>          <td class="paramname"><span class="paramname"><em>color</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Draws text inside a rectangle, with the box's own settings. </p>
+<p>What tiny_image_draw_text_box does, plus vertical alignment, justification and an ellipsis. The two share every line of layout, so a caller who measures with tiny_text_lines and then draws gets the lines the measurement described.</p>
+<p>A stroke or a shadow makes this three passes over the run rather than one: every shadow, then every outline, then every fill. Drawing each glyph's three layers together would let one glyph's outline print over the previous glyph's fill, which is visible wherever two letters touch.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">image</td><td>The image to draw on. </td></tr>
+    <tr><td class="paramname">font</td><td>The face. </td></tr>
+    <tr><td class="paramname">text</td><td>UTF-8, NUL terminated. </td></tr>
+    <tr><td class="paramname">x</td><td>Left edge of the box. </td></tr>
+    <tr><td class="paramname">y</td><td>Top edge of the box. </td></tr>
+    <tr><td class="paramname">box</td><td>The rectangle and how the run sits in it, or NULL for none. </td></tr>
+    <tr><td class="paramname">style</td><td>How to set it, or NULL for the defaults. </td></tr>
+    <tr><td class="paramname">color</td><td>The fill color, as many channels as the image has. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK or a negative <a class="el" href="../../d6/d18/tinyimg_8h.html#a2dc7ed040dee60bd0964470b39225668" title="Result of a tinyimg call.">TinyImageError</a>. </dd></dl>
+
+</div>
+</div>
+<a id="ab07c76c2367ea6e4149e66b742208f18" name="ab07c76c2367ea6e4149e66b742208f18"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab07c76c2367ea6e4149e66b742208f18">&#9670;&#160;</a></span>tiny_image_draw_text_runs()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_image_draw_text_runs </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="../../d5/d8c/structTinyImage.html">TinyImage</a> *</td>          <td class="paramname"><span class="paramname"><em>image</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../d8/d67/structTinyTextRun.html">TinyTextRun</a> *</td>          <td class="paramname"><span class="paramname"><em>runs</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>count</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int32_t</td>          <td class="paramname"><span class="paramname"><em>x</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int32_t</td>          <td class="paramname"><span class="paramname"><em>y</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *</td>          <td class="paramname"><span class="paramname"><em>box</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const uint8_t *</td>          <td class="paramname"><span class="paramname"><em>color</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Draws a sequence of styled spans as one run of text. </p>
+<p>The spans flow into each other rather than being drawn one after another: a wrap can land in the middle of a span, and a line that mixes sizes sits on one baseline, which is the largest ascent on that line. Two spans of different sizes therefore share a baseline rather than each having their own, which is what makes a superscript or a larger first letter look right.</p>
+<p>Every span carries its own face, size, tracking, kerning, outline and shadow. <b>Kerning does not cross a span boundary</b>, because a kern pair is a property of one face and the two glyphs either side of the boundary may be in different ones.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">image</td><td>The image to draw on. </td></tr>
+    <tr><td class="paramname">runs</td><td>The spans, in order. </td></tr>
+    <tr><td class="paramname">count</td><td>How many, up to TINYIMG_TEXT_MAX_RUNS. </td></tr>
+    <tr><td class="paramname">x</td><td>Left edge of the box. </td></tr>
+    <tr><td class="paramname">y</td><td>Top edge of the box. </td></tr>
+    <tr><td class="paramname">box</td><td>The rectangle and how the run sits in it, or NULL for none. </td></tr>
+    <tr><td class="paramname">color</td><td>The fill color for any span that does not name one. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK, TINYIMG_ERR_RANGE past TINYIMG_TEXT_MAX_RUNS, or a negative <a class="el" href="../../d6/d18/tinyimg_8h.html#a2dc7ed040dee60bd0964470b39225668" title="Result of a tinyimg call.">TinyImageError</a>. </dd></dl>
+
+</div>
+</div>
+<a id="a5f17c2ab1c8327847e3682bbd02f85e0" name="a5f17c2ab1c8327847e3682bbd02f85e0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5f17c2ab1c8327847e3682bbd02f85e0">&#9670;&#160;</a></span>tiny_image_draw_text_set()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_image_draw_text_set </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="../../d5/d8c/structTinyImage.html">TinyImage</a> *</td>          <td class="paramname"><span class="paramname"><em>image</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../de/d30/structTinyFontSet.html">TinyFontSet</a> *</td>          <td class="paramname"><span class="paramname"><em>set</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char *</td>          <td class="paramname"><span class="paramname"><em>text</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int32_t</td>          <td class="paramname"><span class="paramname"><em>x</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int32_t</td>          <td class="paramname"><span class="paramname"><em>y</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *</td>          <td class="paramname"><span class="paramname"><em>box</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a> *</td>          <td class="paramname"><span class="paramname"><em>style</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const uint8_t *</td>          <td class="paramname"><span class="paramname"><em>color</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Draws text through a fallback chain. </p>
+<p>The same layout as tiny_image_draw_text_in, with the face chosen per codepoint instead of once for the run. A chain of one face is exactly the single-face path, so nothing about a caller who does not need this changes.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">image</td><td>The image to draw on. </td></tr>
+    <tr><td class="paramname">set</td><td>The chain. </td></tr>
+    <tr><td class="paramname">text</td><td>UTF-8, NUL terminated. </td></tr>
+    <tr><td class="paramname">x</td><td>Left edge of the box. </td></tr>
+    <tr><td class="paramname">y</td><td>Top edge of the box. </td></tr>
+    <tr><td class="paramname">box</td><td>The rectangle and how the run sits in it, or NULL for none. </td></tr>
+    <tr><td class="paramname">style</td><td>How to set it, or NULL for the defaults. </td></tr>
+    <tr><td class="paramname">color</td><td>The fill color, as many channels as the image has. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK or a negative <a class="el" href="../../d6/d18/tinyimg_8h.html#a2dc7ed040dee60bd0964470b39225668" title="Result of a tinyimg call.">TinyImageError</a>. </dd></dl>
+
+</div>
+</div>
+<a id="aa7fc39a3da33e7a6c36f78f0eddb51aa" name="aa7fc39a3da33e7a6c36f78f0eddb51aa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa7fc39a3da33e7a6c36f78f0eddb51aa">&#9670;&#160;</a></span>tiny_text_box_sizeof()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t tiny_text_box_sizeof </td>
+          <td>(</td>
+          <td class="paramtype">void</td>          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Size of a <a class="el" href="../../df/d0d/structTinyTextBox.html" title="The rectangle a run is set inside, and how it sits there.">TinyTextBox</a>, for the same reason. </p>
+<dl class="section return"><dt>Returns</dt><dd>uint32_t sizeof(TinyTextBox). </dd></dl>
+
+</div>
+</div>
+<a id="a852d21b8561deedd5709496941ae6e3d" name="a852d21b8561deedd5709496941ae6e3d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a852d21b8561deedd5709496941ae6e3d">&#9670;&#160;</a></span>tiny_text_line_sizeof()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t tiny_text_line_sizeof </td>
+          <td>(</td>
+          <td class="paramtype">void</td>          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Size of a <a class="el" href="../../da/dfa/structTinyTextLine.html" title="What one line of a run occupies, and where it sits.">TinyTextLine</a>, for the same reason. </p>
+<dl class="section return"><dt>Returns</dt><dd>uint32_t sizeof(TinyTextLine). </dd></dl>
+
+</div>
+</div>
+<a id="ae21d33f22fdcf1153c959d0388cdccd3" name="ae21d33f22fdcf1153c959d0388cdccd3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae21d33f22fdcf1153c959d0388cdccd3">&#9670;&#160;</a></span>tiny_text_lines()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_text_lines </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="../../de/de9/structTinyFont.html">TinyFont</a> *</td>          <td class="paramname"><span class="paramname"><em>font</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char *</td>          <td class="paramname"><span class="paramname"><em>text</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *</td>          <td class="paramname"><span class="paramname"><em>box</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a> *</td>          <td class="paramname"><span class="paramname"><em>style</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="../../da/dfa/structTinyTextLine.html">TinyTextLine</a> *</td>          <td class="paramname"><span class="paramname"><em>lines</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>capacity</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t *</td>          <td class="paramname"><span class="paramname"><em>count</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Measures a run line by line, without drawing it. </p>
+<p>The layout a draw would produce, one entry per line, including the lines the box's height leaves out and which line an ellipsis lands on. What a caller needs to place a badge beside the second line, or to tell that a headline was truncated and pick a smaller size.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">font</td><td>The face. </td></tr>
+    <tr><td class="paramname">text</td><td>UTF-8, NUL terminated. </td></tr>
+    <tr><td class="paramname">box</td><td>The rectangle it would be set in, or NULL for none. </td></tr>
+    <tr><td class="paramname">style</td><td>How it would be set, or NULL for the defaults. </td></tr>
+    <tr><td class="paramname">lines</td><td>Receives up to <span class="tt">capacity</span> entries. May be NULL to count only. </td></tr>
+    <tr><td class="paramname">capacity</td><td>How many entries <span class="tt">lines</span> holds. </td></tr>
+    <tr><td class="paramname">count</td><td>Receives the number of lines the run takes, which may be more than <span class="tt">capacity</span>. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK or a negative <a class="el" href="../../d6/d18/tinyimg_8h.html#a2dc7ed040dee60bd0964470b39225668" title="Result of a tinyimg call.">TinyImageError</a>. </dd></dl>
+
+</div>
+</div>
 <a id="a54b720beb190b239f705c0d54be2dba6" name="a54b720beb190b239f705c0d54be2dba6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a54b720beb190b239f705c0d54be2dba6">&#9670;&#160;</a></span>tiny_text_measure()</h2>
 
@@ -641,6 +1417,99 @@ Functions</h2></td></tr>
     <tr><td class="paramname">text</td><td>UTF-8, NUL terminated. Newlines count as line breaks. </td></tr>
     <tr><td class="paramname">style</td><td>How it would be set, or NULL for the defaults. </td></tr>
     <tr><td class="paramname">out</td><td>Receives the metrics. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK or a negative <a class="el" href="../../d6/d18/tinyimg_8h.html#a2dc7ed040dee60bd0964470b39225668" title="Result of a tinyimg call.">TinyImageError</a>. </dd></dl>
+
+</div>
+</div>
+<a id="afed2d7ca267938d8a0673780d85cf4ff" name="afed2d7ca267938d8a0673780d85cf4ff"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afed2d7ca267938d8a0673780d85cf4ff">&#9670;&#160;</a></span>tiny_text_measure_runs()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_text_measure_runs </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="../../d8/d67/structTinyTextRun.html">TinyTextRun</a> *</td>          <td class="paramname"><span class="paramname"><em>runs</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>count</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *</td>          <td class="paramname"><span class="paramname"><em>box</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="../../d8/dac/structTinyTextMetrics.html">TinyTextMetrics</a> *</td>          <td class="paramname"><span class="paramname"><em>out</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Measures a sequence of styled spans without drawing them. </p>
+<p>The same layout the draw uses. <span class="tt">ascent</span> and <span class="tt">line_height</span> are the largest of the spans on the first line, which is what the run actually occupies.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">runs</td><td>The spans, in order. </td></tr>
+    <tr><td class="paramname">count</td><td>How many, up to TINYIMG_TEXT_MAX_RUNS. </td></tr>
+    <tr><td class="paramname">box</td><td>The rectangle they would be set in, or NULL for none. </td></tr>
+    <tr><td class="paramname">out</td><td>Receives the metrics. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>int TINYIMG_OK, TINYIMG_ERR_RANGE, or a negative <a class="el" href="../../d6/d18/tinyimg_8h.html#a2dc7ed040dee60bd0964470b39225668" title="Result of a tinyimg call.">TinyImageError</a>. </dd></dl>
+
+</div>
+</div>
+<a id="aa6b665e4b9fd670dfe2cc1ac2c9370c5" name="aa6b665e4b9fd670dfe2cc1ac2c9370c5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa6b665e4b9fd670dfe2cc1ac2c9370c5">&#9670;&#160;</a></span>tiny_text_measure_set()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int tiny_text_measure_set </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="../../de/d30/structTinyFontSet.html">TinyFontSet</a> *</td>          <td class="paramname"><span class="paramname"><em>set</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char *</td>          <td class="paramname"><span class="paramname"><em>text</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../df/d0d/structTinyTextBox.html">TinyTextBox</a> *</td>          <td class="paramname"><span class="paramname"><em>box</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="../../d9/dff/structTinyTextStyle.html">TinyTextStyle</a> *</td>          <td class="paramname"><span class="paramname"><em>style</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="../../d8/dac/structTinyTextMetrics.html">TinyTextMetrics</a> *</td>          <td class="paramname"><span class="paramname"><em>out</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Measures text as a fallback chain would set it. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">set</td><td>The chain. </td></tr>
+    <tr><td class="paramname">text</td><td>UTF-8, NUL terminated. </td></tr>
+    <tr><td class="paramname">box</td><td>The rectangle it would be set in, or NULL for none. </td></tr>
+    <tr><td class="paramname">style</td><td>How it would be set, or NULL for the defaults. </td></tr>
+    <tr><td class="paramname">out</td><td>Receives the metrics. <span class="tt">missing</span> counts the codepoints no face in the chain had a glyph for. </td></tr>
   </table>
   </dd>
 </dl>

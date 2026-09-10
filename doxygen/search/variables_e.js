@@ -12,5 +12,6 @@ var searchData=
   ['pos_9',['pos',['../d7/da3/structTinyLzwReader.html#a56581716ab42503f2b182b09b131d361',1,'TinyLzwReader::pos'],['../d2/ddb/structTinyBitReader.html#a9cd5c7aec046bf1fa06f206443c4c76d',1,'TinyBitReader::pos']]],
   ['prefix_10',['prefix',['../dd/d3d/structTinyLzwTable.html#af6533cfafdbae241a863efe2f3c1bd09',1,'TinyLzwTable']]],
   ['probe_11',['probe',['../d6/d6c/structTinyCodec.html#a670a229fd81f4196ccd19dde552e1dbe',1,'TinyCodec']]],
-  ['progressive_12',['progressive',['../d0/df3/structTinyImageInfo.html#a1413f14ad8bfaee23068830d70f8e888',1,'TinyImageInfo::progressive'],['../d8/db2/structTinyEncodeOpts.html#ae1a5473d5818d6ee2e507feaa1fb5149',1,'TinyEncodeOpts::progressive']]]
+  ['produced_12',['produced',['../da/d5a/structTinyInflate.html#a29825c5b9c9b9833d640677733319d80',1,'TinyInflate']]],
+  ['progressive_13',['progressive',['../d0/df3/structTinyImageInfo.html#a1413f14ad8bfaee23068830d70f8e888',1,'TinyImageInfo::progressive'],['../d8/db2/structTinyEncodeOpts.html#ae1a5473d5818d6ee2e507feaa1fb5149',1,'TinyEncodeOpts::progressive']]]
 ];
