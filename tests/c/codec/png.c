@@ -441,5 +441,170 @@ int main(void) {
     r |= assertEquals(tiny_heap_stats(&stats), TINYIMG_OK);
     r |= assertEquals((long) stats.used, 0L);
 
+    // #region the encoder's effort tier
+
+    /*
+     * FAST compresses one candidate stream instead of two. The tier is only
+     * worth having if it changes the output, and only defensible if the change
+     * is confined to where it was measured, so both halves are asserted: a
+     * photograph comes out byte-identical (adaptive wins either way) and flat
+     * artwork comes out larger (unfiltered was the winner FAST gave up).
+     *
+     * A test that only checked the photograph would pass against an encoder
+     * that ignored `effort` entirely, which is what this one did until now.
+     */
+    TinyImage photo;
+    r |= assertEquals(decodeFixture("sf-24.jpg", &photo, 3), TINYIMG_OK);
+
+    TinyWriter photoFancy;
+    TinyWriter photoFast;
+    tiny_writer_init(&photoFancy, 0);
+    tiny_writer_init(&photoFast, 0);
+
+    TinyEncodeOpts fancy;
+    TinyEncodeOpts quick;
+    tiny_memset(&fancy, 0, sizeof(fancy));
+    tiny_memset(&quick, 0, sizeof(quick));
+    quick.effort = TINYIMG_EFFORT_FAST;
+
+    r |= assertEquals(
+        tiny_image_encode(&photo, TINYIMG_FORMAT_PNG, &fancy, &photoFancy),
+        TINYIMG_OK
+    );
+    r |= assertEquals(
+        tiny_image_encode(&photo, TINYIMG_FORMAT_PNG, &quick, &photoFast),
+        TINYIMG_OK
+    );
+
+    // adaptive filtering is the better candidate on a photograph, so giving up
+    // the other one costs nothing
+    r |= assertEquals((long) photoFast.size, (long) photoFancy.size);
+
+    tiny_writer_free(&photoFast);
+    tiny_writer_free(&photoFancy);
+    tiny_image_destroy(&photo);
+
+    TinyImage artwork;
+    r |= assertEquals(
+        decodeFixture("derived/base-mono.gif", &artwork, 3), TINYIMG_OK
+    );
+
+    TinyWriter flatFancy;
+    TinyWriter flatFast;
+    tiny_writer_init(&flatFancy, 0);
+    tiny_writer_init(&flatFast, 0);
+
+    r |= assertEquals(
+        tiny_image_encode(&artwork, TINYIMG_FORMAT_PNG, &fancy, &flatFancy),
+        TINYIMG_OK
+    );
+    r |= assertEquals(
+        tiny_image_encode(&artwork, TINYIMG_FORMAT_PNG, &quick, &flatFast),
+        TINYIMG_OK
+    );
+
+    // here unfiltered was the winner, so FAST is larger; measured at +7.0%
+    r |= assertGreaterThan((double) flatFast.size, (double) flatFancy.size);
+
+    tiny_writer_free(&flatFast);
+    tiny_writer_free(&flatFancy);
+    tiny_image_destroy(&artwork);
+
+    // #endregion
+
+    // #region the compression knob, and that its bytes have not moved
+
+    /*
+     * Every TinyCompression value on two fixtures, size and digest.
+     *
+     * Recorded from the build **before** the match finder was rewritten, so
+     * they anchor the rewrite rather than snapshot its own output. Two zlib
+     * filters and a four-byte comparison replaced a byte-at-a-time walk from
+     * offset zero, worth 1.14x-2.01x on a photograph and 4.55x on this logo at
+     * the longest chain, and none of it may change which candidate wins.
+     *
+     * **The first attempt at this anchor could not fail.** It compressed a
+     * synthetic buffer of text, a run and noise; a filter deliberately keyed to
+     * the wrong neighbor byte produced byte-identical output at every level,
+     * because that input never puts a candidate exactly one byte longer than
+     * the incumbent in the chain. On these two images the same mutation moves
+     * six of the ten cells, which is what makes this a check rather than a
+     * record. The four it leaves alone are the two NONE cells, which do no
+     * matching, and the two FAST cells, where one probe per position means
+     * there is no incumbent for the filter to compare against.
+     *
+     * One of the six comes out two bytes **smaller** under the mutation, which
+     * is the reminder that a size comparison is not a correctness check here.
+     *
+     * AUTO is at quality 82, so it has to equal DEFAULT exactly. That is the
+     * whole compatibility claim of the new field.
+     */
+    static const char* levelFiles[2] = {
+        "derived/logo.png", "derived/base-mono.gif"
+    };
+    static const size_t levelSizes[2][5] = {
+        {835u, 4346u, 948u, 835u, 664u}, {790u, 21952u, 900u, 790u, 627u}
+    };
+    static const uint64_t levelDigests[2][5] = {
+        {0x1b287c9ca34037b8ULL, 0xc0fdaa071f429df9ULL, 0x49bf5c8b1ffd703fULL,
+         0x1b287c9ca34037b8ULL, 0x333bcc15ff5cfc91ULL},
+        {0xf3e48b054115c5d1ULL, 0xf0a076991bd8bb8cULL, 0xb771ac19a7997e8cULL,
+         0xf3e48b054115c5d1ULL, 0x6231f69d76f595a5ULL}
+    };
+
+    for (uint32_t file = 0; file < 2u; file++) {
+        TinyImage source;
+        r |= assertEquals(
+            decodeFixture(levelFiles[file], &source, 3), TINYIMG_OK
+        );
+
+        for (uint32_t level = 0; level < 5u; level++) {
+            TinyEncodeOpts opts;
+            tiny_memset(&opts, 0, sizeof(opts));
+            opts.quality = 82;
+            opts.compression = (uint8_t) level;
+
+            TinyWriter written;
+            tiny_writer_init(&written, 0);
+
+            r |= assertEquals(
+                tiny_image_encode(&source, TINYIMG_FORMAT_PNG, &opts, &written),
+                TINYIMG_OK
+            );
+            r |= assertEquals(
+                (long) written.size, (long) levelSizes[file][level]
+            );
+
+            uint64_t hash = 1469598103934665603ULL;
+            for (size_t i = 0; i < written.size; i++) {
+                hash = (hash ^ written.data[i]) * 1099511628211ULL;
+            }
+
+            r |= assertTrue(hash == levelDigests[file][level]);
+
+            // and every level is still a lossless round trip of the source
+            TinyImage back;
+            r |= assertEquals(
+                tiny_image_decode(&back, written.data, written.size, 0),
+                TINYIMG_OK
+            );
+            r |= assertEquals((long) back.width, (long) source.width);
+            r |= assertEquals(
+                tiny_memcmp(
+                    back.data, source.data,
+                    (size_t) source.width * source.height * source.channels
+                ),
+                0
+            );
+
+            tiny_image_destroy(&back);
+            tiny_writer_free(&written);
+        }
+
+        tiny_image_destroy(&source);
+    }
+
+    // #endregion
+
     return r;
 }

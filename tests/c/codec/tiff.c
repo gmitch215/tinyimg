@@ -387,9 +387,39 @@ int main(void) {
     r |= assertTrue(codec->encode != 0);
 
     bytes = readFixture("derived/base-msb.tif", &size);
+    r |= assertNotNull(bytes);
+
     if (bytes) {
         // both byte orders sniff, which is what routes them here at all
         r |= assertTrue(codec->sniff(bytes, size));
+        free(bytes);
+    }
+
+    // #endregion
+
+    // #region malformed inputs that used to crash or leak the heap
+
+    // a first directory offset of 0xFFFFFFFE, whose `+ 2` wrapped to zero in
+    // 32 bit arithmetic and let the guard pass, then read at data + that offset
+    bytes = readFixture("derived/malformed/tiff-ifd-overflow.tif", &size);
+    r |= assertNotNull(bytes);
+
+    if (bytes) {
+        TinyImageInfo overflow;
+        r |= assertEquals(
+            tiny_image_probe(bytes, size, &overflow), TINYIMG_ERR_CORRUPT
+        );
+        free(bytes);
+    }
+
+    // a ColorMap declaring far more entries than the file holds, which
+    // expand_pixel walked past the end of and returned as palette color
+    bytes = readFixture("derived/malformed/tiff-colormap-overrun.tif", &size);
+    r |= assertNotNull(bytes);
+
+    if (bytes) {
+        TinyImage overrun;
+        r |= assertTrue(tiny_image_decode(&overrun, bytes, size, 0) < 0);
         free(bytes);
     }
 

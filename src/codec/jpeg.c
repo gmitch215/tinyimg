@@ -412,8 +412,11 @@ static void idct_pass(const int32_t* in, int32_t* out, uint32_t shift) {
     z2 = in[0];
     z3 = in[4];
 
-    tmp0 = (z2 + z3) << JPEG_CONST_BITS;
-    tmp1 = (z2 - z3) << JPEG_CONST_BITS;
+    // multiply rather than shift: a left shift of a negative value is
+    // undefined in C, and a coefficient difference is routinely negative, so
+    // this fired on every JPEG decode and kept the sanitizer lane reporting
+    tmp0 = (z2 + z3) * (1 << JPEG_CONST_BITS);
+    tmp1 = (z2 - z3) * (1 << JPEG_CONST_BITS);
 
     tmp10 = tmp0 + tmp3;
     tmp13 = tmp0 - tmp3;
@@ -482,7 +485,8 @@ static void idct_8x8(
         if (source[8] == 0 && source[16] == 0 && source[24] == 0 &&
             source[32] == 0 && source[40] == 0 && source[48] == 0 &&
             source[56] == 0) {
-            int32_t value = dequantize(source, scale, 0) << JPEG_PASS1_BITS;
+            int32_t value =
+                dequantize(source, scale, 0) * (1 << JPEG_PASS1_BITS);
 
             flat++;
             for (uint32_t i = 0; i < 8; i++) workspace[i * 8 + column] = value;
@@ -1373,6 +1377,52 @@ static int decode_block_at(
  * @param at Offset of the first entropy coded byte.
  * @param next Receives the offset of the marker that ended the segment.
  */
+/**
+ * Steps over a scan's entropy data without decoding any of it.
+ *
+ * A progressive file splits its coefficients across scans by band, and a scan
+ * whose band the transform will not read contributes nothing. Scanning the
+ * bytes for the next marker is a byte compare per byte against an entropy
+ * decode per coefficient, so this is most of the file for almost none of the
+ * cost.
+ */
+static void skip_scan(JpegDecoder* decoder, size_t at, size_t* next) {
+    bits_init(&decoder->bits, decoder->data, decoder->size, at);
+
+    while (is_restart(decoder->bits.marker)) bits_restart(&decoder->bits);
+    bits_seek_marker(&decoder->bits);
+
+    *next = decoder->bits.marker ? decoder->bits.marker_at : decoder->size;
+}
+
+/**
+ * Whether the transform about to run can read anything this scan carries.
+ *
+ * A scan is skippable only where the transform reads coefficient zero alone,
+ * which is `idct_block`'s `n == 1` path. At every larger size `idct_reduced`
+ * reads all eight coefficients of every column, so nothing above the DC is
+ * droppable and pretending otherwise loses detail the output keeps.
+ *
+ * **The size that decides it is the component's, not the frame's.** A 4:2:0
+ * chroma plane is already at half resolution, so `plan_planes` grows its
+ * transform one doubling past the frame's: at a frame denominator of eight
+ * luma runs at `n == 1` while chroma still runs at `n == 2`. Testing the
+ * frame's size instead skips chroma's AC scans as well and the picture loses
+ * its colour detail, which measured as a changed digest rather than as
+ * anything visible in a timing.
+ *
+ * An AC scan carries exactly one component by construction, so the single
+ * component of a `ss != 0` scan is the whole question. The DC refinement scans
+ * of a successive-approximation file have `ss == 0` and are always kept, which
+ * is what makes the result byte-identical rather than close.
+ */
+static int scan_is_read(const JpegDecoder* decoder) {
+    if (decoder->ss == 0u) return 1;
+    if (decoder->scan_count != 1u) return 1;
+
+    return decoder->scan[0]->dct != 1u;
+}
+
 static int decode_scan(JpegDecoder* decoder, size_t at, size_t* next) {
     bits_init(&decoder->bits, decoder->data, decoder->size, at);
     reset_predictors(decoder);
@@ -1585,6 +1635,84 @@ static void ycbcr_to_rgb(uint32_t y, uint32_t cb, uint32_t cr, uint8_t* out) {
     out[2] = tiny_clamp_u8((int32_t) y + ((116130 * blue + 32768) >> 16));
 }
 
+/**
+ * Four pixels of the same arithmetic at a time.
+ *
+ * A generic vector rather than one target's intrinsics, so there is **one**
+ * code path: clang lowers this to simd128 on wasm, NEON on arm64 and SSE2 on
+ * x86, and scalar code anywhere else. Two paths would mean the ctest lane
+ * proving something the shipped module does not run, which is the whole reason
+ * the byte-exactness rule exists.
+ */
+typedef int32_t JpegI32x4 __attribute__((vector_size(16)));
+
+/** Both clamps of tiny_clamp_u8, without a branch per lane. */
+static inline JpegI32x4 clamp_lanes(JpegI32x4 v) {
+    static const JpegI32x4 low = {0, 0, 0, 0};
+    static const JpegI32x4 high = {255, 255, 255, 255};
+
+    return __builtin_elementwise_min(__builtin_elementwise_max(v, low), high);
+}
+
+/**
+ * The Rec. 601 inverse over a whole row.
+ *
+ * The stage this is in is **32.4% to 59.8% of JPEG decode**, the largest block
+ * in it, and it was the one kernel the perf audit counted at full lane
+ * occupancy with no early-out to waste a lane on: every pixel needs all three
+ * products. That is what separates it from the inverse transform, where 93% of
+ * columns already skip the work and a four-wide pass would compute it anyway.
+ *
+ * **The arithmetic is ycbcr_to_rgb's, lane for lane**, down to the green
+ * channel summing both products before the shift. It has to be: a decode here
+ * is compared against `djpeg` byte for byte rather than through a tolerance,
+ * and the exhaustive check in `tests/c/codec/jpeg.c` walks all 16,777,216
+ * inputs through both.
+ *
+ * @param count Pixels to write.
+ * @param channels 3 or 4; a caller with any other count uses the scalar path,
+ * because 1 and 2 are a luminance conversion rather than this one.
+ */
+static void ycbcr_row_to_rgb(
+    const uint8_t* yp, const uint8_t* cbp, const uint8_t* crp, uint8_t* dest,
+    uint8_t channels, uint32_t count
+) {
+    uint32_t i = 0;
+
+    for (; i + 4u <= count; i += 4u) {
+        JpegI32x4 y = {yp[i], yp[i + 1], yp[i + 2], yp[i + 3]};
+        JpegI32x4 blue = {
+            (int32_t) cbp[i] - 128, (int32_t) cbp[i + 1] - 128,
+            (int32_t) cbp[i + 2] - 128, (int32_t) cbp[i + 3] - 128
+        };
+        JpegI32x4 red = {
+            (int32_t) crp[i] - 128, (int32_t) crp[i + 1] - 128,
+            (int32_t) crp[i + 2] - 128, (int32_t) crp[i + 3] - 128
+        };
+
+        JpegI32x4 r = clamp_lanes(y + ((91881 * red + 32768) >> 16));
+        JpegI32x4 g =
+            clamp_lanes(y + ((-22554 * blue - 46802 * red + 32768) >> 16));
+        JpegI32x4 b = clamp_lanes(y + ((116130 * blue + 32768) >> 16));
+
+        for (uint32_t lane = 0; lane < 4u; lane++) {
+            dest[0] = (uint8_t) r[lane];
+            dest[1] = (uint8_t) g[lane];
+            dest[2] = (uint8_t) b[lane];
+
+            if (channels == 4) dest[3] = 255;
+            dest += channels;
+        }
+    }
+
+    for (; i < count; i++) {
+        ycbcr_to_rgb(yp[i], cbp[i], crp[i], dest);
+
+        if (channels == 4) dest[3] = 255;
+        dest += channels;
+    }
+}
+
 /** Multiplies an inverted ink value by the black channel, both 0 to 255. */
 static inline uint8_t ink(uint32_t value, uint32_t black) {
     return (uint8_t) ((value * black + 127u) / 255u);
@@ -1779,6 +1907,16 @@ static int write_pixels(
         }
 
         uint8_t* dest = image->data + (size_t) oy * image->width * channels;
+
+        // the common case, and the one worth a wide kernel: three components
+        // through the color transform into an RGB or RGBA row, which is a
+        // contiguous write with no channel conversion left to do
+        if (decoder->count == 3 && ycbcr && (channels == 3 || channels == 4)) {
+            ycbcr_row_to_rgb(
+                rows[0], rows[1], rows[2], dest, channels, image->width
+            );
+            continue;
+        }
 
         for (uint32_t ox = 0; ox < image->width; ox++) {
             uint8_t rgba[4] = {0, 0, 0, 255};
@@ -1986,8 +2124,14 @@ static int walk(
 
                 size_t next = decoder->size;
 
-                result = decode_scan(decoder, at + length, &next);
-                if (result != TINYIMG_OK) return result;
+                if (scan_is_read(decoder)) {
+                    result = decode_scan(decoder, at + length, &next);
+                    if (result != TINYIMG_OK) return result;
+                }
+                else {
+                    skip_scan(decoder, at + length, &next);
+                    tiny_work_add(TINYIMG_WORK_SCANS_SKIPPED, 1);
+                }
 
                 at = next;
                 continue;
@@ -2159,8 +2303,8 @@ static void fdct_8x8(const uint8_t* in, uint32_t stride, int32_t* out) {
         int32_t tmp11 = tmp1 + tmp2;
         int32_t tmp12 = tmp1 - tmp2;
 
-        target[0] = (tmp10 + tmp11) << JPEG_PASS1_BITS;
-        target[4] = (tmp10 - tmp11) << JPEG_PASS1_BITS;
+        target[0] = (tmp10 + tmp11) * (1 << JPEG_PASS1_BITS);
+        target[4] = (tmp10 - tmp11) * (1 << JPEG_PASS1_BITS);
 
         int32_t z1 = (tmp12 + tmp13) * FIX_0_541196100;
 

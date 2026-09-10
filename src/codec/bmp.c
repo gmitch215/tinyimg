@@ -180,7 +180,12 @@ static int bmp_parse(const uint8_t* buffer, size_t size, BmpHeader* header) {
 
     if (header->data_offset >= size) return TINYIMG_ERR_CORRUPT;
 
-    if (header->compression == BI_RGB) {
+    // every uncompressed layout reads a full stride per row, so this covers
+    // BI_BITFIELDS as well as BI_RGB. Leaving it inside the BI_RGB branch let a
+    // 16 or 32 bpp bitfield header declare any extent over a handful of real
+    // bytes and read the rest out of the heap. BI_RLE8 walks against its own
+    // end pointer instead and is bounded there
+    if (header->compression == BI_RGB || header->compression == BI_BITFIELDS) {
         uint64_t needed = (uint64_t) header->stride * header->height;
         if ((uint64_t) header->data_offset + needed > size) {
             return TINYIMG_ERR_CORRUPT;

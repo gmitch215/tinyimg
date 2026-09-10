@@ -167,12 +167,18 @@ static int tiff_parse(const uint8_t* buffer, size_t size, TiffHeader* header) {
     int first = 1;
 
     while (directory != 0) {
-        if (directory + 2 > size) return TINYIMG_ERR_CORRUPT;
+        // widened deliberately: the offset is a full 32 bit field, so
+        // directory + 2 wraps to zero at 0xFFFFFFFE and lets the read through.
+        // size_t is also 32 bits on wasm32, so the count term needs the same
+        // treatment rather than only the cast it used to carry
+        if ((uint64_t) directory + 2u > (uint64_t) size) {
+            return TINYIMG_ERR_CORRUPT;
+        }
 
         uint32_t count = read16(header, directory);
-        size_t entries = directory + 2;
+        uint64_t entries = (uint64_t) directory + 2u;
 
-        if (entries + (size_t) count * 12 + 4 > size) {
+        if (entries + (uint64_t) count * 12u + 4u > (uint64_t) size) {
             return TINYIMG_ERR_CORRUPT;
         }
 
@@ -180,7 +186,9 @@ static int tiff_parse(const uint8_t* buffer, size_t size, TiffHeader* header) {
 
         if (first) {
             for (uint32_t i = 0; i < count; i++) {
-                size_t entry = entries + (size_t) i * 12;
+                // narrowing is safe: the guard above proved the whole entry
+                // table plus its terminator fits inside size
+                size_t entry = (size_t) entries + (size_t) i * 12;
 
                 uint32_t tag = read16(header, entry);
                 uint32_t type = read16(header, entry + 2);
@@ -249,6 +257,14 @@ static int tiff_parse(const uint8_t* buffer, size_t size, TiffHeader* header) {
                         break;
 
                     case TIFF_TAG_COLOR_MAP:
+                        // three channels of sixteen bit entries have to be
+                        // inside the file, or expand_pixel walks off the end of
+                        // it and returns whatever follows as palette color
+                        if ((uint64_t) value + (uint64_t) (length / 3u) * 6u >
+                            (uint64_t) size) {
+                            return TINYIMG_ERR_CORRUPT;
+                        }
+
                         header->map_at = value;
                         header->map_entries = length / 3;
                         break;
@@ -270,7 +286,7 @@ static int tiff_parse(const uint8_t* buffer, size_t size, TiffHeader* header) {
             first = 0;
         }
 
-        uint32_t next = read32(header, entries + (size_t) count * 12);
+        uint32_t next = read32(header, (size_t) entries + (size_t) count * 12);
 
         // a directory chain that points backward or at itself would not
         // terminate, and a file can be built that way
@@ -766,9 +782,7 @@ static int tiff_encode(
 
     // the same mapping PNG uses, so a quality number means one thing across
     // both lossless formats rather than something format specific
-    TinyDeflateLevel level = options && options->quality >= 90
-                                 ? TINYIMG_DEFLATE_BEST
-                                 : TINYIMG_DEFLATE_DEFAULT;
+    TinyDeflateLevel level = tiny_encode_level(options);
 
     /*
      * Strips of about 64 KiB, which is what the specification recommends.

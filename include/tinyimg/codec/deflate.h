@@ -29,13 +29,24 @@ extern "C" {
 /**
  * @brief Bits the Huffman decoder resolves from one table lookup.
  *
- * Nine covers the overwhelming majority of codes in a real stream; longer ones
- * fall back to walking the canonical code a bit at a time. A table this size
- * costs 1 KiB of scratch and turns a per symbol loop of about eight iterations
- * into a single index, which is the difference between meeting the throughput
- * target for PNG and missing it several times over.
+ * Longer codes fall back to walking the canonical code a bit at a time. The
+ * table turns a per symbol loop of about eight iterations into a single index,
+ * which is the difference between meeting the throughput target for PNG and
+ * missing it several times over.
+ *
+ * **Eleven rather than nine, and which file it helps is the point.** Widening
+ * it measured 1.10x on `forest.png` (40.28 to 36.50 ms) and 1.01x on a
+ * 2400x1350 photograph. The two differ in how well they compress: forest is
+ * 3.74 MB of IDAT for 4.99 MB of pixels, so its literals carry long codes that
+ * a nine bit table misses, while the photograph compresses 10.9x and its codes
+ * were already covered. The win lands on the low-ratio files, which are the
+ * expensive ones. Twelve bits was worth a further 0.6% for twice the table and
+ * is not taken.
+ *
+ * Costs 4 KiB of scratch per table against 1 KiB, and two are live at once, so
+ * 6 KiB of arena. Nothing holds one on the stack.
  */
-#define TINY_DEFLATE_FAST_BITS 9u
+#define TINY_DEFLATE_FAST_BITS 11u
 
 /**
  * @brief Most bytes a single read may ask for.
@@ -86,6 +97,16 @@ typedef struct {
     size_t pending;
     /** Where the next handed out byte comes from. */
     size_t tail;
+    /**
+     * Every byte produced since the stream began, which bounds a back
+     * reference.
+     *
+     * The window is a ring, so a distance larger than this names a slot that
+     * has never been written rather than one that has scrolled away. Checking
+     * only against the window size lets a crafted stream read whatever the
+     * allocator last left there and return it as image data.
+     */
+    size_t produced;
 
     /** Literal and length codes for the block being read. */
     TinyHuffman* literals;

@@ -1,7 +1,6 @@
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import rle8 from '../fixtures/derived/base-rle8.bmp?bin';
-import unsupported from '../fixtures/derived/base.avif?bin';
 import bmp from '../fixtures/derived/base.bmp?bin';
 import { golden } from '../support/golden.js';
 
@@ -115,9 +114,15 @@ describe('the bmp codec inside workerd', () => {
 	});
 
 	it('reports a recognized format it cannot decode by name', async () => {
-		// WebP served here until it gained a codec; AVIF is what is left, since its own answers
-		// probe and neither direction of pixels
-		const report = await decode(unsupported);
+		// WebP served here until it gained a codec, then AVIF until it gained one; HEIF is what is
+		// left, and it is a brand rather than a fixture because the container is AVIF's and
+		// nothing here writes one
+		const heif = new Uint8Array(16);
+		heif.set([0, 0, 0, 0x10], 0);
+		heif.set([0x66, 0x74, 0x79, 0x70], 4);
+		heif.set([0x68, 0x65, 0x69, 0x63], 8);
+
+		const report = await decode(heif);
 
 		expect(report.result).toBe(-7);
 		expect(report.errorName).toBe('unsupported codec');

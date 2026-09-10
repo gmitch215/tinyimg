@@ -583,10 +583,10 @@ int main(void) {
         tiny_image_encode(&full, TINYIMG_FORMAT_BMP, 0, 0), TINYIMG_ERR_NULL
     );
     // a format this build has no encoder for, which is what the error is
-    // about. GIF served here, then WebP; AVIF is the one left, since its codec
-    // answers probe and neither direction of pixels
+    // about. GIF served here, then WebP, then AVIF; HEIF is the one left, and
+    // its codec answers probe and neither direction of pixels
     r |= assertEquals(
-        tiny_image_encode(&full, TINYIMG_FORMAT_AVIF, 0, &writer),
+        tiny_image_encode(&full, TINYIMG_FORMAT_HEIF, 0, &writer),
         TINYIMG_ERR_UNSUPPORTED_CODEC
     );
 
@@ -633,6 +633,26 @@ int main(void) {
         tiny_image_destroy(&rleRegion);
         tiny_image_destroy(&rle);
         free(rleBytes);
+    }
+
+    // #endregion
+
+    // #region malformed, which returned heap contents with a success code
+
+    // BI_BITFIELDS at 32 bpp declaring 64x64 over sixteen real bytes. The
+    // pixel array size check only ran for BI_RGB, so nothing bounded this
+    size_t shortSize = 0;
+    unsigned char* shortBytes =
+        readFixture("derived/malformed/bmp-bitfields-short.bmp", &shortSize);
+
+    r |= assertNotNull(shortBytes);
+
+    if (shortBytes) {
+        TinyImage truncated;
+        r |= assertTrue(
+            tiny_image_decode(&truncated, shortBytes, shortSize, 0) < 0
+        );
+        free(shortBytes);
     }
 
     // #endregion

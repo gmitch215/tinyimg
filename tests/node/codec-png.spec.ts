@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { inflateSync } from 'node:zlib';
 import { beforeAll, describe, expect, it } from 'vitest';
 import bytes from '../../bin/tinyimg.wasm?bin';
 import { Err, Format, TinyAbi } from '../support/abi.js';
@@ -269,6 +270,39 @@ describe.skipIf(!hasMagick())('the png encoder against imagemagick', () => {
 		const source = fixture('derived/logo.png');
 
 		expect(ours.bytes!.byteLength).toBeLessThan(source.byteLength);
+	});
+
+	it('compresses harder when asked, and zlib reads every level', () => {
+		const source = fixture('derived/logo.png');
+
+		// AUTO, NONE, FAST, DEFAULT, BEST, in the order TinyCompression declares them
+		const written = [0, 1, 2, 3, 4].map(
+			(compression) =>
+				abi.transcode(source, Format.png, 3, { quality: 82, compression }).bytes!
+		);
+
+		// zlib itself reads the IDAT of every level, which is the check that a harder search
+		// still emitted a legal stream rather than one only this decoder accepts
+		for (const png of written) {
+			const idat = chunks(png)
+				.filter((chunk) => chunk.type === 'IDAT')
+				.map((chunk) => png.subarray(chunk.at + 8, chunk.at + 8 + chunk.length));
+
+			const raw = inflateSync(Buffer.concat(idat.map((part) => Buffer.from(part))));
+
+			// one filter byte per row, then three bytes a pixel
+			expect(raw.byteLength).toBe(96 * (1 + 96 * 3));
+		}
+
+		// AUTO is quality 82, so it is DEFAULT byte for byte
+		expect(Buffer.from(written[0]!).equals(Buffer.from(written[3]!))).toBe(true);
+
+		// and the levels order the way the enum claims once the search is past a single probe
+		expect(written[4]!.byteLength).toBeLessThan(written[3]!.byteLength);
+		expect(written[3]!.byteLength).toBeLessThan(written[2]!.byteLength);
+
+		// NONE does no matching at all, so on artwork it is the largest of the four
+		expect(written[1]!.byteLength).toBeGreaterThan(written[2]!.byteLength);
 	});
 
 	it('reads back a png magick wrote from our own output', () => {

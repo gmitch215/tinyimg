@@ -1,6 +1,7 @@
 #include "../test.h"
 #include "tinyimg/codec/codec.h"
 #include "tinyimg/memory.h"
+#include "tinyimg/work.h"
 
 /** Decodes a fixture with the given options, or reports why it could not. */
 static int decodeWith(
@@ -70,6 +71,55 @@ int main(void) {
     r |= assertEquals((long) info.width, 1281L);
     r |= assertEquals((long) info.height, 1920L);
     r |= assertEquals((long) info.progressive, 1L);
+
+    // #endregion
+
+    // #region skipping a progressive scan the transform cannot read
+
+    /*
+     * At a scale denominator of eight the luma transform reads the DC term
+     * alone, so every scan above it contributes nothing and is stepped over
+     * instead of entropy decoded. Measured at 4.34x to 4.47x on this fixture.
+     *
+     * Both halves are asserted, because neither alone is the claim. The pixels
+     * have to be identical to a decode that read every scan, which is what
+     * makes the skip exact rather than an approximation. And the counter has to
+     * be non-zero, because identical pixels are also what a skip that never
+     * fired produces, and that is the failure this would otherwise miss.
+     *
+     * The size that decides it is the component's rather than the frame's: a
+     * 4:2:0 chroma plane still runs at n = 2 here, where all eight coefficients
+     * are read. Testing the frame's size looked 2x faster and changed the
+     * picture.
+     */
+    TinyDecodeOpts eighthScale = {0, 0, 0, 0, 8, 3, 0};
+
+    TinyImage skipped;
+    TinyImage complete;
+
+    tiny_work_reset();
+    r |= assertEquals(
+        decodeWith("road.jpg", &skipped, &eighthScale), TINYIMG_OK
+    );
+
+    // four of this file's nine scans carry luma AC and are stepped over, which
+    // takes the coefficient blocks read from 251,760 to 97,200
+    r |= assertEquals((long) tiny_work_read(TINYIMG_WORK_SCANS_SKIPPED), 4L);
+    r |= assertLessThan((double) tiny_work_read(TINYIMG_WORK_BLOCKS), 150000.0);
+
+    // the output work is untouched: the same transforms writing the same
+    // samples, which is what says the saving came out of the entropy decode
+    r |= assertEquals((long) tiny_work_read(TINYIMG_WORK_TRANSFORMS), 58080L);
+
+    // a baseline file has one scan carrying everything, so nothing to step over
+    tiny_work_reset();
+    r |= assertEquals(
+        decodeWith("derived/base-420.jpg", &complete, &eighthScale), TINYIMG_OK
+    );
+    r |= assertEquals((long) tiny_work_read(TINYIMG_WORK_SCANS_SKIPPED), 0L);
+
+    tiny_image_destroy(&complete);
+    tiny_image_destroy(&skipped);
 
     // #endregion
 
@@ -204,15 +254,28 @@ int main(void) {
         "derived/base-411.jpg"
     };
 
-    static const uint32_t boxes[4][4] = {
-        {0, 0, 64, 64}, {17, 23, 77, 55}, {100, 50, 128, 96}, {319, 179, 1, 1}
+    /*
+     * The widths also cover the color transform's tail.
+     *
+     * It converts four pixels at a time through one vector and finishes the
+     * remainder scalar, so a row whose width is not a multiple of four is the
+     * only thing that reaches the tail at all. 77, 78, 1 and 64 leave
+     * remainders of 1, 2, 1 and 0, and each of these boxes is compared byte for
+     * byte against the same rectangle of a full decode.
+     */
+    static const uint32_t boxes[5][4] = {
+        {0, 0, 64, 64},
+        {17, 23, 77, 55},
+        {100, 50, 128, 96},
+        {319, 179, 1, 1},
+        {41, 11, 78, 37}
     };
 
     for (size_t s = 0; s < sizeof(streams) / sizeof(streams[0]); s++) {
         TinyImage whole;
         r |= assertEquals(decodeFixture(streams[s], &whole, 3), TINYIMG_OK);
 
-        for (size_t b = 0; b < 4; b++) {
+        for (size_t b = 0; b < 5; b++) {
             TinyDecodeOpts opts = {boxes[b][0], boxes[b][1], boxes[b][2],
                                    boxes[b][3], 1,           3};
 
@@ -404,7 +467,7 @@ int main(void) {
         decodeFixture("digicam.jpg", &image, 4), TINYIMG_ERR_TOO_LARGE
     );
 
-    TinyDecodeOpts eighth = {0, 0, 0, 0, 8, 3};
+    TinyDecodeOpts eighth = {0, 0, 0, 0, 8, 3, 0};
     r |= assertEquals(decodeWith("digicam.jpg", &image, &eighth), TINYIMG_OK);
     r |= assertEquals((long) image.width, 450L);
     r |= assertEquals((long) image.height, 338L);

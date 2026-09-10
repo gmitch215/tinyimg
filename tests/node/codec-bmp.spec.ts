@@ -225,9 +225,15 @@ describe('the bmp codec inside the wasm module', () => {
 		expect(abi.decode(new Uint8Array([0x42, 0x4d])).result).toBe(Err.corrupt);
 
 		// a format this build recognizes but cannot decode, which is a different answer from not
-		// recognizing it at all. WebP served here until it gained a codec; AVIF is what is left,
-		// since its own answers probe and neither direction of pixels
-		expect(abi.decode(fixture('derived/base.avif')).result).toBe(Err.unsupportedCodec);
+		// recognizing it at all. WebP served here until it gained a codec, then AVIF until it
+		// gained one; HEIF is what is left, and it is a brand rather than a fixture because the
+		// container is AVIF's and nothing here writes one
+		const heif = new Uint8Array(16);
+		heif.set([0, 0, 0, 0x10], 0);
+		heif.set([0x66, 0x74, 0x79, 0x70], 4);
+		heif.set([0x68, 0x65, 0x69, 0x63], 8);
+
+		expect(abi.decode(heif).result).toBe(Err.unsupportedCodec);
 
 		expect(abi.errorName(Err.unsupportedCodec)).toBe('unsupported codec');
 		expect(abi.errorName(Err.corrupt)).toBe('corrupt data');

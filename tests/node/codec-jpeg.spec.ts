@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import bytes from '../../bin/tinyimg.wasm?bin';
-import { Err, Format, TinyAbi } from '../support/abi.js';
+import { Counter, Err, Format, TinyAbi } from '../support/abi.js';
 import { golden, sha256 } from '../support/golden.js';
 
 const fixtures = join(import.meta.dirname, '../fixtures');
@@ -158,6 +158,41 @@ describe('the jpeg codec inside the wasm module', () => {
 
 		expect([image.width, image.height]).toEqual([230, 129]);
 		expect(await sha256(image.pixels)).toBe(golden.jpegPhotoEighth);
+	});
+
+	it('steps over the progressive scans an eighth-scale transform cannot read', async () => {
+		const read = (counter: number) => abi.exports.tiny_work_read(counter);
+
+		abi.exports.tiny_work_reset();
+
+		const image = abi.decode(fixture('road.jpg'), (i, b, n) =>
+			abi.exports.tiny_image_load_scaled(i, b, n, 1, 1)
+		).image!;
+
+		expect([image.width, image.height]).toEqual([161, 240]);
+
+		// the digest was recorded before the skip existed, so this says the skip changes no pixel
+		// rather than that it reproduces its own output
+		expect(await sha256(image.pixels)).toBe(golden.jpegProgressiveEighth);
+
+		// and the counters, because identical pixels are also what a skip that never fired
+		// produces. Four of the nine scans go and the saving comes out of the entropy decode: the
+		// coefficient blocks read drop by 61% while the transforms and the samples they write do
+		// not move at all
+		expect(read(Counter.scansSkipped)).toBe(4);
+		expect(read(Counter.blocks)).toBe(97200);
+		expect(read(Counter.transforms)).toBe(58080);
+		expect(read(Counter.decodedSamples)).toBe(38640);
+	});
+
+	it('steps over nothing in a baseline file, which has one scan carrying everything', () => {
+		abi.exports.tiny_work_reset();
+
+		abi.decode(fixture('derived/base-420.jpg'), (i, b, n) =>
+			abi.exports.tiny_image_load_scaled(i, b, n, 1, 1)
+		);
+
+		expect(abi.exports.tiny_work_read(Counter.scansSkipped)).toBe(0);
 	});
 
 	it('decodes a region equal to the same rectangle of a full decode', () => {

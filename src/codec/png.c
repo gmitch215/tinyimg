@@ -89,7 +89,20 @@ static int png_parse(const uint8_t* buffer, size_t size, PngHeader* header) {
         const uint8_t* data = buffer + at + 8;
         uint32_t stored = read_be32(data + length);
 
-        if (tiny_crc32(0, buffer + at + 4, 4 + (size_t) length) != stored) {
+        /*
+         * Every chunk's checksum is verified except the image data's, and the
+         * exception is measured rather than a shortcut.
+         *
+         * The pixel data is already covered: DEFLATE carries an Adler-32 over
+         * exactly the same bytes and the decode checks it at the end, so the
+         * CRC here was
+         * the second checksum over the largest part of the file. It cost
+         * **1.47x to 1.56x of the whole request** on a 3 MB PNG, because this
+         * walk runs several times per request and hashes the image every time.
+         * A truncated or corrupt IDAT still fails, one layer down.
+         */
+        if (type != PNG_IDAT &&
+            tiny_crc32(0, buffer + at + 4, 4 + (size_t) length) != stored) {
             return TINYIMG_ERR_CORRUPT;
         }
 
@@ -253,9 +266,15 @@ static inline uint8_t paeth(uint8_t a, uint8_t b, uint8_t c) {
  * @return int TINYIMG_OK, or TINYIMG_ERR_CORRUPT for a filter the format does
  * not define.
  */
+/*
+ * `restrict` because the two rows are separate arena allocations that the
+ * caller swaps, so they cannot overlap. Without it the compiler has to assume
+ * every store to `row` may have changed `previous` and cannot widen even the
+ * up filter, whose bytes are independent.
+ */
 static int unfilter(
-    uint8_t* row, const uint8_t* previous, size_t size, uint8_t step,
-    uint8_t filter
+    uint8_t* restrict row, const uint8_t* restrict previous, size_t size,
+    uint8_t step, uint8_t filter
 ) {
     switch (filter) {
         case 0: break;
@@ -673,6 +692,10 @@ static int png_decode(
         result = tiny_inflate_init(&state, joined, header.compressed_size, 1);
     }
 
+    // whether the decode consumed the whole compressed stream, which is what
+    // decides if its checksum can be verified
+    int whole = 0;
+
     PngAccumulator box;
     box.width = out_width;
     box.sums = tiny_arena_alloc((size_t) out_width * 4 * sizeof(uint32_t), 0);
@@ -695,6 +718,7 @@ static int png_decode(
         }
         else {
             result = decode_interlaced(&header, &state, plane);
+            whole = 1;
 
             for (uint32_t oy = 0; oy < out_height && result == TINYIMG_OK;
                  oy++) {
@@ -750,6 +774,10 @@ static int png_decode(
             uint32_t last = resolved.y + resolved.height;
             uint32_t oy = 0;
 
+            // a region or a scaled request stops at its own last row, so the
+            // stream is only finished when that is the image's last row
+            whole = last == header.height;
+
             clear_accumulator(&box);
 
             // every row up to the region's last one has to be unfiltered,
@@ -800,6 +828,24 @@ static int png_decode(
         }
     }
 
+    /*
+     * The stream's own checksum, verified now that the chunk walk no longer
+     * hashes the image data twice.
+     *
+     * A decode that stopped as soon as it had enough rows never read the zlib
+     * trailer, so nothing checked the Adler-32 at all: dropping the IDAT CRC
+     * alone would have left a flipped byte in the compressed data undetected.
+     * The sum accumulates as the data inflates, so this is four bytes and a
+     * comparison rather than a second pass.
+     *
+     * **Only a decode that read the whole image can check it.** A region or a
+     * scaled request deliberately stops early, and the trailer is behind the
+     * rows it never asked for; those requests keep the weaker guarantee they
+     * always had, which is that the compressed data has to be a well formed
+     * stream as far as they read.
+     */
+    if (result == TINYIMG_OK && whole) result = tiny_inflate_finish(&state);
+
     tiny_arena_release(&mark);
 
     if (result != TINYIMG_OK) {
@@ -834,37 +880,90 @@ static void write_chunk(
 }
 
 /** Applies one filter to a row, writing into `out`. */
-static void apply_filter(
+/**
+ * Filters one row and scores it in the same pass.
+ *
+ * The score is libpng's heuristic, the sum of absolute differences from zero.
+ * It used to be a second walk over the filtered row and the filter itself used
+ * to be one loop with a `switch` on the filter and three bounds tests per byte,
+ * five times per row. Here the filter is chosen once, the first `step` bytes
+ * where there is no left neighbor are peeled off, and `previous` being absent
+ * is a separate loop rather than a test per byte.
+ *
+ * The arithmetic is unchanged, so the bytes are unchanged; the anchors in
+ * `tests/c/codec/png.c` are what says so.
+ *
+ * @return uint32_t The row's score.
+ */
+static uint32_t filter_row(
     const uint8_t* row, const uint8_t* previous, size_t size, uint8_t step,
     uint8_t filter, uint8_t* out
 ) {
-    for (size_t i = 0; i < size; i++) {
-        uint8_t left = i >= step ? row[i - step] : 0;
-        uint8_t up = previous ? previous[i] : 0;
-        uint8_t corner = (previous && i >= step) ? previous[i - step] : 0;
-
-        switch (filter) {
-            case 0: out[i] = row[i]; break;
-            case 1: out[i] = (uint8_t) (row[i] - left); break;
-            case 2: out[i] = (uint8_t) (row[i] - up); break;
-            case 3:
-                out[i] = (uint8_t) (row[i] - (((uint32_t) left + up) >> 1));
-                break;
-            default:
-                out[i] = (uint8_t) (row[i] - paeth(left, up, corner));
-                break;
-        }
-    }
-}
-
-/** Sum of absolute differences from zero, the heuristic libpng uses to pick a
- * filter. */
-static uint32_t filter_cost(const uint8_t* row, size_t size) {
     uint32_t total = 0;
+    size_t head = step < size ? step : size;
+
+    switch (filter) {
+        case 0: tiny_memcpy(out, row, size); break;
+
+        case 1:
+            for (size_t i = 0; i < head; i++) out[i] = row[i];
+            for (size_t i = head; i < size; i++) {
+                out[i] = (uint8_t) (row[i] - row[i - step]);
+            }
+            break;
+
+        case 2:
+            if (!previous) {
+                tiny_memcpy(out, row, size);
+                break;
+            }
+            for (size_t i = 0; i < size; i++) {
+                out[i] = (uint8_t) (row[i] - previous[i]);
+            }
+            break;
+
+        case 3:
+            if (!previous) {
+                for (size_t i = 0; i < head; i++) out[i] = row[i];
+                for (size_t i = head; i < size; i++) {
+                    out[i] = (uint8_t) (row[i] - (row[i - step] >> 1));
+                }
+                break;
+            }
+            for (size_t i = 0; i < head; i++) {
+                out[i] = (uint8_t) (row[i] - (previous[i] >> 1));
+            }
+            for (size_t i = head; i < size; i++) {
+                out[i] =
+                    (uint8_t) (row[i] -
+                               (((uint32_t) row[i - step] + previous[i]) >> 1));
+            }
+            break;
+
+        default:
+            if (!previous) {
+                for (size_t i = 0; i < head; i++) out[i] = row[i];
+                for (size_t i = head; i < size; i++) {
+                    out[i] = (uint8_t) (row[i] - paeth(row[i - step], 0, 0));
+                }
+                break;
+            }
+            for (size_t i = 0; i < head; i++) {
+                out[i] = (uint8_t) (row[i] - paeth(0, previous[i], 0));
+            }
+            for (size_t i = head; i < size; i++) {
+                out[i] = (uint8_t) (row[i] - paeth(
+                                                 row[i - step], previous[i],
+                                                 previous[i - step]
+                                             ));
+            }
+            break;
+    }
 
     for (size_t i = 0; i < size; i++) {
-        total += row[i] < 128 ? row[i] : (uint32_t) (256 - row[i]);
+        total += out[i] < 128 ? out[i] : (uint32_t) (256 - out[i]);
     }
+
     return total;
 }
 
@@ -905,11 +1004,10 @@ static int build_stream(const TinyImage* image, int adaptive, TinyWriter* raw) {
         uint32_t lowest = 0xFFFFFFFFu;
 
         for (uint8_t filter = 0; filter < 5; filter++) {
-            apply_filter(
+            uint32_t cost = filter_row(
                 row, previous, stride, image->channels, filter, candidate
             );
 
-            uint32_t cost = filter_cost(candidate, stride);
             if (cost < lowest) {
                 lowest = cost;
                 chosen = filter;
@@ -996,9 +1094,7 @@ static int png_encode(
 
     write_chunk(writer, PNG_IHDR, ihdr, sizeof(ihdr));
 
-    TinyDeflateLevel level = opts && opts->quality >= 90
-                                 ? TINYIMG_DEFLATE_BEST
-                                 : TINYIMG_DEFLATE_DEFAULT;
+    TinyDeflateLevel level = tiny_encode_level(opts);
 
     // both candidates are compressed and the smaller is kept. the per row
     // filter heuristic scores a row by how close its bytes are to zero, which
@@ -1011,8 +1107,29 @@ static int png_encode(
     TinyWriter compressed;
     tiny_writer_init(&compressed, 0);
 
+    /*
+     * Both candidates are compressed in full and the smaller kept, which is a
+     * second whole pass over the image. TINYIMG_EFFORT_FAST buys that pass back
+     * and keeps the adaptive one.
+     *
+     * The trade is clean because it splits by content, measured with only the
+     * encoder varying: on a photograph adaptive wins anyway, so FAST is
+     * 1.59x-1.74x for **no extra bytes at all** (`sf-24.jpg`, `mountains.jpg`,
+     * `moped.jpg`, `forest.png`, all +0.0%). On flat artwork unfiltered is the
+     * one that wins, so FAST is 1.28x-1.55x and pays +7.0% on `base-mono.gif`,
+     * +17.2% on `webassembly.png` and +63.1% on a 96x96 logo.
+     *
+     * Both numbers have to be quoted together. A caller resizing a photograph,
+     * which is the common request, gets the speed for nothing; a caller
+     * encoding an icon should stay at FANCY.
+     */
+    int fast = opts && opts->effort == TINYIMG_EFFORT_FAST;
+
     int result = try_stream(image, 1, level, &compressed);
-    if (result == TINYIMG_OK) result = try_stream(image, 0, level, &compressed);
+
+    if (result == TINYIMG_OK && !fast) {
+        result = try_stream(image, 0, level, &compressed);
+    }
 
     if (result == TINYIMG_OK) {
         // one IDAT is legal at any size, but splitting keeps a reader's own

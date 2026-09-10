@@ -14,6 +14,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "tinyimg/codec/deflate.h"
 #include "tinyimg/image.h"
 #include "tinyimg/tinyimg.h"
 #include "tinyimg/util.h"
@@ -154,6 +155,18 @@ int tiny_decode_resolve(
     const TinyDecodeOpts* opts, uint32_t width, uint32_t height,
     TinyDecodeOpts* out, uint32_t* out_width, uint32_t* out_height
 );
+
+/**
+ * @brief The deflate level an encoder's options ask for.
+ *
+ * Two codecs write deflate streams and both used to derive the level from
+ * `quality` inline, so a new knob had to be added in two places to work
+ * anywhere. This is that one place.
+ *
+ * @param opts The options as the caller gave them, or NULL.
+ * @return TinyDeflateLevel What to compress at.
+ */
+TinyDeflateLevel tiny_encode_level(const TinyEncodeOpts* opts);
 
 /**
  * @brief Writes one source pixel into a destination row, converting channels.
