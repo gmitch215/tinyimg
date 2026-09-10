@@ -83,6 +83,20 @@ const TinyCodec* tiny_codec_sniff(const uint8_t* buffer, size_t size) {
     return 0;
 }
 
+TinyDeflateLevel tiny_encode_level(const TinyEncodeOpts* opts) {
+    if (!opts) return TINYIMG_DEFLATE_DEFAULT;
+
+    switch (opts->compression) {
+        case TINYIMG_COMPRESSION_NONE: return TINYIMG_DEFLATE_HUFFMAN;
+        case TINYIMG_COMPRESSION_FAST: return TINYIMG_DEFLATE_FAST;
+        case TINYIMG_COMPRESSION_DEFAULT: return TINYIMG_DEFLATE_DEFAULT;
+        case TINYIMG_COMPRESSION_BEST: return TINYIMG_DEFLATE_BEST;
+        default: break;
+    }
+
+    return opts->quality >= 90 ? TINYIMG_DEFLATE_BEST : TINYIMG_DEFLATE_DEFAULT;
+}
+
 int tiny_decode_resolve(
     const TinyDecodeOpts* opts, uint32_t width, uint32_t height,
     TinyDecodeOpts* out, uint32_t* out_width, uint32_t* out_height

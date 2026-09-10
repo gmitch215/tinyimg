@@ -11,6 +11,7 @@ function(add_tinyimg_test folder name)
 	target_link_libraries("${TEST_TARGET}" PRIVATE tinyimg)
 	target_include_directories("${TEST_TARGET}" PRIVATE
 		"${PROJECT_SOURCE_DIR}/include"
+		"${PROJECT_SOURCE_DIR}/src"
 		"${CMAKE_CURRENT_SOURCE_DIR}"
 	)
 	target_compile_definitions("${TEST_TARGET}" PRIVATE

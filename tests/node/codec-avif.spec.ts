@@ -138,11 +138,16 @@ describe('the avif container reader inside the wasm module', () => {
 		expect([info.width, info.height]).toEqual([320, 180]);
 	});
 
-	it('describes the container and refuses the pixels, distinctly', () => {
+	it('decodes the pixels through the same module the container came from', () => {
 		const source = fixture('derived/base.avif');
 
 		expect(abi.probe(source).result).toBe(Err.ok);
-		expect(abi.decode(source).result).toBe(Err.unsupportedCodec);
+
+		const { result, image } = abi.decode(source);
+
+		expect(result).toBe(Err.ok);
+		expect([image?.width, image?.height]).toEqual([320, 180]);
+		expect(image?.format).toBe(Format.avif);
 	});
 
 	it('leaves heif recognized and unclaimed', () => {
