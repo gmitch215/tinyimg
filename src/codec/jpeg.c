@@ -1646,12 +1646,26 @@ static void ycbcr_to_rgb(uint32_t y, uint32_t cb, uint32_t cr, uint8_t* out) {
  */
 typedef int32_t JpegI32x4 __attribute__((vector_size(16)));
 
-/** Both clamps of tiny_clamp_u8, without a branch per lane. */
+/**
+ * Both clamps of tiny_clamp_u8, without a branch per lane.
+ *
+ * Written as a subscript loop rather than with `__builtin_elementwise_min` and
+ * its max counterpart, which are clang-only: GCC has no such builtin, reads it
+ * as an implicit `int` function and then fails on the vector return type. That
+ * broke three CI jobs while building clean here, since this machine is clang.
+ *
+ * The loop costs nothing. Both compilers turn it into two instructions, and on
+ * wasm clang emits the same `i32x4.min_s` and `i32x4.max_s` pair the builtins
+ * did, verified with `wasm-objdump`.
+ */
 static inline JpegI32x4 clamp_lanes(JpegI32x4 v) {
-    static const JpegI32x4 low = {0, 0, 0, 0};
-    static const JpegI32x4 high = {255, 255, 255, 255};
+    for (int lane = 0; lane < 4; lane++) {
+        int32_t value = v[lane];
 
-    return __builtin_elementwise_min(__builtin_elementwise_max(v, low), high);
+        v[lane] = value < 0 ? 0 : (value > 255 ? 255 : value);
+    }
+
+    return v;
 }
 
 /**

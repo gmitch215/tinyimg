@@ -234,6 +234,20 @@ A table that could be derived and is inlined instead is a size regression with n
 
 ## Testing
 
+**A green local gate does not mean the C compiles.** Every local build is clang, and CI's ctest,
+sanitizer and CodeQL jobs are GCC on ubuntu, so a clang-only extension passes here and fails three
+jobs there. `__builtin_elementwise_min` and its max counterpart did exactly that: GCC has no such
+builtin, reads it as an implicit `int` function, and then rejects the vector return type. Check
+anything that uses a compiler extension against the other compiler before pushing:
+
+```sh
+for f in src/*.c src/codec/*.c; do gcc-16 -c -O2 -std=c17 -I include -I src -o /tmp/o.o $f || echo "FAILED $f"; done
+```
+
+Vector code is where this bites, and the portable subset is smaller than it looks: the GNU vector
+ternary `(v < low) ? low : v` is rejected by **both** compilers in C, so a clamp is a subscript loop
+or a comparison mask with a bitwise select. Both lower to the same two instructions.
+
 Two lanes with different budgets.
 
 - **ctest** is deterministic, local, free and fast, and must never be flaky. **It does not run on

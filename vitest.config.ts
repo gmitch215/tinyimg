@@ -1,10 +1,36 @@
 import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig } from 'vitest/config';
 import { wasmBytes } from './scripts/vite-wasm-bytes.ts';
 
 const root = import.meta.dirname;
+
+/**
+ * Every compiled module in `dist/`, read from the directory rather than listed here.
+ *
+ * The list used to be written out, and adding `text.js` to the package broke the workers lane with
+ * `No such module` on every test rather than on the one that needed it. Miniflare takes an explicit
+ * list and does not resolve imports itself, so the list has to be complete; deriving it is the only
+ * way it stays that way.
+ *
+ * A missing `dist/` yields nothing instead of throwing. This runs when the config loads, so it ran
+ * for the node project too, and that project imports `src/ts/` and has no reason to build the
+ * package: the CI job that runs it builds only the wasm, so the whole lane died at startup with
+ * `ENOENT: scandir dist`. The workers lane cannot reach the empty case, because `test:workers`
+ * builds `dist/` before calling vitest.
+ */
+function compiledModules() {
+	if (!existsSync(join(root, 'dist'))) return [];
+
+	return readdirSync(join(root, 'dist'))
+		.filter((name) => name.endsWith('.js'))
+		.sort()
+		.map((name) => ({
+			type: 'ESModule' as const,
+			path: join(root, 'dist', name)
+		}));
+}
 
 /**
  * The worker that holds the module, as a miniflare service.
@@ -58,21 +84,7 @@ const wrapper = {
 			type: 'ESModule' as const,
 			path: join(root, 'tests/workers/fixtures/wrapper-worker.mjs')
 		},
-		/*
-		 * Every compiled module, read from the directory rather than listed here.
-		 *
-		 * The list used to be written out, and adding `text.js` to the package broke this lane
-		 * with `No such module` on every test rather than on the one that needed it. Miniflare
-		 * takes an explicit list and does not resolve imports itself, so the list has to be
-		 * complete; deriving it is the only way it stays that way.
-		 */
-		...readdirSync(join(root, 'dist'))
-			.filter((name) => name.endsWith('.js'))
-			.sort()
-			.map((name) => ({
-				type: 'ESModule' as const,
-				path: join(root, 'dist', name)
-			})),
+		...compiledModules(),
 		{ type: 'CompiledWasm' as const, path: join(root, 'bin/tinyimg.wasm') }
 	]
 };
