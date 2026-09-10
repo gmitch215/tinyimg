@@ -32,9 +32,18 @@ describe('text through the wasm module', () => {
 	});
 
 	it('reports the structure sizes a host allocates with', () => {
-		// TinyTextStyle is three floats and a byte, TinyTextMetrics five floats and three words
-		expect(abi.exports.tiny_text_style_sizeof()).toBe(16);
+		/*
+		 * TinyTextStyle is seven floats, a byte and two four-byte colors, which is 40 with the
+		 * padding after the flag; TinyTextMetrics five floats and three words.
+		 *
+		 * The numbers are spelled out rather than derived because a host writes the fields by
+		 * offset, so the layout is the contract and a field inserted in the middle of it has to
+		 * fail here rather than in whoever wrote the old offsets.
+		 */
+		expect(abi.exports.tiny_text_style_sizeof()).toBe(40);
 		expect(abi.exports.tiny_text_metrics_sizeof()).toBe(32);
+		expect(abi.exports.tiny_text_box_sizeof()).toBe(20);
+		expect(abi.exports.tiny_text_line_sizeof()).toBe(36);
 		expect(abi.exports.tiny_face_box_sizeof()).toBe(20);
 		expect(abi.exports.tiny_detect_opts_sizeof()).toBe(16);
 		expect(abi.exports.tiny_font_sizeof()).toBeGreaterThan(0);
@@ -158,11 +167,11 @@ describe('detection through the wasm module', () => {
 		abi = new TinyAbi(new WebAssembly.Instance(new WebAssembly.Module(bytes), {}));
 	});
 
-	it('reports a missing cascade rather than finding nothing', () => {
+	it('finds faces with nothing loaded, because the cascades ship', () => {
 		const found = abi.detectFaces(fixture('smile.jpg'));
 
-		expect(found.result).toBe(Err.blobMissing);
-		expect(found.boxes).toHaveLength(0);
+		expect(found.result).toBe(Err.ok);
+		expect(found.boxes.length).toBeGreaterThan(0);
 	});
 
 	it('checks a cascade at load rather than during a search', () => {

@@ -137,11 +137,13 @@ describe('text inside workerd', () => {
 });
 
 describe('face detection inside workerd', () => {
-	it('reports a missing cascade rather than finding nothing', async () => {
+	it('finds the face with nothing loaded, because the cascades ship', async () => {
 		await call('unload');
 
 		const report = await call('faces=1', portrait);
-		expect(report.result).toBe(-11);
+
+		expect(report.result).toBe(0);
+		expect(report.faces!.length).toBeGreaterThan(0);
 	});
 
 	it('refuses a cascade that does not parse, at load', async () => {
@@ -199,29 +201,29 @@ describe('face detection inside workerd', () => {
 		await call('unload');
 	});
 
-	it('crops to a computed gravity, and falls back with no cascade', async () => {
+	it('crops to a computed gravity with nothing loaded', async () => {
 		await call('unload');
 
 		// fit 300x300 cover, gravity 10 is face and 9 is auto
-		const fallback = await call('plan=fit%3A300%2C300%2C2%2C10', portrait);
+		const shipped = await call('plan=fit%3A300%2C300%2C2%2C10', portrait);
 		const auto = await call('plan=fit%3A300%2C300%2C2%2C9', portrait);
 
-		expect(fallback.result).toBe(0);
+		expect(shipped.result).toBe(0);
 		expect(auto.result).toBe(0);
 
-		// with no cascade the face request is the auto request, exactly
-		expect(fallback.digest).toBe(auto.digest);
+		// the builtin cascades put the crop somewhere auto does not, so the preflight that
+		// answers the gravity before the plan resolves ran inside the runtime
+		expect(shipped.digest).not.toBe(auto.digest);
 
+		// and loading the same two cascades as blobs lands on the same crop, which is what makes
+		// the compiled-in copies the same detector rather than a second one
 		await call(`blob=${CASCADE}:frontal`, cascade);
 		await call(`blob=${CASCADE}:profile`, profile);
 
-		const detected = await call('plan=fit%3A300%2C300%2C2%2C10', portrait);
+		const loaded = await call('plan=fit%3A300%2C300%2C2%2C10', portrait);
 
-		expect(detected.result).toBe(0);
-
-		// and with one, it is not: the preflight that answers the gravity before the plan resolves
-		// ran inside the runtime
-		expect(detected.digest).not.toBe(auto.digest);
+		expect(loaded.result).toBe(0);
+		expect(loaded.digest).toBe(shipped.digest);
 
 		await call('unload');
 	});

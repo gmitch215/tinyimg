@@ -6,6 +6,23 @@
  * ones whose contents are known exactly.
  */
 
+/**
+ * Codepoints the default subset covers.
+ *
+ * Read by both `fixtures.ts`, which writes the committed test faces, and `blobs-builtin.ts`, which
+ * compiles one of them into the module. One definition, so the two cannot disagree about what the
+ * shipped face contains.
+ */
+export const SUBSET_ASCII = Array.from({ length: 0x7e - 0x20 + 1 }, (_, index) => 0x20 + index);
+
+/**
+ * Latin-1 letters that are composite glyphs.
+ *
+ * Every one of these is a base letter plus a combining accent, which is the case a reader that only
+ * handles simple glyphs renders as a bare letter with no accent and no error.
+ */
+export const SUBSET_ACCENTS = [0xc0, 0xc5, 0xc9, 0xe0, 0xe9, 0xef, 0xf1, 0xfc];
+
 /** What a build produced, for the caller to report. */
 export interface FontSummary {
 	glyphs: number;
@@ -41,6 +58,25 @@ function directory(font: Buffer): Map<string, Table> {
 	}
 
 	return out;
+}
+
+/** The format 4 subtable to read a face's mapping out of, preferring platform 3. */
+function bestCmap4(font: Buffer, cmap: number): number {
+	let best = 0;
+	const subtables = font.readUInt16BE(cmap + 2);
+
+	for (let i = 0; i < subtables; i++) {
+		const at = cmap + 4 + 8 * i;
+		const platform = font.readUInt16BE(at);
+		const offset = cmap + font.readUInt32BE(at + 4);
+
+		if (font.readUInt16BE(offset) !== 4) continue;
+		if (best === 0 || platform === 3) best = offset;
+	}
+
+	if (best === 0) throw new Error('font has no format 4 cmap');
+
+	return best;
 }
 
 /** Every codepoint-to-glyph pair in a format 4 subtable. */
@@ -418,17 +454,7 @@ export function subsetFont(
 	const aliases = options.aliases ?? {};
 
 	// the best format 4 subtable, which is where the whole mapping is read from
-	let best = 0;
-	const subtables = font.readUInt16BE(cmap.offset + 2);
-	for (let i = 0; i < subtables; i++) {
-		const at = cmap.offset + 4 + 8 * i;
-		const platform = font.readUInt16BE(at);
-		const offset = cmap.offset + font.readUInt32BE(at + 4);
-		if (font.readUInt16BE(offset) !== 4) continue;
-		if (best === 0 || platform === 3) best = offset;
-	}
-
-	if (best === 0) throw new Error('font has no format 4 cmap');
+	const best = bestCmap4(font, cmap.offset);
 
 	const full = readCmap4(font, best);
 	const map = new Map<number, number>();
@@ -584,6 +610,518 @@ export function subsetFont(
 }
 
 /** An `OTTO` file, which is an OpenType face whose outlines this library does not read. */
+/**
+ * Adds a GPOS table with a known `kern` feature to an existing face.
+ *
+ * Modern faces put kerning in GPOS and often ship no `kern` table at all, so a
+ * reader tested only against the legacy table is untested against most of the
+ * fonts it will be handed. The values here are chosen so a test can assert them
+ * exactly: the format 1 subtable kerns one named pair, and the format 2 one
+ * kerns by class, and the two formats are asserted separately.
+ *
+ * @param font The face to extend.
+ * @param pair `[first, second, adjustment]` in font units, through format 1.
+ * @param classed `[first, second, adjustment]`, through format 2.
+ */
+export function withGpos(
+	font: Buffer,
+	pair: [number, number, number],
+	classed: [number, number, number]
+): Buffer {
+	const tables = directory(font);
+	const map = new Map<string, Buffer>();
+
+	for (const [name, entry] of tables) {
+		map.set(name, font.subarray(entry.offset, entry.offset + entry.length));
+	}
+
+	const cmap = tables.get('cmap');
+	if (!cmap) throw new Error('the face has no cmap to resolve the pairs against');
+
+	const best = bestCmap4(font, cmap.offset);
+	const glyphs = readCmap4(font, best);
+
+	const id = (code: number) => {
+		const glyph = glyphs.get(code);
+		if (glyph === undefined)
+			throw new Error(`the face has no glyph for U+${code.toString(16)}`);
+		return glyph;
+	};
+
+	const [pairFirst, pairSecond, pairValue] = pair;
+	const [classFirst, classSecond, classValue] = classed;
+
+	// #region format 1, one pair set for one glyph
+	const coverage1 = Buffer.concat([be16(1), be16(1), be16(id(pairFirst))]);
+	const pairSet = Buffer.concat([be16(1), be16(id(pairSecond)), be16(pairValue & 0xffff)]);
+
+	// posFormat, coverage, valueFormat1 = X_ADVANCE, valueFormat2, pairSetCount, offsets
+	const pairPos1 = Buffer.concat([
+		be16(1),
+		be16(12),
+		be16(0x0004),
+		be16(0),
+		be16(1),
+		be16(12 + coverage1.length),
+		coverage1,
+		pairSet
+	]);
+	// #endregion
+
+	// #region format 2, one class either side
+	const coverage2 = Buffer.concat([be16(1), be16(1), be16(id(classFirst))]);
+
+	// class definition format 1: one glyph, class 1
+	const classDef1 = Buffer.concat([be16(1), be16(id(classFirst)), be16(1), be16(1)]);
+	const classDef2 = Buffer.concat([be16(1), be16(id(classSecond)), be16(1), be16(1)]);
+
+	// two classes each way, so the record grid is 2x2 and only [1][1] carries a value
+	const grid = Buffer.concat([be16(0), be16(0), be16(0), be16(classValue & 0xffff)]);
+
+	/*
+	 * The record grid comes **immediately** after the header, and the coverage and class
+	 * definitions sit past it at their own offsets. Writing them the other way round produces a
+	 * subtable that parses and reads its values out of the coverage table, which is how this
+	 * generator first reported a kern of +1 unit.
+	 */
+	const head2 = 16;
+	const afterGrid = head2 + grid.length;
+
+	const pairPos2 = Buffer.concat([
+		be16(2),
+		be16(afterGrid),
+		be16(0x0004),
+		be16(0),
+		be16(afterGrid + coverage2.length),
+		be16(afterGrid + coverage2.length + classDef1.length),
+		be16(2),
+		be16(2),
+		grid,
+		coverage2,
+		classDef1,
+		classDef2
+	]);
+	// #endregion
+
+	// lookupType 2, flag 0, two subtables
+	const lookupHead = 6 + 2 * 2;
+	const lookup = Buffer.concat([
+		be16(2),
+		be16(0),
+		be16(2),
+		be16(lookupHead),
+		be16(lookupHead + pairPos1.length),
+		pairPos1,
+		pairPos2
+	]);
+
+	const lookupList = Buffer.concat([be16(1), be16(4), lookup]);
+
+	const feature = Buffer.concat([be16(0), be16(1), be16(0)]);
+	const featureList = Buffer.concat([
+		be16(1),
+		Buffer.from('kern', 'latin1'),
+		be16(2 + 6),
+		feature
+	]);
+
+	// lookupOrder, requiredFeatureIndex, featureIndexCount, featureIndices
+	const langSys = Buffer.concat([be16(0), be16(0xffff), be16(1), be16(0)]);
+	const script = Buffer.concat([be16(4), be16(0), langSys]);
+	const scriptList = Buffer.concat([be16(1), Buffer.from('latn', 'latin1'), be16(2 + 6), script]);
+
+	const header = 10;
+	const gpos = Buffer.concat([
+		be16(1),
+		be16(0),
+		be16(header),
+		be16(header + scriptList.length),
+		be16(header + scriptList.length + featureList.length),
+		scriptList,
+		featureList,
+		lookupList
+	]);
+
+	map.set('GPOS', gpos);
+
+	return assemble(map);
+}
+
+/**
+ * Adds a GSUB table with a known `liga` feature to an existing face.
+ *
+ * The substitution replaces a run of codepoints with one glyph, so a test can
+ * see it in the advance without needing to recognize a shape: the ligature's
+ * glyph is one this face already has, chosen so its advance is unmistakably
+ * different from the run it replaces.
+ *
+ * @param font The face to extend.
+ * @param ligatures `[components, replacement]` pairs, as codepoints.
+ */
+export function withGsub(font: Buffer, ligatures: [number[], number][]): Buffer {
+	const tables = directory(font);
+	const map = new Map<string, Buffer>();
+
+	for (const [name, entry] of tables) {
+		map.set(name, font.subarray(entry.offset, entry.offset + entry.length));
+	}
+
+	const cmap = tables.get('cmap');
+	if (!cmap) throw new Error('the face has no cmap to resolve the components against');
+
+	const glyphs = readCmap4(font, bestCmap4(font, cmap.offset));
+
+	const id = (code: number) => {
+		const glyph = glyphs.get(code);
+		if (glyph === undefined)
+			throw new Error(`the face has no glyph for U+${code.toString(16)}`);
+		return glyph;
+	};
+
+	// one ligature set per distinct first glyph, in coverage order
+	const byFirst = new Map<number, [number[], number][]>();
+
+	for (const [components, replacement] of ligatures) {
+		const first = id(components[0]!);
+		const existing = byFirst.get(first) ?? [];
+
+		existing.push([components, replacement]);
+		byFirst.set(first, existing);
+	}
+
+	const firsts = [...byFirst.keys()].sort((a, b) => a - b);
+	const coverage = Buffer.concat([
+		be16(1),
+		be16(firsts.length),
+		...firsts.map((glyph) => be16(glyph))
+	]);
+
+	const sets: Buffer[] = [];
+
+	for (const first of firsts) {
+		const entries = byFirst.get(first)!;
+		const bodies = entries.map(([components, replacement]) =>
+			Buffer.concat([
+				be16(id(replacement)),
+				be16(components.length),
+				...components.slice(1).map((code) => be16(id(code)))
+			])
+		);
+
+		const head = 2 + 2 * bodies.length;
+		const offsets: Buffer[] = [];
+		let at = head;
+
+		for (const body of bodies) {
+			offsets.push(be16(at));
+			at += body.length;
+		}
+
+		sets.push(Buffer.concat([be16(bodies.length), ...offsets, ...bodies]));
+	}
+
+	const subHead = 6 + 2 * sets.length;
+	const setOffsets: Buffer[] = [];
+	let after = subHead + coverage.length;
+
+	for (const set of sets) {
+		setOffsets.push(be16(after));
+		after += set.length;
+	}
+
+	const subtable = Buffer.concat([
+		be16(1),
+		be16(subHead),
+		be16(sets.length),
+		...setOffsets,
+		coverage,
+		...sets
+	]);
+
+	// lookupType 4 is ligature substitution
+	const lookup = Buffer.concat([be16(4), be16(0), be16(1), be16(8), subtable]);
+	const lookupList = Buffer.concat([be16(1), be16(4), lookup]);
+
+	const feature = Buffer.concat([be16(0), be16(1), be16(0)]);
+	const featureList = Buffer.concat([
+		be16(1),
+		Buffer.from('liga', 'latin1'),
+		be16(2 + 6),
+		feature
+	]);
+
+	const langSys = Buffer.concat([be16(0), be16(0xffff), be16(1), be16(0)]);
+	const script = Buffer.concat([be16(4), be16(0), langSys]);
+	const scriptList = Buffer.concat([be16(1), Buffer.from('latn', 'latin1'), be16(2 + 6), script]);
+
+	const header = 10;
+	map.set(
+		'GSUB',
+		Buffer.concat([
+			be16(1),
+			be16(0),
+			be16(header),
+			be16(header + scriptList.length),
+			be16(header + scriptList.length + featureList.length),
+			scriptList,
+			featureList,
+			lookupList
+		])
+	);
+
+	return assemble(map);
+}
+
+/** One `gvar` tuple to write: a region and the deltas it applies over it. */
+export interface VariationTuple {
+	/** Peak coordinate on the single axis, -1 to 1. */
+	peak: number;
+	/** Region bounds, when the tuple is an intermediate one. */
+	start?: number;
+	end?: number;
+	/** Delta applied to every real point. */
+	dx?: number;
+	dy?: number;
+	/** Delta applied to the advance, through the two phantom points. */
+	advance?: number;
+	/**
+	 * Point numbers the tuple names, or omitted for every point.
+	 *
+	 * A tuple that names a subset leaves the rest to be inferred, which is the path a reader gets
+	 * wrong by leaving them where they were and tearing the outline. `'contour-starts'` names the
+	 * first point of each contour, which is the case with an answer that can be computed: one
+	 * reference per contour moves that whole contour, so the glyph comes out exactly where naming
+	 * every point would have put it.
+	 */
+	points?: number[] | 'contour-starts';
+}
+
+/**
+ * Adds `fvar`, `gvar` and optionally `avar` to an existing face.
+ *
+ * Synthesized rather than downloaded, for the same reason the bitmap faces are: the deltas are
+ * chosen here, so the interpolated outline at any weight is a number a test can compute rather than
+ * one it has to trust. Every real point of the named glyph takes the same delta, which makes the
+ * whole glyph shift by a known amount instead of changing shape in a way only an eye can judge.
+ *
+ * One axis, because a second one tests the region product rather than the interpolation and the
+ * region product is what the intermediate tuple already covers.
+ *
+ * @param font The face to extend.
+ * @param glyphCode The codepoint whose glyph carries the deltas.
+ * @param tuples The regions and their deltas.
+ * @param axis `[tag, min, default, max]` in the axis' own units.
+ * @param avar Segment map pairs as `[from, to]`, or omitted for even normalization.
+ */
+export function withVariations(
+	font: Buffer,
+	glyphCode: number,
+	tuples: VariationTuple[],
+	axis: [string, number, number, number] = ['wght', 400, 400, 1000],
+	avar?: [number, number][]
+): Buffer {
+	const tables = directory(font);
+	const map = new Map<string, Buffer>();
+
+	for (const [name, entry] of tables) {
+		map.set(name, font.subarray(entry.offset, entry.offset + entry.length));
+	}
+
+	const cmap = tables.get('cmap');
+	const maxp = tables.get('maxp');
+	const glyf = tables.get('glyf');
+	const loca = tables.get('loca');
+	const head = tables.get('head');
+
+	if (!cmap || !maxp || !glyf || !loca || !head) {
+		throw new Error('the face is missing a table the variation writer needs');
+	}
+
+	const glyphs = font.readUInt16BE(maxp.offset + 4);
+	const long = font.readInt16BE(head.offset + 50) !== 0;
+	const target = readCmap4(font, bestCmap4(font, cmap.offset)).get(glyphCode);
+
+	if (target === undefined) {
+		throw new Error(`the face has no glyph for U+${glyphCode.toString(16)}`);
+	}
+
+	// the point count, which is what says where the phantom points start
+	const from = locaAt(font, loca, long, target);
+	const to = locaAt(font, loca, long, target + 1);
+
+	if (to - from < 10) throw new Error('the target glyph has no outline to vary');
+
+	const contours = font.readInt16BE(glyf.offset + from);
+	if (contours <= 0) throw new Error('the target glyph is composite');
+
+	const points = font.readUInt16BE(glyf.offset + from + 10 + 2 * (contours - 1)) + 1;
+	const stored = points + 4;
+
+	const f2dot14 = (value: number) => be16(Math.round(value * 16384) & 0xffff);
+	const fixed = (value: number) => be32(Math.round(value * 65536) >>> 0);
+
+	// #region fvar
+	const record = Buffer.concat([
+		Buffer.from(axis[0], 'latin1'),
+		fixed(axis[1]),
+		fixed(axis[2]),
+		fixed(axis[3]),
+		be16(0),
+		be16(256)
+	]);
+
+	const fvar = Buffer.concat([
+		be16(1),
+		be16(0),
+		be16(16),
+		be16(2),
+		be16(1),
+		be16(record.length),
+		be16(0),
+		be16(8),
+		record
+	]);
+	// #endregion
+
+	// #region gvar
+	/** A packed delta run: one control byte per 64 words, all as 16 bit. */
+	const packed = (values: number[]) => {
+		const out: Buffer[] = [];
+
+		for (let at = 0; at < values.length; at += 64) {
+			const run = values.slice(at, at + 64);
+
+			out.push(Buffer.from([0x40 | (run.length - 1)]));
+			for (const value of run) out.push(be16(value & 0xffff));
+		}
+
+		return Buffer.concat(out);
+	};
+
+	const headers: Buffer[] = [];
+	const bodies: Buffer[] = [];
+
+	const contourStarts: number[] = [];
+	let previous = 0;
+
+	for (let contour = 0; contour < contours; contour++) {
+		contourStarts.push(previous);
+		previous = font.readUInt16BE(glyf.offset + from + 10 + 2 * contour) + 1;
+	}
+
+	for (const tuple of tuples) {
+		const named =
+			tuple.points === 'contour-starts' ? contourStarts : (tuple.points ?? undefined);
+
+		if (named) {
+			// a packed point number list: one run of 16 bit cumulative deltas
+			const numbers: Buffer[] = [Buffer.from([named.length & 0x7f])];
+			let at = 0;
+
+			numbers.push(Buffer.from([0x80 | (named.length - 1)]));
+			for (const point of named) {
+				numbers.push(be16(point - at));
+				at = point;
+			}
+
+			const xs = named.map(() => tuple.dx ?? 0);
+			const ys = named.map(() => tuple.dy ?? 0);
+
+			const body = Buffer.concat([...numbers, packed(xs), packed(ys)]);
+			const intermediate = tuple.start !== undefined && tuple.end !== undefined;
+			const flags = 0x8000 | 0x2000 | (intermediate ? 0x4000 : 0);
+
+			headers.push(
+				Buffer.concat([
+					be16(body.length),
+					be16(flags),
+					f2dot14(tuple.peak),
+					...(intermediate ? [f2dot14(tuple.start!), f2dot14(tuple.end!)] : [])
+				])
+			);
+			bodies.push(body);
+
+			continue;
+		}
+
+		const xs = new Array<number>(stored).fill(tuple.dx ?? 0);
+		const ys = new Array<number>(stored).fill(tuple.dy ?? 0);
+
+		// the phantom points are not part of the outline, so they take the advance rather than
+		// the shift every real point took
+		xs[points] = 0;
+		xs[points + 1] = tuple.advance ?? 0;
+		xs[points + 2] = 0;
+		xs[points + 3] = 0;
+		ys[points] = 0;
+		ys[points + 1] = 0;
+		ys[points + 2] = 0;
+		ys[points + 3] = 0;
+
+		// a private point number count of zero means every point, which is the whole array above
+		const body = Buffer.concat([Buffer.from([0x00]), packed(xs), packed(ys)]);
+
+		const intermediate = tuple.start !== undefined && tuple.end !== undefined;
+		const flags = 0x8000 | 0x2000 | (intermediate ? 0x4000 : 0);
+
+		const header = Buffer.concat([
+			be16(body.length),
+			be16(flags),
+			f2dot14(tuple.peak),
+			...(intermediate ? [f2dot14(tuple.start!), f2dot14(tuple.end!)] : [])
+		]);
+
+		headers.push(header);
+		bodies.push(body);
+	}
+
+	const headerBytes = Buffer.concat(headers);
+	const bodyBytes = Buffer.concat(bodies);
+
+	// tupleVariationCount, then the offset to the serialized data from here
+	const variation = Buffer.concat([
+		be16(tuples.length),
+		be16(4 + headerBytes.length),
+		headerBytes,
+		bodyBytes
+	]);
+
+	const offsets: Buffer[] = [];
+
+	for (let glyph = 0; glyph <= glyphs; glyph++) {
+		// every glyph but the target has an empty entry, which is what equal offsets mean
+		offsets.push(be16(glyph <= target ? 0 : variation.length / 2));
+	}
+
+	const gvar = Buffer.concat([
+		be16(1),
+		be16(0),
+		be16(1),
+		be16(0),
+		be32(0),
+		be16(glyphs),
+		be16(0),
+		be32(20 + 2 * (glyphs + 1)),
+		...offsets,
+		variation
+	]);
+	// #endregion
+
+	map.set('fvar', fvar);
+	map.set('gvar', gvar);
+
+	if (avar) {
+		const pairs = avar.flatMap(([a, b]) => [f2dot14(a), f2dot14(b)]);
+
+		map.set(
+			'avar',
+			Buffer.concat([be16(1), be16(0), be16(0), be16(1), be16(avar.length), ...pairs])
+		);
+	}
+
+	return assemble(map);
+}
+
 export function cffStub(): Buffer {
 	const table = Buffer.alloc(64);
 	return assembleWithSignature(tag('OTTO'), new Map([['CFF ', table]]));
