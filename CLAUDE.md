@@ -248,6 +248,15 @@ Vector code is where this bites, and the portable subset is smaller than it look
 ternary `(v < low) ? low : v` is rejected by **both** compilers in C, so a clamp is a subscript loop
 or a comparison mask with a bitwise select. Both lower to the same two instructions.
 
+**No gate test compares a timing against a threshold.** The cost model's rates were measured on one
+machine, so an assertion that the estimate is within some factor of a live clock fails on a runner
+of a different speed rather than when the model is wrong. CI timed a 200 px transform at 12.33 ms
+against this machine's 4.89 and failed a 3x band. A ratio between two extents cancels the machine
+but then passes a mutation that flattens the resample term, so it gates nothing. What the lane gates
+instead is the model's shape, which does not depend on speed: relative stage costs and which ladder
+rung is picked. Flattening the scale fraction fails three of those. The absolute comparison is
+`bun run eval:estimate`, a release check with a stated band and a named machine.
+
 Two lanes with different budgets.
 
 - **ctest** is deterministic, local, free and fast, and must never be flaky. **It does not run on

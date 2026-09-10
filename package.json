@@ -40,6 +40,7 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.workers.json --noEmit",
 		"size": "bun scripts/size-report.ts",
 		"bench": "bun bench/run.ts",
+		"eval:estimate": "bun scripts/measure/estimate.ts",
 		"fixtures": "bun scripts/fixtures.ts",
 		"fixtures:check": "bun scripts/fixtures.ts --check",
 		"tables": "bun scripts/vp8-tables.ts && bun scripts/av1-tables.ts && bun scripts/blobs-builtin.ts",

@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import { cpus, loadavg } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import wasm from '../../bin/tinyimg.wasm?bin';
@@ -15,27 +14,6 @@ function fixture(name: string): Uint8Array<ArrayBuffer> {
 	return out;
 }
 
-async function timed(body: () => Promise<unknown>): Promise<number> {
-	/*
-	 * The fastest of a few runs, not the median.
-	 *
-	 * The lane runs its spec files in parallel, so the median measures this work plus whatever
-	 * share of the machine it happened to get; the minimum is the one estimator contention can
-	 * only move in one direction. The median form of this passed for months and then started
-	 * failing at 4.3x on a module that had grown, with the same code taking 5.8 ms measured on its
-	 * own and 25 ms measured beside three other spec files.
-	 */
-	const samples: number[] = [];
-
-	for (let i = 0; i < 9; i++) {
-		const start = performance.now();
-		await body();
-		samples.push(performance.now() - start);
-	}
-
-	return Math.min(...samples);
-}
-
 /**
  * The cost estimate, and the choice it makes possible.
  *
@@ -43,9 +21,19 @@ async function timed(body: () => Promise<unknown>): Promise<number> {
  * so what has to be tested is that it tracks reality. An estimate nothing checks against a clock is
  * arithmetic dressed as a measurement.
  *
- * The tolerance is wide on purpose. These run on whatever machine CI gives them, and the rates were
- * calibrated on one developer machine, so the assertion is about the estimate being the right shape
- * and the right order of magnitude rather than about this runner's speed.
+ * **Every assertion here is machine independent, and the clock is deliberately absent.** These run
+ * on whatever machine CI gives them while the rates were calibrated on one developer machine, so an
+ * estimate compared against a live clock fails on a runner of a different speed rather than when
+ * the model is wrong: CI timed a 200 px transform at 12.33 ms against this machine's 4.89, and the
+ * estimate that is right here read 3.2x under there. Widening the band far enough to survive that
+ * left it passing a mutation that flattened the resample term, which is a check that covers nothing.
+ *
+ * What is gated instead is the model's shape, which does not depend on speed: which stage costs more
+ * than which, and which rung the ladder picks. Those catch model breakage; flattening the scale
+ * fraction fails three of them.
+ *
+ * The absolute comparison is a release step, `bun run eval:estimate`, which holds a 0.6x to 2.0x
+ * band, names the machine it passed on and refuses to run under load.
  */
 describe('the cost estimate', () => {
 	let tinyimg: TinyImgModule;
@@ -104,48 +92,6 @@ describe('the cost estimate', () => {
 
 		// a neighborhood operation cannot fuse, and the estimate has to say so
 		expect(blur).toBeGreaterThan(color);
-	});
-
-	it('tracks a real transform within an order of magnitude', async () => {
-		const source = fixture('sf-24.jpg');
-
-		/*
-		 * Skipped, loudly, on a machine busy enough that the clock measures the load.
-		 *
-		 * This assertion compares a static model against a live clock, so it fails when the runner
-		 * is contended rather than when the model is wrong: at a load average of 20 on 12 cores it
-		 * failed at 800 wide and passed on re-run at a lower load, with the estimate unchanged.
-		 * `timed` already takes the minimum of nine to resist contention and that was not enough.
-		 * Widening the band further would weaken the check on a quiet machine, which is the only
-		 * machine it can say anything on.
-		 */
-		const load = loadavg()[0] ?? 0;
-		const ceiling = cpus().length / 3;
-
-		if (load > ceiling) {
-			console.warn(
-				`skipped the estimate-against-clock check: load ${load.toFixed(2)} over ${ceiling.toFixed(2)}`
-			);
-			return;
-		}
-
-		for (const width of [200, 400, 800]) {
-			using image = await Image.open(tinyimg, source);
-			image.resize(width, 0);
-
-			const estimated = image.decide().estimateMs;
-			const actual = await timed(async () => {
-				using run = await Image.open(tinyimg, source);
-				run.resize(width, 0);
-				await run.pixels();
-			});
-
-			// the estimate is documented as accurate to about 20% on the machine it was calibrated
-			// on; this asserts a factor of three either way, which is what survives an unknown
-			// runner while still failing if the model is wrong about the shape of the work
-			expect(estimated, `${width} wide`).toBeGreaterThan(actual / 3);
-			expect(estimated, `${width} wide`).toBeLessThan(actual * 3);
-		}
 	});
 
 	it('prices the encoders apart, which is what makes a budget actionable', () => {
