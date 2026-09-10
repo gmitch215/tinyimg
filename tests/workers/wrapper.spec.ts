@@ -146,6 +146,28 @@ describe('the shipped wrapper inside workerd', () => {
 		expect(after.pages).toBe(before.pages);
 	});
 
+	it('renders an og card with nothing loaded', async () => {
+		const card = await json<{
+			bytes: number;
+			format: string;
+			contentType: string;
+			width: number;
+			height: number;
+			titleTruncated: boolean;
+			missingGlyphs: number;
+		}>('og&title=Inside%20workerd&subtitle=No%20blob%20loaded&footer=tinyimg');
+
+		expect(card.format).toBe('png');
+		expect(card.contentType).toBe('image/png');
+		expect(card.width).toBe(600);
+		expect(card.height).toBe(315);
+		expect(card.missingGlyphs).toBe(0);
+		expect(card.titleTruncated).toBe(false);
+
+		// a card with three lines of text on it is not a few hundred bytes
+		expect(card.bytes).toBeGreaterThan(2000);
+	});
+
 	it('re-encodes with no options at all', async () => {
 		const response = await call('', base);
 

@@ -85,8 +85,17 @@ const Field = {
 	collapsed: 12,
 	colorStages: 13,
 	passes: 14,
-	kernels: 15
+	kernels: 15,
+	cost: 16,
+	degraded: 17
 } as const;
+
+/** `TinyPlanDegrade` bits, paired with the names {@link PlanDecision.degraded} reports. */
+const DEGRADES = [
+	[1 << 0, 'effort'],
+	[1 << 1, 'filter'],
+	[1 << 2, 'scale']
+] as const;
 
 type PlanField = keyof typeof Field;
 
@@ -110,10 +119,36 @@ export interface EncodeOptions {
 	 * apart. Flat-color illustrations pay the most, because hard diagonal edges are what the
 	 * omitted modes are for.
 	 *
-	 * Formats with nothing to trade ignore it and do the exact thing.
+	 * PNG reads it too, and its trade splits by content. The encoder compresses an adaptively
+	 * filtered stream and an unfiltered one and keeps the smaller; `'fast'` compresses only the
+	 * adaptive one, which is 1.59x to 2.08x. On a photograph the adaptive stream wins anyway, so the
+	 * output is byte-identical and the speed costs nothing. On flat artwork the unfiltered stream is
+	 * the one that would have won, so it pays 7.0% more bytes on a mono GIF, 17.2% on
+	 * `webassembly.png` and 63.1% on a 96x96 logo.
+	 *
+	 * Formats with nothing to trade ignore it and do the exact thing, which includes AVIF: the AV1
+	 * encoder has no bounded search to give up.
 	 */
 	effort?: 'fancy' | 'fast';
+	/**
+	 * How hard a lossless stream should be compressed. `'auto'` is the default.
+	 *
+	 * A third axis, separate from quality and effort, because for PNG and deflate-compressed TIFF
+	 * the whole output is the compressor's: there is no quantizer to turn down, so quality says
+	 * nothing and effort only decides how many candidate streams get compressed. `'auto'` reads
+	 * quality, which is what every caller got before this option existed.
+	 *
+	 * At the longest chain walk this measured 664 bytes against 835 on a logo, for 4.30x the CPU;
+	 * `'none'` entropy codes without searching for matches at all and can beat `'fast'` on a
+	 * photograph's filtered rows.
+	 *
+	 * Formats with no deflate stream ignore it.
+	 */
+	compression?: 'auto' | 'none' | 'fast' | 'default' | 'best';
 }
+
+/** Compression names in the order `TinyCompression` declares them. */
+export const COMPRESSION = ['auto', 'none', 'fast', 'default', 'best'] as const;
 
 /** What {@link Image.fit} takes beyond the target extent. */
 export interface FitOptions {
@@ -496,6 +531,11 @@ export class Image {
 	 * its smoothing pass, which is 1.53x on a lossy WebP for 46.8 dB and 1.11x to 1.25x on a
 	 * subsampled JPEG for 43.6 to 59.5 dB.
 	 *
+	 * A scaled WebP request gets a second lever, and it is the one that changes how the reduction
+	 * is computed: the planes are averaged over each output pixel and converted once, rather than
+	 * the frame being converted and that averaged. Together with the filter skip it is 2.05x to
+	 * 3.35x for 38.9 dB, and it never allocates the full frame of RGBA.
+	 *
 	 * A lossless format has nothing to drop, because it defines its pixels exactly, so PNG, GIF,
 	 * TIFF and lossless WebP decode identically either way. So does a 4:4:4 JPEG, which has no
 	 * chroma to upsample.
@@ -562,11 +602,48 @@ export class Image {
 				colorStages: field('colorStages'),
 				passes: field('passes'),
 				kernels: KERNELS.filter(([bit]) => (bits & bit) !== 0).map(([, name]) => name),
-				estimateMs: module.exports.tiny_plan_cost(this.#plan) / 1000
+				estimateMs: field('cost') / 1000,
+				degraded: DEGRADES.filter(([bit]) => (field('degraded') & bit) !== 0).map(
+					([, name]) => name
+				)
 			};
 		} finally {
 			module.free(resolution);
 		}
+	}
+
+	/**
+	 * Sets a CPU budget the planner may degrade the request to fit.
+	 *
+	 * The Workers Free plan allows 10 milliseconds of CPU per request and does not let a caller
+	 * pay for more, so a request that does not fit fails outright. With a budget set, the planner
+	 * prices the plan and, while the estimate is over, gives something up: the effort tier, then
+	 * nearest for a filter left open, then reductions of the decode. {@link decide} reports what
+	 * it gave up in
+	 * {@link PlanDecision.degraded} and the estimate it settled on in
+	 * {@link PlanDecision.estimateMs}.
+	 *
+	 * **A budget is a request, not a guarantee.** The estimate is within about 20%, the levers run
+	 * out, and a plan can still be over budget after all of them; read `estimateMs` back and
+	 * compare. Nothing is degraded when the estimate already fits.
+	 *
+	 * The encoder is not priced here, because a plan does not carry one. Subtract
+	 * `module.exports.tiny_encode_cost` for the format being written, or use `budgetMs` on
+	 * {@link transform}, which does that for you.
+	 *
+	 * @param milliseconds The budget, or 0 to remove it.
+	 */
+	budget(milliseconds: number): this {
+		this.#alive();
+		this.#module.check(
+			this.#module.exports.tiny_plan_set_budget(
+				this.#plan,
+				Math.max(0, Math.round(milliseconds * 1000))
+			),
+			'budget setting'
+		);
+
+		return this;
 	}
 
 	/**
@@ -592,7 +669,7 @@ export class Image {
 
 		const module = this.#module;
 		const writer = module.alloc(module.exports.tiny_writer_sizeof());
-		const opts = module.alloc(5);
+		const opts = module.alloc(module.exports.tiny_encode_opts_sizeof());
 
 		const view = module.view();
 		view.setUint8(opts, options.quality ?? 0);
@@ -600,6 +677,7 @@ export class Image {
 		view.setUint8(opts + 2, options.progressive ? 1 : 0);
 		view.setUint8(opts + 3, options.stripMetadata ? 1 : 0);
 		view.setUint8(opts + 4, options.effort === 'fast' ? 1 : 0);
+		view.setUint8(opts + 5, COMPRESSION.indexOf(options.compression ?? 'auto'));
 
 		try {
 			module.check(module.exports.tiny_writer_init(writer, 0), 'prepare the encoder');

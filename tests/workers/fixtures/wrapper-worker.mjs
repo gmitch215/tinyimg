@@ -1,5 +1,5 @@
 import module from '../../../bin/tinyimg.wasm';
-import { Image, TinyImgError, TinyImgModule, transform } from '../../../dist/index.js';
+import { Image, og, TinyImgError, TinyImgModule, transform } from '../../../dist/index.js';
 
 // compiled by the embedder at worker startup, which is the only way workerd allows: it refuses
 // WebAssembly.Module(bytes) outright. One instance for the isolate, which is what a real Worker
@@ -90,6 +90,30 @@ export default {
 				} finally {
 					image.dispose();
 				}
+			}
+
+			if (url.searchParams.has('og')) {
+				// the whole point of the card helper: no blob is loaded here and none is needed,
+				// because the face is compiled into the module
+				const card = await og(tinyimg, {
+					width: Number(url.searchParams.get('width') ?? 600),
+					height: Number(url.searchParams.get('height') ?? 315),
+					title: url.searchParams.get('title') ?? undefined,
+					subtitle: url.searchParams.get('subtitle') ?? undefined,
+					footer: url.searchParams.get('footer') ?? undefined,
+					background: url.searchParams.get('background') ?? '#101820',
+					format: url.searchParams.get('format') ?? 'png'
+				});
+
+				return Response.json({
+					bytes: card.data.byteLength,
+					format: card.format,
+					contentType: card.contentType,
+					width: card.width,
+					height: card.height,
+					titleTruncated: card.titleTruncated,
+					missingGlyphs: card.missingGlyphs
+				});
 			}
 
 			if (url.searchParams.has('chain')) {

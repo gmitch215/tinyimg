@@ -7,6 +7,7 @@ import {
 	type ImageFormat,
 	type ImageInfo,
 	type RawImage,
+	type Rect,
 	type Source
 } from './types.js';
 
@@ -29,7 +30,8 @@ const Counter = {
 	filtered: 6,
 	resampled: 7,
 	encoded: 8,
-	passes: 9
+	passes: 9,
+	scansSkipped: 10
 } as const;
 
 type Counter = (typeof Counter)[keyof typeof Counter];
@@ -62,6 +64,14 @@ export interface WorkCounters {
 	encoded: number;
 	/** Full passes made over an image. */
 	passes: number;
+	/**
+	 * Progressive JPEG scans stepped over rather than entropy decoded.
+	 *
+	 * Non-zero only where a component's transform reads the DC term alone, which is a scale
+	 * denominator of eight for luma. Zero on a baseline file, which has one scan carrying
+	 * everything and so has nothing to skip.
+	 */
+	scansSkipped: number;
 }
 
 /** What {@link TinyImgModule.measure} hands back. */
@@ -88,7 +98,7 @@ export const Feature = {
 	tiff: 1 << 5,
 	/** WebP decode and encode, lossy and lossless. */
 	webp: 1 << 6,
-	/** AVIF container parse; probe answers and decode refuses. */
+	/** AVIF decode and encode, through the AV1 intra codec. */
 	avif: 1 << 7,
 	/** Font loading and text drawing. */
 	text: 1 << 8,
@@ -113,6 +123,16 @@ const FORMATS: (ImageFormat | 'unknown')[] = [
 	'avif',
 	'heif'
 ];
+
+/** One of the blobs compiled into the module; see {@link TinyImgModule.builtinBlobs}. */
+export interface BuiltinBlob {
+	/** What the bytes are. */
+	kind: BlobKind;
+	/** The name it resolves under. */
+	id: string;
+	/** How many bytes it holds. */
+	bytes: number;
+}
 
 /** Blob kinds, mirroring `TinyBlobKind`. */
 const BLOB_KINDS: Record<BlobKind, number> = { font: 0, icc: 1, cascade: 2 };
@@ -160,8 +180,54 @@ export interface TinyExports {
 		maxWidth: number,
 		maxHeight: number
 	): number;
+	tiny_image_load_region(
+		image: number,
+		buffer: number,
+		size: number,
+		x: number,
+		y: number,
+		width: number,
+		height: number
+	): number;
 	tiny_image_encode(image: number, format: number, opts: number, writer: number): number;
+	tiny_image_create(image: number, width: number, height: number, channels: number): number;
+	tiny_image_fill_rectangle(
+		image: number,
+		x: number,
+		y: number,
+		width: number,
+		height: number,
+		color: number
+	): number;
 	tiny_image_trim(image: number, tolerance: number): number;
+
+	tiny_font_sizeof(): number;
+	tiny_text_style_sizeof(): number;
+	tiny_text_box_sizeof(): number;
+	tiny_text_line_sizeof(): number;
+	tiny_font_load(font: number, id: number): number;
+	tiny_font_free(font: number): void;
+	tiny_font_has_glyph(font: number, codepoint: number): number;
+	tiny_text_style(style: number, size: number): void;
+	tiny_text_lines(
+		font: number,
+		text: number,
+		box: number,
+		style: number,
+		lines: number,
+		capacity: number,
+		count: number
+	): number;
+	tiny_image_draw_text_in(
+		image: number,
+		font: number,
+		text: number,
+		x: number,
+		y: number,
+		box: number,
+		style: number,
+		color: number
+	): number;
 	tiny_image_rotate(image: number, degrees: number, background: number): number;
 	tiny_image_detect_faces(image: number, boxes: number, capacity: number, count: number): number;
 
@@ -174,6 +240,7 @@ export interface TinyExports {
 	tiny_plan_init_image(plan: number, image: number): number;
 	tiny_plan_set_fusion(plan: number, enabled: number): number;
 	tiny_plan_set_effort(plan: number, effort: number): number;
+	tiny_plan_set_budget(plan: number, microseconds: number): number;
 	tiny_plan_background(plan: number, color: number): number;
 	tiny_plan_crop(plan: number, x: number, y: number, width: number, height: number): number;
 	tiny_plan_resize(plan: number, width: number, height: number): number;
@@ -211,10 +278,13 @@ export interface TinyExports {
 	tiny_plan_field(resolution: number, field: number): number;
 	tiny_plan_cost(plan: number): number;
 	tiny_encode_cost(format: number, width: number, height: number): number;
+	tiny_encode_cost_at(format: number, width: number, height: number, compression: number): number;
 	tiny_plan_run(plan: number, out: number): number;
 	tiny_plan_encode(plan: number, format: number, opts: number, writer: number): number;
 
 	tiny_blob_load(kind: number, id: number, data: number, size: number): number;
+	tiny_blob_builtin_at(kind: number, index: number, id: number, size: number): number;
+	tiny_encode_opts_sizeof(): number;
 	tiny_blob_free(kind: number, id: number): number;
 	tiny_blob_free_all(): void;
 	tiny_cascade_check(id: number): number;
@@ -407,7 +477,8 @@ export class TinyImgModule {
 				filtered: read(Counter.filtered),
 				resampled: read(Counter.resampled),
 				encoded: read(Counter.encoded),
-				passes: read(Counter.passes)
+				passes: read(Counter.passes),
+				scansSkipped: read(Counter.scansSkipped)
 			}
 		};
 	}
@@ -415,8 +486,9 @@ export class TinyImgModule {
 	/**
 	 * Reads a file's header without decoding any pixels.
 	 *
-	 * Every format the library recognizes, including the ones it cannot decode: an AVIF answers
-	 * fully here and fails with a specific error on decode.
+	 * Every format the library recognizes, including the ones it cannot decode: a HEIF answers
+	 * fully here and fails with a specific error on decode, because it shares AVIF's container and
+	 * carries HEVC rather than AV1.
 	 *
 	 * @param source The encoded image.
 	 * @return What the header says.
@@ -472,6 +544,69 @@ export class TinyImgModule {
 			this.check(
 				this.exports.tiny_image_load(image, buffer, bytes.byteLength),
 				'decode the image'
+			);
+
+			try {
+				return {
+					width: this.exports.tiny_image_getwidth(image),
+					height: this.exports.tiny_image_getheight(image),
+					channels: this.exports.tiny_image_getchannels(image),
+					pixels: this.copyOut(
+						this.exports.tiny_image_getdata(image),
+						this.exports.tiny_image_getsize(image)
+					)
+				};
+			} finally {
+				this.exports.tiny_image_destroy(image);
+			}
+		} finally {
+			this.free(image);
+			this.free(buffer);
+		}
+	}
+
+	/**
+	 * Decodes one rectangle of a source to raw pixels, without decoding the rest.
+	 *
+	 * For splitting one image across several invocations, which on Workers is how a request too
+	 * large for one CPU allowance can still be served: CPU is rationed per invocation and wall time
+	 * is not billed, so N bands each get their own allowance.
+	 *
+	 * **It pays for JPEG and BMP and costs more for everything else.** A band's decode is
+	 * proportional to the source rows it has to produce, which for those two is a real fraction of
+	 * the frame. PNG, GIF, TIFF and WebP have to inflate or entropy-decode everything above the
+	 * band before they can produce it, so N bands cost N times the whole decode and banding makes
+	 * the total worse. Measured on WebP: a top quarter is 24% of the frame and a bottom half is 97%.
+	 *
+	 * The region is clamped to the image, and a zero width or height means to that edge. Bands that
+	 * feed a resample need to overlap by the filter's radius, which this does not do for you.
+	 *
+	 * ```ts
+	 * const band = await tinyimg.decodeRegion(source, { x: 0, y: 0, width: 0, height: 512 });
+	 * ```
+	 *
+	 * @param source The encoded image.
+	 * @param region The rectangle in source pixels.
+	 * @return The extent, the channel count and `width * height * channels` bytes, rows tightly
+	 * packed.
+	 */
+	async decodeRegion(source: Source, region: Rect): Promise<RawImage> {
+		const bytes = await readSource(source);
+		const buffer = this.copyIn(bytes);
+		const image = this.alloc(this.exports.tiny_image_sizeof());
+
+		try {
+			this.check(
+				this.exports.tiny_image_load_region(
+					image,
+					buffer,
+					bytes.byteLength,
+					region.x,
+					region.y,
+					region.width,
+					region.height
+				),
+				'decode the region'
 			);
 
 			try {
@@ -563,11 +698,57 @@ export class TinyImgModule {
 	}
 
 	/**
+	 * The blobs compiled into the module.
+	 *
+	 * A Latin face under `sans`, the four ICC profiles under `srgb`, `display-p3`,
+	 * `adobe-rgb-1998` and `rec2020`, and two LBP cascades. Nothing has to be loaded for text,
+	 * profile conversion or face detection to work; {@link loadBlob} is for a wider glyph set, a
+	 * different face or another cascade.
+	 *
+	 * Loading a blob of a kind hides the builtins of that kind from face detection, so one
+	 * resident cascade runs alone. This listing reports what ships either way.
+	 *
+	 * @param kind Which kind to list, or omitted for all of them.
+	 * @return The id and byte length of each.
+	 */
+	builtinBlobs(kind?: BlobKind): BuiltinBlob[] {
+		const kinds: BlobKind[] = kind ? [kind] : ['font', 'icc', 'cascade'];
+		const out: BuiltinBlob[] = [];
+		const id = this.alloc(4);
+		const size = this.alloc(4);
+
+		try {
+			for (const each of kinds) {
+				for (let index = 0; ; index++) {
+					const data = this.exports.tiny_blob_builtin_at(
+						BLOB_KINDS[each],
+						index,
+						id,
+						size
+					);
+
+					if (data === 0) break;
+
+					out.push({
+						kind: each,
+						id: this.readString(this.view().getUint32(id, true)),
+						bytes: this.view().getUint32(size, true)
+					});
+				}
+			}
+		} finally {
+			this.free(id);
+			this.free(size);
+		}
+
+		return out;
+	}
+
+	/**
 	 * Finds the faces in an image.
 	 *
-	 * Needs at least one cascade loaded through {@link loadBlob}; with none it throws a
-	 * {@link TinyImgBlobError} rather than reporting no faces, because the two mean different
-	 * things. Runs every resident cascade and groups the results, so a frontal and a profile
+	 * Runs the two cascades the module carries, or every cascade loaded through
+	 * {@link loadBlob} when any is resident, and groups the results, so a frontal and a profile
 	 * cascade together find both kinds of face and a face that fires both is one box.
 	 *
 	 * @param source The encoded image.

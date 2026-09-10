@@ -1,4 +1,4 @@
-import { Image, mimeFor, type EncodeOptions } from './image.js';
+import { COMPRESSION, Image, mimeFor, type EncodeOptions } from './image.js';
 import { readSource, type ImageFormat, type Source, type TransformOptions } from './types.js';
 import type { FeatureName, TinyImgModule } from './wasm.js';
 
@@ -27,6 +27,22 @@ export interface TransformResult {
 	 * discover, by serving the original or by asking for a request that passes through.
 	 */
 	readonly flattened: boolean;
+	/**
+	 * What the planner gave up to fit `budgetMs`, by name.
+	 *
+	 * Empty when no budget was given, when the request already fit, and on a pass-through, which
+	 * costs a header read and never needs a lever. `'effort'` means the decode ran fast; `'filter'`
+	 * means a filter left open went to nearest, and `'scale'` means the decoder was asked for a
+	 * further reduction and the result is softer. Changing container is not degrading and is
+	 * reported by {@link TransformResult.format} instead.
+	 *
+	 * `'compression'` is the one that costs bytes rather than fidelity: a lossless output's
+	 * compressor was turned down because the encoder alone was over budget. It never appears when
+	 * {@link TransformOptions.compression} named a level.
+	 *
+	 * The same lossy-outcome-you-may-want-to-refuse shape as {@link TransformResult.flattened}.
+	 */
+	readonly degraded: readonly string[];
 
 	/** The encoded bytes. */
 	bytes(): Uint8Array<ArrayBuffer>;
@@ -172,8 +188,60 @@ export async function transform(
 	try {
 		apply(image, options);
 
-		const decided = image.decide();
+		let decided = image.decide();
 		const format = chooseFormat(module, image, options, decided);
+
+		/*
+		 * Container first, then quality. Choosing the cheaper encoder costs the caller nothing but
+		 * bytes, so it is tried before anything that softens the image; only what is still over
+		 * after that reaches the planner's own levers.
+		 *
+		 * The budget handed down is what is left after the encoder, because a plan cannot price an
+		 * encoder it does not carry.
+		 */
+		let compression: NonNullable<EncodeOptions['compression']> | undefined =
+			options.compression;
+
+		if (options.budgetMs !== undefined) {
+			const priced = (level: NonNullable<EncodeOptions['compression']>) =>
+				module.exports.tiny_encode_cost_at(
+					FORMAT_ID[format],
+					decided.output.width,
+					decided.output.height,
+					COMPRESSION.indexOf(level)
+				) / 1000;
+
+			/*
+			 * Turn the compressor down before touching the picture.
+			 *
+			 * On a PNG-output request the encoder is the larger half of the cost and used to be the
+			 * half no lever reached: the plan got `budgetMs - encodeMs`, which for PNG is already
+			 * negative, so it was floored at a microsecond and the planner then gave up the filter
+			 * and three halvings of the decode to save a fraction of what the compressor was
+			 * spending. Softening the image to pay for the compressor is the wrong trade in the
+			 * wrong order.
+			 *
+			 * Only stepped down when the caller did not name a level, and only as far as the budget
+			 * needs. `none` is not purely a size trade either: on a filtered photograph row at 400
+			 * pixels it measured 6.6% smaller than `default` as well as 2.45x faster.
+			 */
+			// only where the level moves the price at all, which is how this asks the module whether
+			// the format carries a deflate stream rather than keeping a second list of which do
+			if (compression === undefined && priced('none') < priced('default')) {
+				for (const level of ['default', 'fast', 'none'] as const) {
+					compression = level;
+					if (options.budgetMs - priced(level) > 0) break;
+				}
+			}
+
+			const encodeMs = priced(compression ?? 'auto');
+
+			// a microsecond rather than zero, which means no budget at all: when the encoder
+			// alone is over even at its cheapest, degrading the plan as far as it goes is still
+			// the answer the caller asked for
+			image.budget(Math.max(0.001, options.budgetMs - encodeMs));
+			decided = image.decide();
+		}
 
 		const encode: EncodeOptions = {
 			...(options.quality === undefined ? {} : { quality: options.quality }),
@@ -182,17 +250,28 @@ export async function transform(
 			...(options.metadata === undefined
 				? {}
 				: { stripMetadata: options.metadata === 'none' }),
-			...(options.effort === undefined ? {} : { effort: options.effort })
+			...(options.effort === undefined ? {} : { effort: options.effort }),
+			...(compression === undefined ? {} : { compression })
 		};
 
 		const data = await image.bytes(format, encode);
+
+		// the compressor coming down is a real give-up, of output size rather than of fidelity, so
+		// it is reported the same way the planner's levers are
+		const gave_up =
+			compression !== undefined &&
+			compression !== 'default' &&
+			options.compression === undefined
+				? [...decided.degraded, 'compression']
+				: decided.degraded;
 
 		return result(
 			data,
 			format,
 			decided.output.width,
 			decided.output.height,
-			image.sourceFrames > 1
+			image.sourceFrames > 1,
+			gave_up
 		);
 	} finally {
 		image.dispose();
@@ -448,7 +527,8 @@ function result(
 	format: ImageFormat,
 	width: number,
 	height: number,
-	flattened = false
+	flattened = false,
+	degraded: readonly string[] = []
 ): TransformResult {
 	const contentType = mimeFor(format);
 
@@ -459,6 +539,7 @@ function result(
 		width,
 		height,
 		flattened,
+		degraded,
 		bytes: () => data,
 		blob: () => new Blob([data], { type: contentType }),
 		response: (headers?: HeadersInit) => {

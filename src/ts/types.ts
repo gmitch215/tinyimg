@@ -148,6 +148,15 @@ export interface TransformOptions {
 	budgetMs?: number;
 	/** Quality for a lossy format, 1 through 100. */
 	quality?: number;
+	/**
+	 * How hard to compress a lossless stream, for PNG and deflate-compressed TIFF.
+	 *
+	 * Left unset, a `budgetMs` may turn it down to fit, which is the first lever it reaches:
+	 * on a PNG output the encoder costs more than everything the planner controls, so softening
+	 * the image to pay for the compressor would be the wrong trade. Naming a level here pins it,
+	 * and the budget then degrades the plan instead.
+	 */
+	compression?: 'auto' | 'none' | 'fast' | 'default' | 'best';
 	/** Use a format's lossless mode where it has one. */
 	lossless?: boolean;
 	/** Write a progressive or interlaced stream. */
@@ -258,6 +267,18 @@ export interface PlanDecision {
 	 * 0 when the source header could not be read.
 	 */
 	estimateMs: number;
+	/**
+	 * What the planner gave up to fit a budget, by name.
+	 *
+	 * Empty unless {@link Image.budget} was set and the estimate was over it. `'effort'` means the
+	 * decode ran fast: a lossy decoder dropped its smoothing pass and an enlargement the caller
+	 * left open stepped down a filter. `'filter'` means a filter left open went to nearest.
+	 * `'scale'` means the decoder was asked for a further reduction, so the resample read fewer
+	 * source samples than the output it produced and the result is softer.
+	 *
+	 * A caller who would rather fail than serve a softer image reads this and refuses.
+	 */
+	degraded: string[];
 }
 
 /**

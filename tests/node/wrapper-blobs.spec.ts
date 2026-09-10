@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import wasm from '../../bin/tinyimg.wasm?bin';
-import { Image, TinyImgBlobError, TinyImgModule } from '../../src/ts/index.js';
+import { Image, TinyImgModule } from '../../src/ts/index.js';
 
 const fixtures = join(import.meta.dirname, '../fixtures');
 
@@ -69,9 +69,14 @@ describe('blobs through the wrapper', () => {
 
 		expect(tinyimg.freeBlob('cascade', 'frontal')).toBe(true);
 		expect(tinyimg.freeBlob('cascade', 'frontal')).toBe(false);
-		expect(tinyimg.freeBlob('font')).toBe(false);
 
-		await expect(tinyimg.detectFaces(fixture('smile.jpg'))).rejects.toThrow(TinyImgBlobError);
+		// a builtin is in the module's data section, so it is not a blob anything can release
+		expect(tinyimg.freeBlob('font')).toBe(false);
+		expect(tinyimg.freeBlob('font', 'sans')).toBe(false);
+
+		// releasing the resident cascade uncovers the two that ship rather than leaving the
+		// detector with nothing to run
+		expect((await tinyimg.detectFaces(fixture('smile.jpg'))).length).toBeGreaterThan(0);
 
 		// and the id-less form takes the first of a kind
 		await tinyimg.loadBlob(
@@ -87,7 +92,28 @@ describe('blobs through the wrapper', () => {
 			fixture('derived/cascades/lbp-frontalface.bin')
 		);
 		tinyimg.freeBlobs();
-		await expect(tinyimg.detectFaces(fixture('smile.jpg'))).rejects.toThrow(TinyImgBlobError);
+		expect((await tinyimg.detectFaces(fixture('smile.jpg'))).length).toBeGreaterThan(0);
+	});
+
+	it('lists what the module carries', () => {
+		tinyimg.freeBlobs();
+
+		const all = tinyimg.builtinBlobs();
+
+		expect(all.map((entry) => entry.id)).toEqual([
+			'sans',
+			'srgb',
+			'display-p3',
+			'adobe-rgb-1998',
+			'rec2020',
+			'lbp-frontalface',
+			'lbp-profileface'
+		]);
+
+		for (const entry of all) expect(entry.bytes).toBeGreaterThan(1000);
+
+		expect(tinyimg.builtinBlobs('cascade')).toHaveLength(2);
+		expect(tinyimg.builtinBlobs('font')).toHaveLength(1);
 	});
 
 	it('refuses a ninth blob rather than dropping one', async () => {

@@ -42,6 +42,16 @@
 
 export { Image, mimeFor, type EncodeOptions, type FitOptions } from './image.js';
 export {
+	Font,
+	og,
+	type OgOptions,
+	type OgResult,
+	type TextBox,
+	type TextLine,
+	type TextShadow,
+	type TextStyle
+} from './text.js';
+export {
 	TRANSFORM_ORDER,
 	apply,
 	artifactKey,
@@ -82,6 +92,7 @@ export {
 	SUPPORTED_ABI,
 	TinyImgLoadError,
 	TinyImgModule,
+	type BuiltinBlob,
 	type FeatureName,
 	type Measured,
 	type WorkCounters

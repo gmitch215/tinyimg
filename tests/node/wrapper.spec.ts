@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import wasm from '../../bin/tinyimg.wasm?bin';
 import {
+	Err,
 	Image,
 	mimeFor,
 	readColor,
@@ -16,6 +17,7 @@ import {
 	TRANSFORM_ORDER,
 	type Source
 } from '../../src/ts/index.js';
+import { errorFor } from '../../src/ts/types.js';
 
 const fixtures = join(import.meta.dirname, '../fixtures');
 
@@ -112,14 +114,85 @@ describe('the wrapper', () => {
 		await expect(readSource(42 as never)).rejects.toThrow(TypeError);
 	});
 
+	/*
+	 * Banding exists so one image can cross several CPU allowances, which on Workers is the only way
+	 * to serve a request no single invocation fits. The property that makes it usable is that the
+	 * bands reassemble into the whole decode exactly.
+	 */
+	it('decodes a region that matches the same rows of the whole image', async () => {
+		const source = fixture('sf-24.jpg');
+		const whole = await tinyimg.decode(source);
+
+		const bands = [
+			{ x: 0, y: 0, width: 0, height: 300 },
+			{ x: 0, y: 300, width: 0, height: 300 },
+			{ x: 0, y: 600, width: 0, height: 432 }
+		];
+
+		let row = 0;
+
+		for (const band of bands) {
+			const part = await tinyimg.decodeRegion(source, band);
+
+			expect(part.width).toBe(whole.width);
+			expect(part.height).toBe(band.height);
+			expect(part.channels).toBe(whole.channels);
+
+			const stride = whole.width * whole.channels;
+			const offset = row * stride;
+
+			// by loop rather than toEqual, which builds a structural diff element by element: one
+			// mismatch in a buffer this size takes minutes to render
+			let mismatch = -1;
+
+			for (let at = 0; at < part.pixels.length; at++) {
+				if (part.pixels[at] !== whole.pixels[offset + at]) {
+					mismatch = at;
+					break;
+				}
+			}
+
+			expect(mismatch, `band at y ${band.y}`).toBe(-1);
+			expect(part.pixels.length).toBe(part.height * stride);
+
+			row += part.height;
+		}
+
+		// every row accounted for, so the bands are a partition rather than a sample
+		expect(row).toBe(whole.height);
+
+		// a zero extent means to the far edge, and the rectangle is clamped to the image
+		const corner = await tinyimg.decodeRegion(source, {
+			x: 1800,
+			y: 1000,
+			width: 0,
+			height: 0
+		});
+
+		expect(corner.width).toBe(35);
+		expect(corner.height).toBe(32);
+
+		const past = await tinyimg.decodeRegion(source, {
+			x: 0,
+			y: 0,
+			width: 9000,
+			height: 9000
+		});
+
+		expect(past.width).toBe(whole.width);
+		expect(past.height).toBe(whole.height);
+	});
+
 	it('maps every error code onto the class a caller would branch on', async () => {
 		await expect(tinyimg.probe(fixture('derived/malformed/not-an-image.bin'))).rejects.toThrow(
 			TinyImgFormatError
 		);
 
-		// a blob nobody loaded is its own class, because the remedy is to load one
+		// a blob nobody loaded is its own class, because the remedy is to load one. Detection
+		// no longer reaches it: the cascades ship, so freeing every resident blob uncovers them
+		expect(errorFor(Err.blobMissing, 'blob not loaded')).toBeInstanceOf(TinyImgBlobError);
 		tinyimg.freeBlobs();
-		await expect(tinyimg.detectFaces(fixture('smile.jpg'))).rejects.toThrow(TinyImgBlobError);
+		expect((await tinyimg.detectFaces(fixture('smile.jpg'))).length).toBeGreaterThan(0);
 
 		using image = await Image.open(tinyimg, fixture('derived/base.png'));
 		expect(() => image.gamma(-1)).toThrow(TinyImgArgumentError);

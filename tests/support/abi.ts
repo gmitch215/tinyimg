@@ -20,6 +20,8 @@ export interface TinyExports {
 	tiny_realloc(pointer: number, size: number): number;
 	tiny_free(pointer: number): void;
 	tiny_arena_reset(): void;
+	tiny_work_reset(): void;
+	tiny_work_read(counter: number): number;
 	tiny_image_sizeof(): number;
 	tiny_image_info_sizeof(): number;
 	tiny_writer_sizeof(): number;
@@ -183,6 +185,9 @@ export interface TinyExports {
 	tiny_icc_convert_image(image: number, profile: number): number;
 
 	tiny_blob_load(kind: number, id: number, data: number, size: number): number;
+	tiny_encode_opts_sizeof(): number;
+	tiny_text_box_sizeof(): number;
+	tiny_text_line_sizeof(): number;
 	tiny_blob_free(kind: number, id: number): number;
 	tiny_blob_free_all(): void;
 
@@ -302,6 +307,27 @@ export const Gravity = {
 	southEast: 8,
 	auto: 9,
 	face: 10
+} as const;
+
+/**
+ * Work counters, mirroring TinyWorkCounter.
+ *
+ * Read through `tiny_work_read` rather than off a struct, for the reason `tiny_plan_field` exists:
+ * the layout is not part of the ABI, so a test that hardcoded offsets would pass while the accessor
+ * broke.
+ */
+export const Counter = {
+	sourceSamples: 0,
+	decodedSamples: 1,
+	blocks: 2,
+	transforms: 3,
+	transformSamples: 4,
+	macroblocks: 5,
+	filtered: 6,
+	resampled: 7,
+	encoded: 8,
+	passes: 9,
+	scansSkipped: 10
 } as const;
 
 /**
@@ -481,6 +507,8 @@ export interface EncodeOptions {
 	lossless?: boolean;
 	progressive?: boolean;
 	stripMetadata?: boolean;
+	effort?: number;
+	compression?: number;
 }
 
 /** A TinyTextMetrics, read back out of the module. */
@@ -714,7 +742,8 @@ export class TinyAbi {
 	plan(
 		bytes: Uint8Array,
 		build: (plan: number) => void,
-		fusion = 1
+		fusion = 1,
+		run = true
 	): { result: number; image: DecodedImage | undefined; resolution: PlanResolution | undefined } {
 		const buffer = this.copyIn(bytes);
 		const plan = this.exports.tiny_alloc(this.exports.tiny_plan_sizeof());
@@ -732,6 +761,10 @@ export class TinyAbi {
 			if (result !== Err.ok) return { result, image: undefined, resolution: undefined };
 
 			const decided = this.readResolution(resolution);
+
+			// a resolution costs a header read and no pixels, which is the whole point of it, so a
+			// test that only asserts the decision does not have to pay for the transform
+			if (!run) return { result, image: undefined, resolution: decided };
 
 			result = this.exports.tiny_plan_run(plan, image);
 			if (result !== Err.ok) {
@@ -1014,9 +1047,11 @@ export class TinyAbi {
 		const image = this.exports.tiny_alloc(this.exports.tiny_image_sizeof());
 		const writer = this.exports.tiny_alloc(this.exports.tiny_writer_sizeof());
 
-		// four bytes in the order image.h declares them, or a null pointer for the codec's own
-		// defaults; the struct is all uint8 so there is no padding to get wrong
-		const opts = encode ? this.exports.tiny_alloc(4) : 0;
+		// every field in the order image.h declares them, or a null pointer for the codec's own
+		// defaults; the struct is all uint8 so there is no padding to get wrong. the length comes
+		// from the module rather than being written here, because a field added on the C side and
+		// not here left the encoder reading whatever the allocator had in that byte
+		const opts = encode ? this.exports.tiny_alloc(this.exports.tiny_encode_opts_sizeof()) : 0;
 
 		if (opts !== 0) {
 			this.view().set(
@@ -1024,7 +1059,9 @@ export class TinyAbi {
 					encode!.quality ?? 0,
 					encode!.lossless ? 1 : 0,
 					encode!.progressive ? 1 : 0,
-					encode!.stripMetadata ? 1 : 0
+					encode!.stripMetadata ? 1 : 0,
+					encode!.effort ?? 0,
+					encode!.compression ?? 0
 				],
 				opts
 			);
