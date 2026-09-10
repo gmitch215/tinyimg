@@ -10,15 +10,29 @@ uses; the default level reports about 1.4% larger, so a number here will not mat
 
 ## Size
 
-Small size is the primary goal, ahead of speed and then memory, and every choice below that trades
-one against another was decided in that order.
+**Size stopped being the primary goal on 2026-09-04**, when Cloudflare removed the compressed Worker
+size limit. The only platform limit is now 64 MiB uncompressed, on every plan; the 3 MB and 10 MB
+compressed limits this library was shaped around are gone. Speed comes first now, then size, then
+memory.
 
-| Measure                    |      Bytes |
-| -------------------------- | ---------: |
-| raw wasm                   |    190,309 |
-| **gzip**                   | **90,360** |
-| brotli                     |     79,944 |
-| npm tarball, whole package |    138,700 |
+The figures below are uncompressed, because that is the axis Cloudflare checks. `bun run size`
+reports against a 1 MiB target and a 1.5 MiB ceiling, both of which are this project's own numbers
+rather than the platform's, and they exist so that `tiny` keeps meaning something.
+
+| Measure      |       Bytes |
+| ------------ | ----------: |
+| **raw wasm** | **777,426** |
+| gzip         |     312,073 |
+| brotli       |     257,373 |
+
+The module was 190,309 raw at `-Oz`. Building the same sources at `-O2` is **1.45x to 3.54x faster**
+depending on the stage and every output digest is byte-identical, so the switch cost bytes and
+nothing else. `-O3` is indistinguishable from `-O2` on every measurement and costs a further 71 KB,
+so `-O2` is what ships.
+
+Startup does not constrain this either. Compile is linear at 6.8 to 8.9 microseconds per kilobyte,
+so a 1 MiB module is about 8 ms of the 1 second Workers allows a global scope, and instantiate,
+which is what a warm isolate actually pays, is 0.18 to 0.23 ms and roughly flat.
 
 The tarball is what a caller installs: the module, the compiled wrapper, the declarations and their
 source maps. The wrapper's `.js` is 29,867 raw and 7,831 gzipped across five files. The `.d.ts` files
@@ -45,19 +59,21 @@ Per-codec marginal cost, measured by removing one at a time: JPEG +18.3 KiB, GIF
 TIFF +5.2, BMP +3.2, WebP +37.9 (raw). PNG's figure fell from 13.9 once TIFF also used the DEFLATE
 unit, which is the difference between a marginal cost and an additive one.
 
-Removing three at once is not the sum of their arms, for the same reason. Dropping WebP, TIFF and
-GIF together gives **138,882 raw / 65,438 gzip**, a 27.6% reduction, and `tiny_features` reports the
-three as absent:
+Removing several at once is not the sum of their arms, for the same reason. Dropping WebP, TIFF, GIF
+and AVIF together gives **366,325 raw / 152,733 gzip**, a 52.9% reduction, and `tiny_features`
+reports the four as absent:
 
 ```sh
 cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/wasm32.cmake \
-  -DCMAKE_C_FLAGS="-DTINYIMG_NO_WEBP -DTINYIMG_NO_TIFF -DTINYIMG_NO_GIF"
+  -DCMAKE_C_FLAGS="-DTINYIMG_NO_WEBP -DTINYIMG_NO_TIFF -DTINYIMG_NO_GIF -DTINYIMG_NO_AVIF"
 ```
 
 ### Where the estimates were wrong
 
-The plan projected ~131,000 raw and ~45,000 gzip. The module is 190,309 and 90,360, so the estimate
-was low by 45% and 101%. Two regions account for almost all of it:
+The plan projected ~131,000 raw and ~45,000 gzip. At the phase the projection covered the module was
+190,309 and 90,360, so the estimate was low by 45% and 101%; the current figure is larger again
+because it now carries an AV1 decoder and encoder the plan did not price at all. Two regions account
+for almost all of the original miss:
 
 - **WebP came in at +37.9 KiB raw against a 27.2 KiB estimate**, a 39% miss. The estimate is the one
   the plan flagged as most likely to move, and Phase 3 existed to measure it before later phases
@@ -80,12 +96,20 @@ same runtime. Ratio is `@jsquash` over tinyimg, so above 1 means tinyimg is fast
 
 | Measurement     | tinyimg | bytes out | @jsquash | bytes out | Ratio |
 | --------------- | ------: | --------: | -------: | --------: | ----: |
-| decode jpeg     | 24.4 ms |           |  11.4 ms |           | 0.47x |
-| encode jpeg q80 | 46.6 ms |    73,513 |   107 ms |    47,340 | 2.30x |
-| decode png      | 28.9 ms |           |  24.2 ms |           | 0.84x |
-| encode png      |  417 ms |   636,919 |  19.4 ms | 1,209,393 | 0.05x |
-| decode webp     | 32.6 ms |           |  18.1 ms |           | 0.55x |
-| encode webp q80 |  151 ms |    54,506 |   104 ms |    29,788 | 0.69x |
+| decode jpeg     | 11.1 ms |           |  12.1 ms |           | 1.09x |
+| encode jpeg q80 | 28.5 ms |    73,513 |   114 ms |    47,340 | 3.99x |
+| decode png      | 24.0 ms |           |  25.9 ms |           | 1.08x |
+| encode png      |  260 ms |   636,919 |  19.9 ms | 1,209,393 | 0.08x |
+| decode webp     | 25.9 ms |           |  18.7 ms |           | 0.72x |
+| encode webp q80 | 78.8 ms |    54,506 |   109 ms |    29,788 | 1.38x |
+
+From `bench/results/latest.md`, which `bun bench/run.ts` regenerates. A second run of the same
+harness put the ratios at 1.06x, 3.79x, 1.03x, 0.08x, 0.69x and 1.31x, so read the third digit as
+the machine rather than the code.
+
+Those are the `-O2` figures. At `-Oz` the same rows read 0.47x, 2.30x, 0.84x, 0.05x, 0.55x and
+0.69x, so **the build level accounted for most of what used to look like an algorithmic gap.** PNG
+encode is the row it did not rescue, and the two operating points below still apply to it.
 
 **The byte counts are part of the measurement.** Two of these rows are not a comparison at all
 because the two encoders are at different operating points:
@@ -99,9 +123,20 @@ because the two encoders are at different operating points:
   matching output size rather than the number on the dial is the comparison worth making, and it has
   not been done.
 
-Decode is the honest comparison, and tinyimg loses it: 2.1x behind libjpeg, 1.8x behind libwebp,
-1.2x behind libpng. That is a hand-written scalar decoder against three mature, heavily tuned
-libraries, all three of which have SIMD implementations of their hot kernels and this has none.
+Decode is the comparison without an operating point to argue about. tinyimg used to lose all three
+rows of it; it now wins JPEG and PNG by a few percent and loses WebP by 1.4x. PNG moved most
+recently, from 0.96x, when the DEFLATE fast table went from nine bits to eleven.
+
+**An earlier version of this report explained the gap by saying all three comparison libraries have
+SIMD implementations of their hot kernels and this one has none. Both halves were false.** Counted
+with `wasm2wat --enable-all`: `mozjpeg_dec.wasm`, `webp_dec.wasm` and `squoosh_png_bg.wasm` contain
+**zero** SIMD instructions between them, and `bin/tinyimg.wasm` contained **548** at `-Oz` and 8,552
+at `-O3`. `squoosh_png_bg.wasm`'s own target-features section lists `mutable-globals` and `sign-ext`
+and nothing else.
+
+The gap was an optimization level and a code structure. Building the same sources at `-O2` closed
+half of it, and the rest is accounted for stage by stage below. A wasm module is inspectable, so
+there was never a reason to infer this.
 
 ### Where decode time goes
 
@@ -117,6 +152,23 @@ of guessing at them beforehand had already been wrong.
 | coefficient handling             | 10.3% | region copy                     |  5.8% |
 | plane clearing                   |  1.1% | intra prediction                |  3.6% |
 |                                  |       | inverse transform               |  1.6% |
+
+**Those JPEG figures are a `-O2` native profile of one smooth 4:4:4 photograph and they do not
+generalize.** Re-measured in wasm at the level that ships, by replacing one stage at a time with a
+stub:
+
+| fixture                   | output stage | inverse transform |
+| ------------------------- | -----------: | ----------------: |
+| `sf-24.jpg`, 4:4:4        |        38.9% |             23.8% |
+| `mountains.jpg`, 4:2:0    |        43.5% |             13.8% |
+| `road.jpg`, progressive   |        32.4% |             11.3% |
+| `dog.jpg`, 4:2:0, 6.0 Mpx |        59.8% |             15.1% |
+
+**The output stage is the largest block in JPEG decode, not the transform**, and entropy decoding is
+**28.8%** on a detailed 4:2:0 photograph rather than the 10.5% above. 10.5% is what a smooth 4:4:4
+file with 3.68 coded symbols per block looks like. The clue was already in the ratio table: a 4:4:4
+JPEG sits at 0.84x and a 4:2:0 file of nearly the same size at 0.60x, and 4:4:4 is the one case with
+no chroma to upsample.
 
 Three things follow, and all three contradict a plausible reading of the same problem:
 
@@ -311,6 +363,50 @@ which is 9.6% of the module, and it removes 69% of the time from a realistic cha
 3.63x before the decode work above, because both arms decode and the faster decoder shrinks the
 denominator too.
 
+#### The cost model's scale factor was one codec's, applied to all of them
+
+`cost_of` charged a scaled decode as the full decode times a factor per denominator, and the factors
+were **JPEG's**, measured on the reference photograph. Only two codecs earn them: JPEG reduces in the
+DCT domain and BMP skips rows, while the rest decode the whole frame and box average afterwards.
+
+Measured per format, five interleaved repeats of a median of fifteen, every cell within 2%:
+
+| Format | 1/2 factor | 1/4 factor | 1/8 factor |
+| ------ | ---------: | ---------: | ---------: |
+| JPEG   |      0.350 |      0.290 |      0.203 |
+| BMP    |      0.527 |      0.384 |      0.358 |
+| TIFF   |      0.847 |      0.811 |      0.804 |
+| AVIF   |      0.919 |      0.879 |      0.865 |
+| GIF    |      0.953 |      0.882 |      0.872 |
+| WebP   |      1.024 |      0.993 |      0.975 |
+| PNG    |      1.619 |      1.559 |      1.547 |
+
+The shared factors were 0.674, 0.540 and 0.337. So **PNG was charged a 33% saving where a half scale
+decode costs 62% more**, and the sign is the problem rather than the magnitude: a budget took the
+scale rung expecting the request to get cheaper. At a denominator of one a PNG row is a single
+`tiny_memcpy`; above it the same row goes through `expand_row` and `accumulate`, which is work the
+denominator adds rather than removes. WebP and GIF are close enough to 1.0 that the rung buys them
+nothing either.
+
+Three things fell out of fixing it. **The capability rule this was going to need is unnecessary**:
+the ladder already skips a rung that does not come out cheaper, so it was blind rather than wrong,
+and correct factors are what let it see. **AVIF was priced at zero**, having no case in
+`decode_rate`, so a budgeted AVIF request was free according to the model and is now the most
+expensive format at 26,461 us per megapixel. And **`cost_of` was re-probing the source header on
+every call**, six times for a budget ladder, when `tiny_plan_init` had already put the extent and
+format on the plan.
+
+`effort_fraction` had to become denominator-aware for WebP in the same pass, because the two levers
+do not multiply: FAST skips the deblocking filter at any scale and additionally reduces in the plane
+domain above a denominator of one, so its saving grows with the denominator while the scale factor
+was measured at full effort. One number over-charged a scaled FAST request by 2.2x to 2.6x.
+
+`scripts/measure/estimate.ts` scores the model against the clock per format and per budget, with a
+band of 0.6x to 2.0x. It is a periodic eval and not a gate test, because the rates describe one
+machine. It refuses to run at a load average above a quarter of the core count: a run at load 24
+doubled every clock and left every estimate identical, which reads as the model under-predicting by
+half across the board, and the estimates being byte-identical is the only thing that gave it away.
+
 ### The encoders, and where a WebP request actually spends
 
 Everything above is decode. For a request that writes WebP, decode is the smaller half. The same
@@ -367,6 +463,7 @@ full-effort decode of the same file:
 | Decoder             | What `fast` drops                    |       Speedup |      Agreement |
 | ------------------- | ------------------------------------ | ------------: | -------------: |
 | VP8 lossy           | the deblocking filter                |         1.53x |        46.8 dB |
+| VP8 lossy, scaled   | the full resolution conversion       | 2.05x - 3.35x | 38.9 - 48.7 dB |
 | JPEG 4:2:0 / 4:2:2  | interpolated chroma, replicated inst | 1.11x - 1.25x | 43.6 - 59.5 dB |
 | Resample, enlarging | Catmull-Rom, bilinear instead        |          3.2x |        45.7 dB |
 
@@ -379,8 +476,87 @@ else.
 **Nothing else has anything to drop, and that is a property of the formats rather than a gap.** A
 lossless bitstream defines its pixels exactly, so every step is required to produce them: PNG, GIF,
 TIFF and lossless WebP measure 1.00x to 1.03x and byte-identical at either effort. So does a 4:4:4
-JPEG, which has no chroma to upsample. A reduction keeps its filter too, because an area average is
-already both the cheapest option and the correct one.
+JPEG, which has no chroma to upsample.
+
+#### The compressor is a budget lever, and it was the one nothing could reach
+
+For a PNG or TIFF output the encoder is the larger half of the request, and the plan was handed
+`budgetMs - encodeMs`. For PNG that difference is already negative at every useful extent, so it was
+floored at a microsecond and the planner then gave up the filter and three halvings of the decode to
+save a fraction of what the compressor was spending. Softening the picture to pay for the compressor,
+in that order.
+
+`tiny_encode_cost_at` prices a level, and a budgeted request steps `default` to `fast` to `none`
+before touching the plan. Measured on the reference photograph, five interleaved repeats:
+
+| Level     | 400 wide | 800 wide | Bytes at 400 | Bytes at 800 |
+| --------- | -------: | -------: | -----------: | -----------: |
+| `none`    |    2.45x |    1.55x |       64,783 |      222,574 |
+| `fast`    |    2.06x |    1.57x |       78,102 |      225,332 |
+| `default` |    1.00x |    1.00x |       69,337 |      200,371 |
+| `best`    |    0.34x |    0.32x |       65,798 |      188,866 |
+
+End to end a budgeted PNG request measures **3.7x at 400 wide (46.3 ms to 12.6) and 2.8x at 800
+(89.0 to 31.3)**, and it reports `compression` in `degraded`. Naming a level pins it.
+
+**`none` is not always a trade.** At 400 wide it produced a file 6.6% smaller than `default` as well
+as 2.45x faster, because one greedy short match per position codes a filtered photograph row worse
+than entropy coding the literals. It becomes a real trade at 800, where it costs 11% more bytes. The
+conservative end of each measured range is what the constants use, because a budget promised a saving
+it does not get reports that a request fits when it does not.
+
+#### Widening the DEFLATE fast table, and the file it does not help
+
+`TINY_DEFLATE_FAST_BITS` went from 9 to 11. On `forest.png` that is **1.10x (40.28 ms to 36.50)**;
+on a 2400x1350 photograph it is 1.01x.
+
+The difference between the two files is how well they compress. `forest.png` carries 3.74 MB of IDAT
+for 4.99 MB of pixels, a ratio of 1.33, so its literals take long codes that a nine bit table misses
+and that fall back to walking the canonical code a bit at a time. The photograph compresses 10.9x and
+its codes were already inside nine bits. **The win lands on the low-ratio files, which are the
+expensive ones**, and that is the useful direction. Twelve bits bought a further 0.6% for twice the
+table and was not taken. The cost is 6 KiB of arena, and nothing holds a table on the stack.
+
+#### A reduction had one thing to drop after all, and it was not a filter
+
+The line above used to end by saying a reduction keeps its filter, because an area average is both
+the cheapest option and the correct one. The average was never the cost. **Converting the samples
+before averaging them was**, and a scaled WebP request pays it 64 times over at a denominator of
+eight.
+
+Stubbing out `planes_to_rgba` prices it: 4.85 ms of 19.46 at `den` 1 and 5.25 of 19.02 at `den` 8, so
+**25% to 27% of the decode, and it does not shrink as the output does.** A scaled WebP decode was
+flat to within 8% across the whole ladder, which is what a stage proportional to the source rather
+than the output looks like.
+
+The conversion is affine in Y, U and V, so `planes_to_region` averages the planes over each output
+pixel's box and converts once. At `den` 8 the decode lands on 13.80 ms against the stub arm's 13.77,
+which is the confirmation the stage is gone rather than merely cheaper, and the full frame of RGBA is
+never allocated: 7.57 MB on this fixture.
+
+**It is behind FAST, and the measurement is why.** Two references disagree about it:
+
+| Reference                           | `den` 2 | `den` 4 | `den` 8 |
+| ----------------------------------- | ------: | ------: | ------: |
+| the original, box-reduced (neutral) |   +0.18 |   +0.22 |   -0.04 |
+| the exact box average of the decode | -46 lvl | -20 lvl | -11 lvl |
+
+Against a reduction of the source image the fold is a wash, marginally ahead at two of three
+denominators. Against the box average of the library's own full decode it is up to 46 levels off, and
+that one is not a preference: `resample_region` computes exactly that average, `TinyDecodeOpts`
+documents it, and the agreement between a scaled WebP and a scaled PNG of one picture follows from
+it. Chroma is the whole difference. The fold takes the mean of the box's chroma samples; the exact
+path takes the mean of the triangle upsample of them, and the conversion's clamp lands per source
+pixel instead of once.
+
+So the speed is real, the fidelity is a wash, and the exactness is a documented property. The tier is
+where this library puts that trade, and it already puts VP8's filter there. FANCY stays byte-exact,
+which the tests now assert for the first time; FAST reduces in the plane domain for **2.05x to 3.35x
+together with the filter skip**, floor 38.9 dB. Alpha carries no chroma and no clamp, so it stays
+byte-exact at either effort.
+
+One case is deliberately not folded. A frame coded smaller than its canvas has no zeroed gap to
+average, because the gap only exists in the RGBA plane the fold skips, so those convert as before.
 
 Two mistakes are recorded here because both were made in the course of measuring this:
 
@@ -426,8 +602,11 @@ which is irreducible in VP8 exactly as it is in JPEG.
 
 ### The Free envelope, which the source decides
 
-Workers Free allows 10 milliseconds of CPU per request and is not configurable, so a request either
-fits or fails. Measured end to end in wasm from `sf-24.jpg`, at the bounded effort:
+Workers Free allows 10 milliseconds of CPU per request, not configurable, so a request either fits
+or fails. The limit is enforced elastically rather than as a hard ceiling, which is worth knowing
+before testing against it: see "The limit is enforced elastically" below.
+
+Measured end to end in wasm from `sf-24.jpg`, at the bounded effort:
 
 | output      |        JPEG |    WebP |
 | ----------- | ----------: | ------: |
@@ -443,24 +622,57 @@ The cliff between 200 and 250 is not the output size. It is the scale ladder: 18
 **And the budget is a property of the source, not of the request.** The same 200 wide thumbnail, at
 the same eighth scale, from five sources:
 
-| source    | megapixels | 200 wide JPEG |
-| --------- | ---------: | ------------: |
-| 320x180   |       0.06 |       2.20 ms |
-| 1835x1032 |       1.89 |       6.80 ms |
-| 1920x1250 |       2.40 |      15.86 ms |
-| 2308x3000 |       6.92 |      16.56 ms |
-| 5000x4000 |      20.00 |      25.41 ms |
+| source    | megapixels | fixture                | 200 wide JPEG |
+| --------- | ---------: | ---------------------- | ------------: |
+| 320x180   |       0.06 | `derived/base-444.jpg` |       1.63 ms |
+| 1835x1032 |       1.89 | `sf-24.jpg`            |       5.05 ms |
+| 1920x1250 |       2.40 | `mushroom.jpg`         |      10.57 ms |
+| 2308x3000 |       6.92 | `family.jpg`           |      12.33 ms |
+| 3600x2700 |       9.72 | `digicam.jpg`          |      53.95 ms |
 
-Every one of them decoded 1.57% of its source's samples. The spread is the entropy decode, which no
-output size can reduce, so "will this fit" is a question about the picture that arrived. This is why
-`tiny_plan_cost` prices a plan against source samples, and why a cache key is part of the library:
-for a source past a couple of megapixels there is no output small enough, and the answer has to be
-that the artifact is computed once.
+Every one of them decoded a comparable fraction of its source's samples. The spread is the entropy
+decode, which no output size can reduce, so "will this fit" is a question about the picture that
+arrived. This is why `tiny_plan_cost` prices a plan against source samples, and why a cache key is
+part of the library: for a source past a couple of megapixels there is no output small enough, and
+the answer has to be that the artifact is computed once.
+
+The fixture column is there because an earlier version of this table quoted a 5000x4000 source that
+no fixture in the repository has, which made the row unreproducible. Every row above names the file
+it was measured on.
 
 **Not reachable:** 800px WebP inside 10 milliseconds. The encoder's non-search work alone is about
 14 ms at that extent and decode with resample is 17.3, so a free mode search would still leave 31.
 What that closes is the synchronous path for that one request. It does not close serving 800px WebP
 on the Free plan, which the cache tier does, at 200 to 250px, which fits, or on Paid.
+
+### The limit is enforced elastically, so a one-shot measurement of it means little
+
+Deploying a Worker to a real Free account and running a pure CPU burner **consumed 1,637 ms and
+returned a result**, with terminations between 1,459 and 2,020 ms reported as `outcome: exceededCpu`.
+That is roughly 150x the documented 10 ms.
+
+**It is not a 150x allowance, and reading it as one would be the mistake.** Cloudflare's per-request
+limits are not hard ceilings: an isolated request over the limit passes through a flexibility scope,
+and sustained pressure against it starts being enforced. So a single burst measures the slack, not
+the budget. The same code deployed in succession, or serving real traffic, meets the documented
+figure.
+
+Which makes the 10 ms above the right line to plan against, and every figure in this section is
+compared against it deliberately. The measurement is worth recording for one reason only: **a
+single test request is not evidence that a request fits.** Anything sized against the observed
+1,637 ms would fail under load, and the failure would arrive later and look unrelated.
+
+Two other results from the same run are properties of the platform rather than of its enforcement,
+and are reused throughout this report.
+
+**Nothing bills as I/O.** A 2.88 MB response body added 99 ms of wall clock and **zero** CPU, and a
+`noop` handler measures 0 ms. So there is no arrangement of the work that hides compute behind a
+stream, and wall clock is not the axis to optimize.
+
+**darwin to Workers is 1.90x at the median and 2.4x to 4.7x on the cheap cells.** The spread matters
+more than the median, because the cheap cells are exactly the ones near any ceiling: a local figure
+under 20 ms should be scaled by about 3.5x rather than by the median before it is compared against a
+per-request allowance. Every millisecond in this report is darwin unless it says otherwise.
 
 ### SIMD
 
@@ -596,10 +808,103 @@ The cascades are the OpenCV XML repacked to a flat binary by `scripts/cascade.ts
 
 ## AVIF
 
-Container parse only: `probe` answers fully and decode reports `TINYIMG_ERR_UNSUPPORTED_CODEC`.
+Both directions ship. Decode is complete AV1 intra and matches `dav1d` exactly; encode is fixed
+partitions with no rate-distortion search.
 
-**Size is not the reason.** An AV1 intra decoder is ~40-55 KiB gzipped against a module that is
-89.2 KiB, so it would fit. What was measured:
+### What the decode agrees with
+
+`avifdec`, which is libavif over `dav1d`, is the anchor. Every fixture, in RGB:
+
+| fixture                                   | worst sample | PSNR      | exact |
+| ----------------------------------------- | -----------: | --------- | ----: |
+| av1-tiny, av1-flat, av1-deltaq, dartmouth |        **0** | identical |  100% |
+| av1-lossless                              |            1 | 81.8 dB   |  100% |
+| av1-tiles                                 |            1 | 82.1 dB   |  100% |
+| base                                      |            1 | 80.5 dB   | 99.9% |
+| fox                                       |            2 | 54.4 dB   | 76.8% |
+
+**`fox.avif`'s decoded planes are byte-identical to `dav1d`'s**, all 2,889,600 of them, measured
+against `avifdec`'s own Y4M output. So the difference in RGB is the conversion alone: a fixed-point
+matrix against libavif's floating-point one, and 4:2:0 chroma interpolation. The decode of a
+1204x800 photograph through the symbol decoder, the partition tree, the mode info, 236,096
+coefficients, the prediction and both post-filters matches bit for bit.
+
+The chroma upsampling had to be measured rather than chosen. Nearest neighbour gives 48.08 dB
+against `avifdec` and a worst case of 16; the triangle filter libjpeg calls fancy upsampling, which
+this library already runs for JPEG, gives **54.40 dB and a worst case of 2**. So the reference
+decoder interpolates. `FANCY` interpolates and `FAST` replicates, which is the same trade the JPEG
+path takes.
+
+### Two places the specification misleads
+
+**A prose note is not normative over the function it annotates.** Section 7.15.3 says CDEF's filter
+region is the tile that decoded the block, in a note about `MiColStart` and friends;
+`is_inside_filter_region` in 5.11.55 then sets the bounds to the whole frame and ignores them.
+Implementing the note cost 1,462 samples of a four-tile fixture in a band two columns either side of
+each seam, which is exactly CDEF's tap reach. `avifdec` agrees with the function.
+
+**`ReadDeltas` is per superblock, not per block.** Reading a quantizer delta for every block
+consumes symbols the encoder never wrote, and the first block still comes out right, so it reads as
+rare corruption rather than as a bug.
+
+### The encoder, and what it costs
+
+Fixed 8x8 blocks, one 8x8 luma transform and one 4x4 per chroma plane, the luma mode picked from
+four candidates by absolute difference against the source. That is a distortion comparison and not a
+rate-distortion one: no candidate is ever costed in bits. Against `avifenc` on `dartmouth.jpg`:
+
+| encoder     |  bytes | PSNR     |
+| ----------- | -----: | -------- |
+| avifenc q63 | 13,864 | 31.82 dB |
+| tinyimg q60 | 16,940 | 33.38 dB |
+| avifenc q75 | 18,743 | 37.13 dB |
+| tinyimg q75 | 21,219 | 36.59 dB |
+| avifenc q90 | 25,182 | 43.33 dB |
+| tinyimg q90 | 29,096 | 40.34 dB |
+
+So **1.1x to 1.3x libaom's size at matched quality**, widening as quality rises. An earlier
+prediction in this section was that the output would "roughly match WebP lossy instead of beating it
+by 20-30%"; the measurement is better than that, and the gap is a partition search rather than a
+missing optimization.
+
+`avifdec` decodes what the encoder writes, and its pixels match this decoder's to within one level,
+so the container, both headers and the arithmetic coding are conformant rather than merely
+self-consistent.
+
+### The arithmetic encoder's window, which is where the bug was
+
+The specification defines no encoder, so the writer is derived from the reader: symbol `s` occupies
+`[cur(s), cur(s - 1))` of `[0, range)`, which makes writing it `low += range - cur(s - 1)` and
+`range = cur(s - 1) - cur(s)`.
+
+The retained window has to be **16 bits and not 15**. `range` renormalizes into `[2^15, 2^16)`, so a
+sixteen-bit window guarantees `low + range < 2^17`, which is one carry out of the window and no
+more; a fifteen-bit window allows two, and absorbing a carry of two by incrementing one byte
+corrupts the stream. That passed a million symbols of uniform distributions and failed after twenty
+thousand symbols of a skewed one, which is what an adapted coefficient distribution looks like. The
+regression test drives skewed adapting distributions for exactly that reason.
+
+### What is refused, and why
+
+**Ten and twelve bit samples**, because the reconstruction is eight bits a sample end to end: the
+frame store, the prediction and the conversion would all have to widen, and truncating instead would
+return a plausible wrong picture. 40 of the 115 conformance files are 10-bit, so this is a real gap
+rather than a theoretical one.
+
+**4:2:2**, because the specification's own `Subsampled_Size` answers `BLOCK_INVALID` for every tall
+block on such a plane and the residual syntax reads that entry directly.
+
+**Loop restoration**, because its filter is skippable and its symbols are not: they are coded per
+superblock inside the tile, so a tile read without them desynchronises.
+
+**Palette and intra block copy**, at the frame rather than at a block, so a caller learns before any
+pixel is decoded.
+
+### What the sizing estimates got right and wrong
+
+**Size is not the reason, and neither is the cost.** All of dav1d 1.5.1 compiled to wasm32, scalar,
+8-bit only, _including_ the inter prediction and threading this library does not need, is 356,669
+bytes. What was measured for the tables:
 
 |                                                       |                      packed binary |
 | ----------------------------------------------------- | ---------------------------------: |
@@ -613,18 +918,40 @@ realistically 8-10k written from scratch, against 8-10k for the entire rest of t
 reference points under the same packager and emscripten settings: `@jsquash/avif` decode wasm is
 1,170,930 bytes against `@jsquash/webp` decode at 137,960.
 
-Decode would run 4-12x the JPEG path per pixel, by mechanism rather than by guess: AV1's adaptive
-multi-symbol arithmetic coder is serial and admits no SIMD where JPEG uses static Huffman, and AV1
-applies three post-filters JPEG has none of. Encode is the wall the cost objective actually hits,
-because AVIF's size advantage comes from rate-distortion search over partition trees and intra
-modes: with the search it costs seconds per image in wasm, and without it the output loses to WebP
-lossy.
+**An earlier version of this section said decode would run 4-12x the JPEG path per pixel, "by
+mechanism rather than by guess". No experiment produced that range, and the measured figure is 2.1x
+to 2.7x.** The error was the comparison arm: the inference was priced against `@jsquash/avif`, which
+contains the string `AOMedia Project AV1 Decoder v3.7.0` and zero SIMD instructions. That is
+libaom, the reference decoder, scalar, and libaom is 5.5x to 6.4x the JPEG path where a dav1d-class
+decoder is 2.1x to 2.7x. One `strings` call on the arm would have caught it.
 
-**The surviving objective is AVIF output without per-transformation billing.** Codecs register
-through a table, so a second wasm module can carry AV1 and be instantiated only by callers who ask
-for it; core-module size then stops being a global budget question. What ships instead is WebP
-lossy, which lands 25-35% below JPEG at matched quality with 97% browser support. AVIF would add a
-further 20-30%.
+Measured in wasm, milliseconds per megapixel:
+
+| arm                             | 1 Mpx | `road.jpg` |    vs JPEG |
+| ------------------------------- | ----: | ---------: | ---------: |
+| tinyimg JPEG                    | 10.72 |      12.76 |      1.00x |
+| **AV1 intra, no post-filters**  | 16.77 |      25.98 | 1.51-2.04x |
+| tinyimg WebP, which ships today | 20.20 |      30.15 | 1.88-2.36x |
+| AV1 intra, all filters          | 23.72 |      34.29 | 2.08-2.69x |
+| libaom through `@jsquash/avif`  | 61.30 |      81.67 | 5.52-6.40x |
+
+**An AVIF decode with the post-filters skipped is faster than the WebP decode already shipping
+here.** At 10 ms of CPU the source ceilings are 0.78-0.93 Mpx for JPEG, 0.38-0.62 for AVIF without
+filters, 0.33-0.50 for WebP and 0.29-0.42 for AVIF with them, so AVIF fits the request shape WebP
+already occupies.
+
+Skipping those filters is legal by construction rather than by analogy. Section 7 puts the loop
+filter, CDEF and loop restoration in the frame wrapup process, after all tile decode; intra
+prediction reads `CurrFrame` during tile decode, before any of them run. Over 115 files from the AOM
+conformance suite the skip measures a median **1.72x at 54.2 dB**, with one file below 45 dB and none
+below 40. The VP8 lever already shipping is 1.53x at 46.8 dB, so this one is faster and cleaner.
+
+Two things the tables above got wrong and that are worth correcting rather than deleting. Quantizer
+matrices are listed as "only when `using_qmatrix`", but **every file `avifenc` produced in testing
+has `qm=1`**, so they are the default path for the dominant still encoder and absent from all 115
+conformance files. And high bit depth costs code size rather than speed: 33.02 against 33.09 ms per
+megapixel for the same picture, but roughly 100 KB of module, against 40 of those 115 files being
+10-bit and 9 being 12-bit.
 
 ## Verification
 
@@ -709,10 +1036,30 @@ Recorded so nobody re-proposes them from a guess.
 - **Packed narrow pixel formats as a general mechanism** (RGB565, RGBA4444). Conversion cost eats the
   bandwidth saving over a single pass, and it loses precision the encoders then hide. The two useful
   cases, 1-channel gray and 1-channel alpha, the `channels` field already expresses.
+- **Writing the inflate output into the caller's buffer instead of through the ring.** Estimated at
+  16.2% of a PNG decode and 1.15x, for 60-90 lines and a memory increase. Measured at the sizes a
+  real decode moves through it, the ring's copy-out is **0.079 ms on `forest.png` and 0.157 on a
+  2400x1350 photograph, which is 0.20% and 0.41%** of those decodes. `gather_idat`'s copy of the
+  whole compressed stream is **0.04% to 0.15%**, so a chunk-walking source buys no measurable time
+  either; it would save the allocation, which is a memory item and not a speed one. The 16.2% came
+  from attributing a 33.4% block called "inflate + ring + `gather_idat`" to the copying around the
+  inflate rather than to the inflate. **The objective survives and is now specific**: the symbol
+  decode is where that third of the time is, and widening the fast table is the first lever on it.
+  The largest of the three passes turned out to be the Adler-32 at 4.1% to 8.3%, which is the
+  checksum that makes a corrupt PNG detectable and is not a candidate for removal.
+- **The exact-fit decode denominator, on every resize.** The denominator pick in `plan.c` compares
+  the real quotient `region / den` against the output width, so it refuses a denominator whose
+  `ceil(region / den)` would have hit the output size exactly. Matching the ceiling instead admits
+  that exact fit, and there the resample degenerates to a copy: the decoder's scaler becomes the
+  only filter in the path. Measured against a 16-bit linear-light Lanczos reduction, five of six
+  exact-fit cells lose **1.3 to 2.4 dB** for 1.3x-6.0x, and the one free cell (`sf-24` at
+  459x258, -0.02 dB) does not reproduce on `road.jpg`, where the same denominator step costs
+  2.37 dB. The speedup is real and the budget ladder's scale rung already reaches it under a
+  budget; what is refuted is taking it by default.
 
 ## Measurement mistakes that cost real time
 
-Written down because each one produced a number that was actionable and pointed the wrong way, which
+Written down because each one produced a number that looked usable and pointed the wrong way, which
 is worse than having no number.
 
 1. **Benchmarking the ctest library instead of the LTO build.** PNG decode read 151 ms/Mpx against a
@@ -740,6 +1087,13 @@ is worse than having no number.
 6. **A stale benchmark arm crediting the wrong cause.** The no-SIMD module is gitignored and cached,
    so after the decode work above the SIMD table read 1.24x for a flag that does nothing. Every
    number in it was real; the column header was wrong. `bench/run.ts` now refuses a stale arm.
+7. **Scoring two resamplers against a reference one of them ends in.** The denominator arms above
+   were first compared against a Catrom reduction, which is the kernel `fixtures.ts` uses and the
+   kernel the surviving arm finishes with. That reference read the gap as 3.46-4.83 dB; a
+   linear-light Lanczos reduction, which neither arm imitates, read the same gap as 1.31-1.64. Two
+   thirds of the deficit was agreement with one filter rather than fidelity to the scene. This is
+   mistake 2 one level up: the reference was something the pipeline can produce, and that is what
+   made it the wrong reference.
 
 The instrument-level version of the same lesson: **run an instrument twice and see whether it agrees
 with itself.** `format.sh` skipped every untracked file, `tsc` shipped a package on error, and stale
@@ -761,3 +1115,29 @@ intrinsics, where the vectorized column pass would have been several hundred lin
 The objective survives and is narrower than it was: **pass 2, the row transform, is the SIMD target**,
 along with WebP's loop filter at 41.5%. Both are unconditional per-pixel work with no shortcut to
 exploit, which is the shape a wider kernel suits.
+
+8. **Explaining a comparison without inspecting the arm.** The decode deficit against `@jsquash` was
+   attributed to SIMD in their kernels and none in ours. Both halves were false, and one `wasm2wat`
+   call over the three modules would have shown it: zero SIMD instructions in theirs, 548 in ours.
+   The same mistake cost the AVIF section a 4-12x figure that was really 2.1-2.7x, because it was
+   priced against `@jsquash/avif`, which carries libaom rather than a modern decoder. Check what the
+   comparison contains before explaining why it wins.
+
+9. **Measuring one lever through a flag that moves four.** `effort` changes the chroma upsample, the
+   enlargement filter, the loop filter and the encoder search at once, so pricing the PNG encoder
+   through it produced output that was _smaller_ at FAST than at FANCY, twice, on different
+   fixtures. FANCY keeps the smaller of two candidate streams, so that result is arithmetically
+   impossible, and the impossibility was the only thing that flagged it; both runs were comparing
+   different images. Isolate the stage, then quote the number.
+
+10. **Recalibrating a model whose input variable is wrong.** Every cost constant was stale once the
+    build moved to `-O2`, so all of them were re-measured. Accuracy did not move: worst error 12.93x
+    before and 12.78x after. The constants were never the problem. Source samples and compressed
+    bytes each predict well on one half of the scale ladder and badly on the other, so the model wants
+    both terms and fitting one of them harder cannot help.
+
+11. **Believing a saving before measuring it at the extent the request asks for.** The progressive
+    scan skip is exact at a scale denominator of eight and worth 4.4x there. On the fixture that
+    motivated it a 200 px output picks a denominator of four, so the lever never fires. Its first
+    implementation also tested the frame's transform size rather than the component's, which read 2x
+    better and quietly dropped the chroma planes' detail.

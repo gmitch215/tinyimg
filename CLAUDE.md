@@ -4,9 +4,15 @@ Freestanding C compiled to one wasm32 module, wrapped by a TypeScript package fo
 Workers. `README.md` is the product document; `TECHNICAL_REPORT.md` holds the measurements and the
 approaches they refuted. This file is how to work in the repository.
 
-Priorities, in order: **small size, then speed, then memory.** `bun run size` reports the shipped
-package against the target and fails past the limit; both figures live in the script rather than
-here.
+Priorities, in order: **speed, then size, then memory.** They used to run size first, and that
+changed on 2026-09-04 when Cloudflare removed the compressed Worker size limit: the only platform
+limit is now 64 MiB uncompressed on every plan, against a module of about 760 KB. `bun run size`
+reports the shipped package uncompressed, which is the axis Cloudflare checks, and fails past the
+ceiling; both figures live in the script rather than here.
+
+Size still matters enough to measure, because `tiny` is in the name and a bigger module costs
+startup time, but it no longer wins an argument against speed. Any decision in the history of this
+repository that was made on size grounds is worth re-reading before it is cited.
 
 ## Commands
 
@@ -28,6 +34,8 @@ bun bench/run.ts               # every benchmark arm
 bun scripts/coverage-c.ts      # C line coverage into coverage/
 bun run fixtures               # regenerate tests/fixtures/derived and blobs/
 bun run fixtures:check         # verify the committed fixtures reproduce
+bun run tables                 # regenerate the VP8 and AV1 constant tables
+bun run tables:check           # verify the committed tables match their specifications
 bun run format                 # clang-format and prettier
 bun run docs:c                 # doxygen into build-native/docs
 bun run docs:build             # typedoc into typedoc/
@@ -68,6 +76,7 @@ per-command with `git -c`.
 include/tinyimg/     public headers, one per concern
 src/                 memory, util, image, plan, draw, effects, color, text, detect, version
 src/codec/           one file per format behind one contract
+src/codec/av1*.c     the AV1 intra decoder AVIF sits on, split by stage rather than by format
 src/ts/              wasm, types, image, transform, index
 tests/c/             ctest, one file per concern, grouped by directory
 tests/node/          vitest against a module compiled from bytes
@@ -118,6 +127,48 @@ the decode region and scale before any pixel is read**, and these need the pixel
 
 Both are applied to the materialized image after the plan runs. `Image` records them in `#after` and
 the wrapper documents the ordering.
+
+## The AV1 decoder
+
+AVIF is the one format whose decoder does not fit in one file, so it is split by stage:
+`av1.h` is the internal contract, `av1-tables.h` is generated, and `av1-symbol.c`,
+`av1-transform.c` and the rest implement one stage each. `avif.c` owns the container and calls in.
+
+**The specification is the only authority for the tables and the arithmetic.** `scripts/av1-tables.ts`
+extracts 205 tables from it and `bun run tables:check` verifies them. Do not take a number from
+dav1d or libaom: dav1d stores its CDFs pre-inverted behind designated initializers keyed to its own
+enum order, and the only libaom mirror reachable on GitHub predates the final bitstream. Mixing two
+references is how VP8's prediction modes were mixed up here before.
+
+The files, in the order a reader meets them: `av1-tables.h` is generated, `av1-symbol.c` holds the
+arithmetic coder **and its inverse**, `av1-cdf.c` the distributions, `av1-obu.c` the OBU layer and
+both headers, `av1-tile.c` the partition tree, `av1-mode.c` the mode info, `av1-coeff.c` the
+coefficient parse **and the writer**, `av1-predict.c` the intra prediction, `av1-recon.c` the
+reconstruction and the conversion, `av1-filter.c` the deblock and CDEF, and `av1-encode.c` the
+encoder that drives them.
+
+**The encoder lives beside the decoder deliberately.** The symbol writer is in the same file as the
+reader because it has to compute the same interval boundaries; the coefficient writer is in the same
+file as the parse because it has to select the same distribution for every symbol. One copy of each
+derivation is what makes a round trip a real check rather than two readings agreeing by luck.
+
+Write the stages in the order their measured cost justifies, which is not the intuitive order. The
+symbol decoder is 57% of the irreducible floor on its own and 83% with the coefficient parse;
+**intra prediction is 2.6% to 3.3%, so write it plainly and do not optimize it**. Transforms are
+94%-100% square with the flip variants at 0.0% of every file measured, so 4x4, 8x8 and 16x16 cover
+over 90% of blocks and the flips go last. The three post-filters belong behind the effort tier from
+the day they are written.
+
+**A prose note in the specification is not normative over the function it annotates.** 7.15.3 says
+CDEF's filter region is the tile that decoded the block; `is_inside_filter_region` in 5.11.55 sets
+the bounds to the whole frame and ignores the note. The function wins, and `avifdec` agrees with it.
+Implementing the note cost 1,462 samples of the four-tile fixture in a band two columns either side
+of each seam.
+
+**The flip is applied inside `tiny_av1_inverse_transform`.** The specification splits it differently,
+deriving `flipUD` and `flipLR` in 7.12.3 and writing the residual to a mirrored position; a caller
+that implements that on top of this function mirrors six of the sixteen transform types twice, and
+the result looks nearly right.
 
 ## Adding a codec
 
@@ -185,8 +236,11 @@ A table that could be derived and is inlined instead is a size regression with n
 
 Two lanes with different budgets.
 
-- **ctest** is deterministic, local, free and fast. It runs on every commit through the pre-commit
-  hook and must never be flaky.
+- **ctest** is deterministic, local, free and fast, and must never be flaky. **It does not run on
+  commit.** `.githooks/pre-commit` runs `clang-format` and `prettier` and re-stages the result, so
+  it cannot fail on formatting either; the only gates are in CI. This file claimed otherwise for a
+  while, which is the failure the "verify a constraint before you write it down" rule exists to
+  stop.
 - **The differential tests** compare against `magick`, `cjpeg`, `cwebp` and `avifdec` within a
   **stated floor that came from a measurement**, never from an approximation argument. The references
   are generated by `scripts/fixtures.ts` and committed, so CI needs no image tooling, and
