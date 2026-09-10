@@ -1,4 +1,5 @@
 import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig } from 'vitest/config';
 import { wasmBytes } from './scripts/vite-wasm-bytes.ts';
@@ -57,10 +58,21 @@ const wrapper = {
 			type: 'ESModule' as const,
 			path: join(root, 'tests/workers/fixtures/wrapper-worker.mjs')
 		},
-		...['index', 'image', 'transform', 'types', 'wasm'].map((name) => ({
-			type: 'ESModule' as const,
-			path: join(root, `dist/${name}.js`)
-		})),
+		/*
+		 * Every compiled module, read from the directory rather than listed here.
+		 *
+		 * The list used to be written out, and adding `text.js` to the package broke this lane
+		 * with `No such module` on every test rather than on the one that needed it. Miniflare
+		 * takes an explicit list and does not resolve imports itself, so the list has to be
+		 * complete; deriving it is the only way it stays that way.
+		 */
+		...readdirSync(join(root, 'dist'))
+			.filter((name) => name.endsWith('.js'))
+			.sort()
+			.map((name) => ({
+				type: 'ESModule' as const,
+				path: join(root, 'dist', name)
+			})),
 		{ type: 'CompiledWasm' as const, path: join(root, 'bin/tinyimg.wasm') }
 	]
 };
@@ -98,7 +110,12 @@ export default defineConfig({
 				test: {
 					name: 'node',
 					include: ['tests/node/*.spec.ts'],
-					environment: 'node'
+					environment: 'node',
+					// the spec files run in parallel and several of them are real image work:
+					// a lossless round trip of one fixture at four channel counts is seconds of
+					// transform, and the 5 second default was decided by whichever files happened
+					// to be running beside it
+					testTimeout: 30_000
 				}
 			},
 			{

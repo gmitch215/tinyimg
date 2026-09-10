@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(PROJECT_VERSION "1.0.0")
+set(PROJECT_VERSION "1.0.1")
 project(tinyimg
 	LANGUAGES C
 	VERSION ${PROJECT_VERSION}
@@ -18,6 +18,8 @@ option(TINYIMG_SIMD "Enable wasm SIMD128" ON)
 option(TINYIMG_TESTS "Build the ctest suite (native builds only)" ON)
 option(TINYIMG_COVERAGE "Instrument the library and the ctest suite for coverage" OFF)
 option(TINYIMG_WASM_OPT "Run wasm-opt over the linked module" ON)
+set(TINYIMG_OPT "-O2" CACHE STRING "Optimization level for the wasm module")
+set(TINYIMG_WASM_OPT_LEVEL "-O2" CACHE STRING "Optimization level wasm-opt runs at")
 option(DOCS_TINYIMG "Build API documentation with Doxygen" ON)
 
 # usage: -DSANITIZE_TINYIMG=address,undefined or -DSANITIZE_TINYIMG=thread
@@ -35,7 +37,7 @@ if (TINYIMG_WASM)
 	# which stops loop-idiom recognition turning an inlined tiny_strlen back into a call to strlen.
 	# Under LTO that produced an undefined symbol at link time and nowhere else
 	target_compile_options(tinyimg PRIVATE
-		-Oz
+		${TINYIMG_OPT}
 		-ffreestanding
 		-ffunction-sections
 		-fdata-sections
@@ -102,7 +104,7 @@ if (TINYIMG_WASM)
 			endif()
 
 			add_custom_command(TARGET tinyimg POST_BUILD
-				COMMAND ${WASM_OPT} -Oz ${WASM_OPT_FEATURES}
+				COMMAND ${WASM_OPT} ${TINYIMG_WASM_OPT_LEVEL} ${WASM_OPT_FEATURES}
 					--strip-debug --strip-producers --strip-target-features
 					$<TARGET_FILE:tinyimg> -o $<TARGET_FILE:tinyimg>
 				COMMENT "Optimizing ${PROJECT_NAME}.wasm with wasm-opt"

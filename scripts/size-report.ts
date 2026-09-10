@@ -30,9 +30,15 @@ const ROOT = join(import.meta.dirname, '..');
 const WASM = join(ROOT, 'bin', 'tinyimg.wasm');
 const BUILD = join(ROOT, 'build');
 
-/** The plan's target and the ceiling it must never cross, both after gzip. */
-export const TARGET_BYTES = 150 * 1024;
-export const LIMIT_BYTES = 200 * 1024;
+/**
+ * The target and the ceiling it must never cross, both uncompressed.
+ *
+ * Uncompressed is the axis that matters: Cloudflare removed the compressed Worker size limit on
+ * 2026-09-04 and now checks only the uncompressed bundle, against 64 MiB on every plan. These two
+ * numbers are ours rather than the platform's, and they exist so `tiny` keeps meaning something.
+ */
+export const TARGET_BYTES = 1024 * 1024;
+export const LIMIT_BYTES = 1536 * 1024;
 
 /**
  * Relink arms, each one cmake flags that remove a feature.
@@ -189,7 +195,7 @@ export function collect(options: { ablate?: boolean; baseline?: string } = {}): 
 
 export function render(report: SizeReport): string {
 	const lines: string[] = [];
-	const pct = ((report.gzip / report.target) * 100).toFixed(1);
+	const pct = ((report.raw / report.target) * 100).toFixed(1);
 
 	const delta = (now: number, before: number | undefined) => {
 		if (before === undefined) return 'no baseline';
@@ -202,21 +208,21 @@ export function render(report: SizeReport): string {
 	lines.push('| Measure | Bytes | Against the target | Since master |');
 	lines.push('| --- | ---: | ---: | ---: |');
 	lines.push(
-		`| raw | ${report.raw.toLocaleString()} | | ${delta(report.raw, report.baseline?.raw)} |`
+		`| **raw** | **${report.raw.toLocaleString()}** | ${pct}% of ${kib(report.target)} | ` +
+			`${delta(report.raw, report.baseline?.raw)} |`
 	);
 	lines.push(
-		`| **gzip** | **${report.gzip.toLocaleString()}** | ${pct}% of ${kib(report.target)} | ` +
-			`${delta(report.gzip, report.baseline?.gzip)} |`
+		`| gzip | ${report.gzip.toLocaleString()} | | ${delta(report.gzip, report.baseline?.gzip)} |`
 	);
 	lines.push(
 		`| brotli | ${report.brotli.toLocaleString()} | | ${delta(report.brotli, report.baseline?.brotli)} |`
 	);
 	lines.push('');
 
-	if (report.gzip > report.limit) {
-		lines.push(`**Over the hard limit.** ${kib(report.gzip)} against ${kib(report.limit)}.`);
-	} else if (report.gzip > report.target) {
-		lines.push(`**Over the target.** ${kib(report.gzip)} against ${kib(report.target)}.`);
+	if (report.raw > report.limit) {
+		lines.push(`**Over the hard limit.** ${kib(report.raw)} against ${kib(report.limit)}.`);
+	} else if (report.raw > report.target) {
+		lines.push(`**Over the target.** ${kib(report.raw)} against ${kib(report.target)}.`);
 	} else {
 		lines.push(`Within the ${kib(report.target)} target.`);
 	}
@@ -295,5 +301,5 @@ if (import.meta.main) {
 
 	// a module over the hard limit cannot be shipped, and the workflow reports rather than gates,
 	// so this only ever surfaces locally
-	if (report.gzip > report.limit) process.exitCode = 1;
+	if (report.raw > report.limit) process.exitCode = 1;
 }

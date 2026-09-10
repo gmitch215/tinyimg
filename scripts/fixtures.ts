@@ -30,7 +30,19 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { packCascade } from './cascade.ts';
-import { buildBdf, buildPsf1, buildPsf2, cffStub, subsetFont } from './fonts.ts';
+import {
+	buildBdf,
+	buildPsf1,
+	buildPsf2,
+	cffStub,
+	SUBSET_ACCENTS,
+	SUBSET_ASCII,
+	subsetFont,
+	withGpos,
+	withGsub,
+	withVariations,
+	type VariationTuple
+} from './fonts.ts';
 import { buildProfile, SPACES } from './icc.ts';
 
 const ROOT = join(import.meta.dirname, '..');
@@ -533,6 +545,79 @@ function codecMatrix() {
 		base,
 		derivedPath('base-rotated.avif')
 	]);
+
+	/*
+	 * Two AV1 bitstreams chosen for what their headers exercise rather than for their pictures.
+	 *
+	 * `fox.avif` is `cavif` output: split OBUs, 4:2:0 colour, CDEF and restoration off. Neither
+	 * covers what `avifenc` actually emits, which is a **frame OBU** carrying the frame header and
+	 * the tile group together, and a grey source it detects as monochrome. `av1-tiny` is 4x4, so
+	 * its whole tile is one block's mode info with no partition symbol coded at all: every
+	 * partition down from 64x64 is forced by the frame's edges.
+	 */
+	const grey = derivedPath('av1-grey.png');
+
+	run('magick', ['-size', '256x256', 'xc:#808080', grey]);
+	run('avifenc', [
+		'-q',
+		'1',
+		'-s',
+		'6',
+		'--advanced',
+		'deltaq-mode=0',
+		grey,
+		derivedPath('av1-flat.avif')
+	]);
+
+	// the same source with the quantizer delta left on, which codes a delta on the first block of
+	// every superblock and is the only fixture that reaches that path
+	run('avifenc', ['-q', '50', '-s', '6', grey, derivedPath('av1-deltaq.avif')]);
+
+	const dot = derivedPath('av1-dot.png');
+
+	run('magick', ['-size', '4x4', 'xc:#808080', dot]);
+	run('avifenc', [
+		'-q',
+		'1',
+		'-s',
+		'6',
+		'--advanced',
+		'deltaq-mode=0',
+		dot,
+		derivedPath('av1-tiny.avif')
+	]);
+
+	/*
+	 * Two more, and each one reaches a branch of the residual reader no other fixture does.
+	 *
+	 * `av1-tiles` is four tiles, so `tiny_av1_tile_bytes` has to walk the group's length prefixes
+	 * and every tile has to start from freshly reset distributions; a single-tile file proves
+	 * neither. `av1-lossless` is quality 100, which makes `base_q_idx` zero: every transform is
+	 * forced to 4x4, the transform type is not coded at all, and the inverse Walsh-Hadamard
+	 * replaces the DCT.
+	 */
+	const small = derivedPath('av1-small.png');
+
+	run('magick', [base, '-resize', '96x96!', small]);
+
+	run('avifenc', [
+		'-q',
+		'60',
+		'-s',
+		'6',
+		'--tilecolslog2',
+		'1',
+		'--tilerowslog2',
+		'1',
+		base,
+		derivedPath('av1-tiles.avif')
+	]);
+
+	run('avifenc', ['-q', '100', '-s', '6', '-y', '444', small, derivedPath('av1-lossless.avif')]);
+
+	rmSync(grey);
+	rmSync(dot);
+	rmSync(small);
 }
 
 /**
@@ -548,6 +633,47 @@ function cropOrigin(width: number, height: number): { x: number; y: number } {
 		x: Math.max(0, Math.min(Math.floor(width / 3), width - CROP_SIDE)),
 		y: Math.max(0, Math.min(Math.floor(height / 3), height - CROP_SIDE))
 	};
+}
+
+/**
+ * The reference decode of every AVIF fixture, from `avifdec`.
+ *
+ * `avifdec` is libavif over dav1d, which is the decoder the rest of the world
+ * uses, so this is the external anchor for the whole AV1 stage: the OBU layer,
+ * the symbol decoder, the partition tree, the mode info, the coefficients, the
+ * prediction, the reconstruction and both post-filters, all at once.
+ *
+ * Written as PNG24 through `magick` like every other reference here, rather
+ * than as `avifdec`'s own PNG, so the committed file is byte-comparable however
+ * libavif's PNG writer is configured.
+ */
+function avifReferences(): void {
+	const files = [
+		join(FIXTURES, 'fox.avif'),
+		join(FIXTURES, 'dartmouth.avif'),
+		derivedPath('av1-tiny.avif'),
+		derivedPath('av1-flat.avif'),
+		derivedPath('av1-deltaq.avif'),
+		derivedPath('av1-tiles.avif'),
+		derivedPath('av1-lossless.avif'),
+		derivedPath('base.avif')
+	];
+
+	for (const file of files) {
+		const stem = file.replace(/^.*\//, '').replace(/\.avif$/, '');
+		const intermediate = derivedPath('ref', `${stem}.avif.tmp.png`);
+
+		run('avifdec', ['--png-compress', '0', file, intermediate]);
+		magick([
+			intermediate,
+			'-colorspace',
+			'sRGB',
+			'-strip',
+			`PNG24:${derivedPath('ref', `${stem}.avif.png`)}`
+		]);
+
+		rmSync(intermediate);
+	}
 }
 
 /** Per-source references: one scaled, one full-resolution crop. */
@@ -722,6 +848,145 @@ function malformed() {
 	write('absurd-dimensions.png', badIhdr);
 
 	write('not-an-image.bin', Buffer.from('this is not an image at all', 'utf8'));
+
+	security(write);
+}
+
+/**
+ * Inputs that returned a success code with heap contents in the image, or crashed.
+ *
+ * Each one is minimal and hand built, because **no encoder produces these** and hunting for a tool
+ * that does is the mistake `reference-not-what-the-format-can-produce` records one level over: the
+ * reference cannot emit the input the decoder has to survive. Every one of them was reachable from
+ * bytes a Worker accepts off the wire, and four of the five returned `TINYIMG_OK`.
+ *
+ * The DEFLATE case is not here. It is a property of the inflate unit rather than of a container, so
+ * it lives in `tests/c/codec/deflate-distance.c` with its bitstream checked against zlib.
+ */
+function security(write: (name: string, bytes: Buffer) => void) {
+	// a first-directory offset of 0xFFFFFFFE, whose `+ 2` wrapped to zero in 32 bit arithmetic and
+	// let the guard pass, then read from data + 0xFFFFFFFE. On wasm32 that traps and kills the
+	// instance; it fires on probe, before any decode
+	write('tiff-ifd-overflow.tif', Buffer.from([0x49, 0x49, 0x2a, 0x00, 0xfe, 0xff, 0xff, 0xff]));
+
+	// a ColorMap whose entry count is far past what the file holds. Only the map's offset was
+	// checked, so expand_pixel walked `3 * map_entries` sixteen bit entries off the end
+	const tiff = Buffer.alloc(132);
+	tiff.write('II', 0, 'latin1');
+	tiff.writeUInt16LE(0x2a, 2);
+	tiff.writeUInt32LE(8, 4);
+
+	const tags: [number, number, number, number][] = [
+		[256, 3, 1, 4], // width
+		[257, 3, 1, 1], // height
+		[258, 3, 1, 8], // bits per sample
+		[259, 3, 1, 1], // no compression
+		[262, 3, 1, 3], // palette
+		[273, 4, 1, 126], // strip offset, the four pixel bytes at the end
+		[277, 3, 1, 1], // one sample per pixel
+		[279, 4, 1, 4], // strip byte count
+		[320, 3, 3 * 4096, 120] // the colour map, claiming 4096 entries over six real bytes
+	];
+
+	tiff.writeUInt16LE(tags.length, 8);
+
+	tags.forEach(([tag, type, length, value], index) => {
+		const at = 10 + index * 12;
+
+		tiff.writeUInt16LE(tag, at);
+		tiff.writeUInt16LE(type, at + 2);
+		tiff.writeUInt32LE(length, at + 4);
+
+		// a value of four bytes or fewer sits in the entry; a short one sits in its low half
+		if (type === 3 && length === 1) tiff.writeUInt16LE(value, at + 8);
+		else tiff.writeUInt32LE(value, at + 8);
+	});
+
+	write('tiff-colormap-overrun.tif', tiff);
+
+	// BI_BITFIELDS at 32 bpp declaring 64x64 over sixteen bytes of pixel data. The pixel array
+	// size check only ran for BI_RGB, so nothing verified this layout at all
+	const bmp = Buffer.alloc(82);
+	bmp.write('BM', 0, 'latin1');
+	bmp.writeUInt32LE(82, 2);
+	bmp.writeUInt32LE(66, 10); // pixel data offset
+	bmp.writeUInt32LE(40, 14); // BITMAPINFOHEADER
+	bmp.writeInt32LE(64, 18);
+	bmp.writeInt32LE(64, 22);
+	bmp.writeUInt16LE(1, 26);
+	bmp.writeUInt16LE(32, 28);
+	bmp.writeUInt32LE(3, 30); // BI_BITFIELDS
+	bmp.writeUInt32LE(0x00ff0000, 54);
+	bmp.writeUInt32LE(0x0000ff00, 58);
+	bmp.writeUInt32LE(0x000000ff, 62);
+
+	write('bmp-bitfields-short.bmp', bmp);
+
+	// a `pitm` whose version is 1, so its item id is four bytes and the box needs eight, over a
+	// payload of six. The guard checked for six and read past the end of the file
+	const avif = Buffer.alloc(46);
+	let at = 0;
+
+	const box = (type: string, payload: Buffer) => {
+		avif.writeUInt32BE(8 + payload.length, at);
+		avif.write(type, at + 4, 'latin1');
+		payload.copy(avif, at + 8);
+		at += 8 + payload.length;
+	};
+
+	box('ftyp', Buffer.from('avifavif', 'latin1'));
+
+	const pitm = Buffer.alloc(6);
+	pitm.writeUInt8(1, 0); // version 1, which widens the id to four bytes
+
+	const meta = Buffer.concat([Buffer.alloc(4), Buffer.alloc(8 + pitm.length)]);
+	meta.writeUInt32BE(8 + pitm.length, 4);
+	meta.write('pitm', 8, 'latin1');
+	pitm.copy(meta, 12);
+
+	box('meta', meta);
+
+	write('avif-pitm-short.avif', avif.subarray(0, at));
+
+	// a VP8X canvas larger than the VP8 frame inside it. The output was sized and strided by the
+	// canvas while the converter wrote rows at the frame's width, so 56% of the returned image was
+	// whatever the arena last held
+	const lossy = readFileSync(derivedPath('base-lossy.webp'));
+	const vp8 = lossy.subarray(12 + 8, 12 + 8 + lossy.readUInt32LE(16));
+
+	// one byte of flags, three reserved, then the canvas width and height each as
+	// twenty four bit little endian values holding the extent minus one
+	const vp8x = Buffer.alloc(10);
+	vp8x.writeUInt8(0, 0);
+	vp8x.writeUIntLE(512 - 1, 4, 3);
+	vp8x.writeUIntLE(256 - 1, 7, 3);
+
+	const chunks = Buffer.concat([
+		Buffer.from('VP8X', 'latin1'),
+		u32(10),
+		vp8x,
+		Buffer.from('VP8 ', 'latin1'),
+		u32(vp8.length),
+		vp8,
+		vp8.length % 2 === 1 ? Buffer.alloc(1) : Buffer.alloc(0)
+	]);
+
+	write(
+		'webp-canvas-mismatch.webp',
+		Buffer.concat([
+			Buffer.from('RIFF', 'latin1'),
+			u32(4 + chunks.length),
+			Buffer.from('WEBP', 'latin1'),
+			chunks
+		])
+	);
+}
+
+/** A little endian length, which every RIFF chunk header needs. */
+function u32(value: number): Buffer {
+	const out = Buffer.alloc(4);
+	out.writeUInt32LE(value, 0);
+	return out;
 }
 
 /** Profiles written beside the fixtures, and images tagged with them. */
@@ -876,17 +1141,6 @@ function textReferences() {
 	]);
 }
 
-/** Codepoints the committed font subset covers. */
-const SUBSET_ASCII = Array.from({ length: 0x7e - 0x20 + 1 }, (_, index) => 0x20 + index);
-
-/**
- * Latin-1 letters that are composite glyphs.
- *
- * Every one of these is a base letter plus a combining accent, which is the case a reader that only
- * handles simple glyphs renders as a bare letter with no accent and no error.
- */
-const SUBSET_ACCENTS = [0xc0, 0xc5, 0xc9, 0xe0, 0xe9, 0xef, 0xf1, 0xfc];
-
 /**
  * A codepoint past the BMP, mapped onto the glyph `A` uses.
  *
@@ -940,6 +1194,85 @@ function fontFixtures() {
 	writeFileSync(derivedPath('fonts', 'tiny.psf'), buildPsf2(8, 16, 128));
 	writeFileSync(derivedPath('fonts', 'tiny-psf1.psf'), buildPsf1(8));
 	writeFileSync(derivedPath('fonts', 'tiny.bdf'), buildBdf(8, 8, BDF_CODEPOINTS));
+
+	/*
+	 * The same face with a GPOS `kern` feature, in both pair formats.
+	 *
+	 * Modern faces put kerning in GPOS and often carry no `kern` table at all, so a reader tested
+	 * only against the legacy table is untested against most of what it will be handed. The values
+	 * are chosen to be unmistakable: -240 units on `AV` through format 1 and -180 on `To` through
+	 * format 2, both an order of magnitude larger than any real kern pair.
+	 */
+	writeFileSync(
+		derivedPath('fonts', 'dejavu-gpos.ttf'),
+		withGpos(four.bytes, [0x41, 0x56, -240], [0x54, 0x6f, -180])
+	);
+
+	/*
+	 * The same face made variable, with one weight axis and two known regions.
+	 *
+	 * At weight 1000 every point of `A` shifts 100 units right and its advance grows by 120; the
+	 * second tuple is an intermediate region peaking at mid weight, so `A` also rises 80 units at
+	 * weight 700 and not at all at 1000. Both are an order of magnitude larger than any real
+	 * delta, and both are computable at any weight, which is what makes the interpolation
+	 * checkable rather than merely plausible.
+	 */
+	const variations: VariationTuple[] = [
+		{ peak: 1, dx: 100, advance: 120 },
+		{ peak: 0.5, start: 0.25, end: 0.75, dy: 80 }
+	];
+
+	writeFileSync(
+		derivedPath('fonts', 'dejavu-variable.ttf'),
+		withVariations(four.bytes, 0x41, variations)
+	);
+
+	// and the same axis with a segment map, so a test can see that avar is applied at all: the
+	// midpoint of the axis maps to 0.75 of the way along it rather than half
+	writeFileSync(
+		derivedPath('fonts', 'dejavu-avar.ttf'),
+		withVariations(
+			four.bytes,
+			0x41,
+			variations,
+			['wght', 400, 400, 1000],
+			[
+				[-1, -1],
+				[0, 0],
+				[0.5, 0.75],
+				[1, 1]
+			]
+		)
+	);
+
+	/*
+	 * A third variant whose tuple names one point per contour rather than all of them.
+	 *
+	 * One reference per contour moves that whole contour, so at weight 1000 this has to be the
+	 * same outline as the all-points variant. It is the only shape of subset whose inferred result
+	 * is computable without walking the outline, which is what makes it the check.
+	 */
+	writeFileSync(
+		derivedPath('fonts', 'dejavu-iup.ttf'),
+		withVariations(four.bytes, 0x41, [{ peak: 1, dx: 100, points: 'contour-starts' }])
+	);
+
+	/*
+	 * The same face with a GSUB `liga` feature.
+	 *
+	 * `fi` maps to `W` and `ffi` to `M`, which is nonsense typographically and exactly what makes
+	 * it testable: both replacements are glyphs whose advance is far from the run they replace, so
+	 * the substitution shows up in a measurement rather than only in a shape. The two together
+	 * cover the longest-match rule, since a reader that took the first match would set `ffi` as
+	 * `W` followed by `i`.
+	 */
+	writeFileSync(
+		derivedPath('fonts', 'dejavu-liga.ttf'),
+		withGsub(four.bytes, [
+			[[0x66, 0x69], 0x57],
+			[[0x66, 0x66, 0x69], 0x4d]
+		])
+	);
 
 	// an OpenType wrapper around CFF outlines, which this library refuses rather than parses
 	writeFileSync(derivedPath('fonts', 'cff.otf'), cffStub());
@@ -1017,6 +1350,7 @@ function generate() {
 	baseImages();
 	codecMatrix();
 	perFixtureReferences();
+	avifReferences();
 	edgeCases();
 	colorProfiles();
 	filterReferences();
@@ -1026,7 +1360,7 @@ function generate() {
 }
 
 function derived() {
-	requireTools('magick', 'cwebp', 'webpmux', 'avifenc', 'exiftool');
+	requireTools('magick', 'cwebp', 'webpmux', 'avifenc', 'avifdec', 'exiftool');
 	console.log('generating tests/fixtures/derived');
 
 	generate();
@@ -1045,7 +1379,7 @@ function derived() {
  * its own job and not on the gate.
  */
 function check() {
-	requireTools('magick', 'cwebp', 'webpmux', 'avifenc', 'exiftool');
+	requireTools('magick', 'cwebp', 'webpmux', 'avifenc', 'avifdec', 'exiftool');
 
 	// the versions are the first thing to look at when this reports differences: the committed set
 	// is only reproducible with the tools that wrote it, which is why this is a local check and not

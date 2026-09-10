@@ -80,6 +80,18 @@ export const golden = {
 	jpegPhotoEighth: 'aa83554e57bb99d631d9fd04ddef0fc58d6de939cdb65007195fdc6a5f30965f',
 
 	/**
+	 * road.jpg at an eighth, 161x240x3, which is the progressive scan skip's path.
+	 *
+	 * **Recorded from the build before the skip existed**, which is what makes it an anchor rather
+	 * than a snapshot of the optimization's own output. At this scale the luma transform reads the
+	 * DC term alone, so the four luma AC scans contribute nothing and are stepped over; this digest
+	 * asserts that stepping over them changes no pixel. The 4:2:0 chroma planes still run at n = 2
+	 * here and their AC scans are kept, which is what the digest catches if that distinction is
+	 * ever lost.
+	 */
+	jpegProgressiveEighth: '0ac9a588338df590ea8f7e527b89bd3cc090eded7c7c1183d3b5f89a8b5e1364',
+
+	/**
 	 * GIF decodes, all but the last checked against ImageMagick byte for byte.
 	 *
 	 * `derived/base.gif` is not listed here because it decodes to {@link bmpRle8}; that it shares a
