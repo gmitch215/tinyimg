@@ -49,6 +49,14 @@ typedef enum
     TINYIMG_WORK_ENCODED = 8,
     /** Full passes made over an image. */
     TINYIMG_WORK_PASSES = 9,
+    /**
+     * Progressive JPEG scans stepped over rather than entropy decoded.
+     *
+     * Non-zero only at a scale denominator of eight, where the transform reads
+     * the DC term alone. A caller that expected the saving and sees zero here
+     * is looking at a baseline file, not at a lever that failed.
+     */
+    TINYIMG_WORK_SCANS_SKIPPED = 10,
 } TinyWorkCounter;
 
 /**

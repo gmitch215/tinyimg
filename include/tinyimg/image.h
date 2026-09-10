@@ -147,6 +147,11 @@ typedef struct {
  * reduction rather than a nearest neighbor pick. JPEG additionally does the
  * work in the DCT domain, which is why its scaled decode is cheaper as well as
  * smaller.
+ *
+ * That average is exact at TINYIMG_EFFORT_FANCY, which is what lets a scaled
+ * decode of one picture agree across formats. WebP's FAST tier averages its
+ * planes instead of the pixels it converts from them, which is a reduction of
+ * the same picture and not the same bytes; `effort` documents the floor.
  */
 typedef struct {
     /** Left edge of the region in source pixels. */
@@ -172,12 +177,20 @@ typedef struct {
      * produce them and there is no approximation available. PNG, GIF, TIFF and
      * WebP lossless therefore decode identically at either effort.
      *
-     * The two that do have a lever both spend it on a smoothing pass:
+     * Both lossy decoders spend it on a smoothing pass:
      *
      * - VP8 skips its deblocking filter, which is 1.53x for 46.8 dB.
      * - JPEG replicates chroma instead of interpolating it, which is 1.11x to
      *   1.25x for 43.6 to 59.5 dB. It reaches subsampled files only, so a
      *   4:4:4 file is unaffected.
+     *
+     * VP8 has a second one that a scaled request reaches, and it is the only
+     * place here that changes how a reduction is computed rather than which
+     * passes run. At `scale_den` above one it averages the luma and chroma
+     * planes over each output pixel's box and converts once, instead of
+     * converting the frame and averaging that: 2.05x to 3.35x together with
+     * the filter skip, for 38.9 dB and a worst sample 46 levels off the exact
+     * box average. Alpha carries no chroma and stays exact.
      */
     uint8_t effort;
 } TinyDecodeOpts;
@@ -219,6 +232,38 @@ typedef enum TinyEffort
 } TinyEffort;
 
 /**
+ * @brief How hard a lossless encoder should compress.
+ *
+ * A third axis, separate from quality and effort, because for PNG and
+ * deflate-compressed TIFF the whole output is the compressor's: there is no
+ * quantizer to turn down, so quality says nothing and effort only decides how
+ * many candidate streams get compressed.
+ *
+ * The default reads the other two, which is what every caller got before this
+ * existed: quality 90 or more asks for the long chain walk, anything else
+ * takes the bounded one.
+ */
+typedef enum TinyCompression
+{
+    /** Derive it from quality, which is the historical behavior. */
+    TINYIMG_COMPRESSION_AUTO = 0,
+    /**
+     * @brief Entropy code without searching for matches at all.
+     *
+     * Not a stored stream: literals are still Huffman coded. The floor for a
+     * buffer that is already compressed, and measurably smaller than one
+     * greedy short match per position on filtered photograph rows.
+     */
+    TINYIMG_COMPRESSION_NONE = 1,
+    /** One hash chain probe per position, no lazy matching. */
+    TINYIMG_COMPRESSION_FAST = 2,
+    /** A bounded chain walk with lazy matching. */
+    TINYIMG_COMPRESSION_DEFAULT = 3,
+    /** A long chain walk, for when output size matters more than time. */
+    TINYIMG_COMPRESSION_BEST = 4,
+} TinyCompression;
+
+/**
  * @brief Options an encoder honors.
  */
 typedef struct {
@@ -235,8 +280,23 @@ typedef struct {
      *
      * Zero is TINYIMG_EFFORT_FANCY, so a zeroed structure asks for the work
      * every caller got before this field existed.
+     *
+     * Two encoders read it. WebP bounds its 4x4 prediction search to the four
+     * whole-block modes, which is 1.18x to 1.45x and can move the output
+     * either way in bytes. PNG compresses one candidate stream instead of two,
+     * which is 1.59x to 2.08x; on a photograph the stream it keeps is the one
+     * that would have won, so the output is byte-identical, and on flat
+     * artwork it costs 7% to 63% more bytes. Every other encoder ignores this
+     * and does the exact thing.
      */
     uint8_t effort;
+    /**
+     * @brief How hard to compress a lossless stream; a TinyCompression.
+     *
+     * Zero is TINYIMG_COMPRESSION_AUTO. Read by PNG and by deflate-compressed
+     * TIFF; a format with no deflate stream ignores it.
+     */
+    uint8_t compression;
 } TinyEncodeOpts;
 
 /**
@@ -496,6 +556,14 @@ int tiny_image_setpixel(
  * @return uint32_t sizeof(TinyImageInfo).
  */
 uint32_t tiny_image_info_sizeof(void);
+
+/**
+ * @brief Size of a TinyEncodeOpts, for a host allocating one across the wasm
+ * boundary.
+ *
+ * @return uint32_t sizeof(TinyEncodeOpts).
+ */
+uint32_t tiny_encode_opts_sizeof(void);
 
 /**
  * @brief Size of a TinyImage, for a host allocating one across the wasm

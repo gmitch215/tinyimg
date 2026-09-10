@@ -919,7 +919,7 @@ int tiny_image_gradient_linear(
     float ey = (float) (y1 - y0);
     float length = ex * ex + ey * ey;
 
-    if (length <= 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(length) || length <= 0.0f) return TINYIMG_ERR_RANGE;
 
     for (uint32_t y = 0; y < image->height; y++) {
         for (uint32_t x = 0; x < image->width; x++) {
@@ -996,7 +996,7 @@ int tiny_image_gradient_fade(
         (dx < 0.0f ? (float) (image->width - 1u) : 0.0f) * tiny_fabsf(dx) +
         (dy < 0.0f ? (float) (image->height - 1u) : 0.0f) * tiny_fabsf(dy);
 
-    if (extent <= 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(extent) || extent <= 0.0f) return TINYIMG_ERR_RANGE;
 
     for (uint32_t y = 0; y < image->height; y++) {
         for (uint32_t x = 0; x < image->width; x++) {

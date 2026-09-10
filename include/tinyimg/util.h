@@ -172,6 +172,29 @@ static inline uint8_t tiny_clamp_u8f(float v) {
 }
 
 /**
+ * @brief Tests that a float is neither a NaN nor an infinity.
+ *
+ * Every comparison against a NaN is false, so a guard written as
+ * `if (value <= 0.0f) return TINYIMG_ERR_RANGE;` lets one through and the
+ * operation then runs on it: a NaN zoom factor reached the resampler and
+ * produced a 1x1 image while reporting success. Validate at the trust boundary
+ * with this rather than by inverting each comparison, so the intent is legible
+ * at the call site.
+ *
+ * `-mnontrapping-fptoint` is on for the wasm build, so a NaN that reaches a
+ * float to integer conversion saturates instead of trapping, which turns this
+ * from a crash into a wrong answer.
+ *
+ * @param v The value.
+ * @return int Non-zero when v is finite.
+ */
+static inline int tiny_finite(float v) {
+    // a NaN is the only value not equal to itself, and an infinity is the only
+    // finite-comparison failure left once that is excluded
+    return v == v && v <= 3.402823466e+38f && v >= -3.402823466e+38f;
+}
+
+/**
  * @brief Clamps a float into an inclusive range.
  *
  * @param v The value.
@@ -613,6 +636,21 @@ uint32_t tiny_bits_lsb(TinyBitReader* reader, uint32_t count);
  * @return uint32_t The bits, right aligned.
  */
 uint32_t tiny_bits_peek_lsb(TinyBitReader* reader, uint32_t count);
+
+/**
+ * @brief Discards bits already peeked at, without reading them.
+ *
+ * For the case a prefix-code decoder has: peek a fixed width, resolve a symbol
+ * from a table, then consume only the bits the symbol used. Those bits are
+ * already in the accumulator, so nothing has to be refilled or assembled.
+ *
+ * Unlike tiny_bits_skip_lsb this takes at most TINY_BITS_MAX bits and does no
+ * looping, which is the whole point of it.
+ *
+ * @param reader The reader.
+ * @param count How many bits, 1 to TINY_BITS_MAX. Anything else is ignored.
+ */
+void tiny_bits_drop_lsb(TinyBitReader* reader, uint32_t count);
 
 /**
  * @brief Discards bits already examined with a most significant first peek.

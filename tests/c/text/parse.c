@@ -496,6 +496,19 @@ static int blobs(void) {
         tiny_font_load(&font, "missing"), TINYIMG_ERR_BLOB_MISSING
     );
 
+    // with nothing resident the compiled-in face is what loads, which is what
+    // makes drawing text work off a bare instantiate
+    failures += assertEquals(tiny_font_load(&font, 0), TINYIMG_OK);
+    failures += assertEquals(font.kind, TINYIMG_FONT_TRUETYPE);
+    failures += assertEquals(font.glyphs, 110);
+    failures += assertEquals(tiny_font_has_glyph(&font, 'A'), 1);
+    failures += assertEquals(tiny_font_has_glyph(&font, 0xe9), 1);
+    failures += assertEquals(tiny_font_has_glyph(&font, 0x4e2d), 0);
+    tiny_font_free(&font);
+
+    failures += assertEquals(tiny_font_load(&font, "sans"), TINYIMG_OK);
+    tiny_font_free(&font);
+
     unsigned char* bytes = readFixture("derived/fonts/dejavu-latin.ttf", &size);
     if (!bytes) return failures + 1;
 

@@ -99,15 +99,37 @@ TinyImageFormat tiny_format_sniff(const uint8_t* buffer, size_t buffer_size) {
         return TINYIMG_FORMAT_WEBP;
     }
 
-    // both AVIF and HEIF are ISOBMFF, so the brand in the ftyp box is what
-    // separates them
+    /*
+     * Both AVIF and HEIF are ISOBMFF, so the brands in the ftyp box separate
+     * them, and **the major brand is not enough.**
+     *
+     * A converter may write the generic MIAF brand `mif1` as the major one and
+     * put `avif` in the compatible list beside it, which is what
+     * `tests/fixtures/dartmouth.avif` does. Reading only the major brand sent
+     * that file to the HEIF codec, which parses containers and decodes nothing,
+     * so a perfectly ordinary AVIF came back as an unsupported codec. The whole
+     * list is scanned for the AVIF brands first, and only then do the HEIF
+     * brands apply.
+     */
     if (buffer_size >= 12 && tiny_memcmp(buffer + 4, "ftyp", 4) == 0) {
         const uint8_t* brand = buffer + 8;
 
-        if (tiny_memcmp(brand, "avif", 4) == 0 ||
-            tiny_memcmp(brand, "avis", 4) == 0) {
-            return TINYIMG_FORMAT_AVIF;
+        size_t length = ((size_t) buffer[0] << 24) |
+                        ((size_t) buffer[1] << 16) | ((size_t) buffer[2] << 8) |
+                        buffer[3];
+
+        if (length > buffer_size) length = buffer_size;
+
+        for (size_t at = 8; at + 4 <= length; at += 4) {
+            // the four bytes at 12 are the minor version, not a brand
+            if (at == 12) continue;
+
+            if (tiny_memcmp(buffer + at, "avif", 4) == 0 ||
+                tiny_memcmp(buffer + at, "avis", 4) == 0) {
+                return TINYIMG_FORMAT_AVIF;
+            }
         }
+
         if (tiny_memcmp(brand, "heic", 4) == 0 ||
             tiny_memcmp(brand, "heix", 4) == 0 ||
             tiny_memcmp(brand, "heim", 4) == 0 ||
@@ -153,6 +175,11 @@ const char* tiny_format_extension(TinyImageFormat format) {
 TINYIMG_EXPORT("tiny_image_info_sizeof")
 uint32_t tiny_image_info_sizeof(void) {
     return (uint32_t) sizeof(TinyImageInfo);
+}
+
+TINYIMG_EXPORT("tiny_encode_opts_sizeof")
+uint32_t tiny_encode_opts_sizeof(void) {
+    return (uint32_t) sizeof(TinyEncodeOpts);
 }
 
 TINYIMG_EXPORT("tiny_image_probe")
@@ -251,7 +278,7 @@ int tiny_image_encode(
     tiny_work_add(TINYIMG_WORK_ENCODED, image->width * image->height);
 
     TinyEncodeOpts defaults = {
-        image->quality ? image->quality : 82, 0, 0, 0, 0
+        image->quality ? image->quality : 82, 0, 0, 0, 0, 0
     };
     return codec->encode(image, opts ? opts : &defaults, writer);
 }
@@ -413,7 +440,9 @@ int tiny_image_rotate_270(TinyImage* image) {
 TINYIMG_EXPORT("tiny_image_zoom")
 int tiny_image_zoom(TinyImage* image, float zoom_factor) {
     if (!image) return TINYIMG_ERR_NULL;
-    if (zoom_factor <= 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(zoom_factor) || zoom_factor <= 0.0f) {
+        return TINYIMG_ERR_RANGE;
+    }
 
     uint32_t width = (uint32_t) ((float) image->width * zoom_factor + 0.5f);
     uint32_t height = (uint32_t) ((float) image->height * zoom_factor + 0.5f);

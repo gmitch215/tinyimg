@@ -672,6 +672,22 @@ int tiny_icc_parse(TinyIccProfile* profile, const uint8_t* data, size_t size);
 int tiny_icc_srgb(TinyIccProfile* profile);
 
 /**
+ * @brief Reads one of the profiles the module carries.
+ *
+ * Display P3, Adobe RGB (1998) and Rec. 2020 are compiled in beside sRGB, so
+ * converting an image between two of the four spaces web images actually carry
+ * needs no host wiring. The ids are `srgb`, `display-p3`, `adobe-rgb-1998` and
+ * `rec2020`, and a resident ICC blob loaded under one of those names shadows
+ * the builtin.
+ *
+ * @param profile Receives the parsed profile.
+ * @param id Which one, or NULL for sRGB.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL, or TINYIMG_ERR_BLOB_MISSING when
+ * no profile answers to that id.
+ */
+int tiny_icc_builtin(TinyIccProfile* profile, const char* id);
+
+/**
  * @brief Converts one color from a profile's space to sRGB.
  *
  * @param profile The source profile.

@@ -191,10 +191,13 @@ int main(void) {
         r |= assertEquals(info.width, 320);
         r |= assertEquals(info.height, 180);
 
+        // AVIF decodes now, so the format that has a probe and no decoder is
+        // HEIF alone, which the assertion below is for
         TinyImage image;
-        r |= assertEquals(
-            tiny_image_load(&image, avif, size), TINYIMG_ERR_UNSUPPORTED_CODEC
-        );
+        r |= assertEquals(tiny_image_load(&image, avif, size), TINYIMG_OK);
+        r |= assertEquals(image.width, 320);
+        r |= assertEquals(image.height, 180);
+        tiny_image_destroy(&image);
         free(avif);
     }
 
@@ -250,11 +253,27 @@ int main(void) {
     r |= assertNull(tiny_codec_find(TINYIMG_FORMAT_HEIF));
     r |= assertNull(tiny_codec_sniff(0, 10));
 
-    // the AVIF codec is registered for probe alone, and a caller that reaches
-    // for the wrong direction has to get the specific error rather than a crash
+    // AVIF now reads and writes, so every registered codec has both and the
+    // format with neither is HEIF, which has no codec at all
     const TinyCodec* container = tiny_codec_find(TINYIMG_FORMAT_AVIF);
-    r |= assertNull((const void*) container->decode);
-    r |= assertNull((const void*) container->encode);
+    r |= assertNotNull((const void*) container->decode);
+    r |= assertNotNull((const void*) container->encode);
+
+    // a `pitm` whose version is 1, so its item id is four bytes and the box
+    // needs eight, over a payload of six. The guard checked for six and read
+    // two bytes past the end of the file, from probe alone
+    size_t shortSize = 0;
+    unsigned char* shortBytes =
+        readFixture("derived/malformed/avif-pitm-short.avif", &shortSize);
+
+    r |= assertNotNull(shortBytes);
+
+    if (shortBytes) {
+        TinyImageInfo truncated;
+        r |=
+            assertTrue(tiny_image_probe(shortBytes, shortSize, &truncated) < 0);
+        free(shortBytes);
+    }
 
     return r;
 }

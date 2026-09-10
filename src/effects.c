@@ -1151,7 +1151,10 @@ int tiny_image_channel_gain(
     TinyImage* image, float red, float green, float blue
 ) {
     if (!image) return TINYIMG_ERR_NULL;
-    if (red < 0.0f || green < 0.0f || blue < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(red) || !tiny_finite(green) || !tiny_finite(blue) ||
+        red < 0.0f || green < 0.0f || blue < 0.0f) {
+        return TINYIMG_ERR_RANGE;
+    }
 
     float m[12];
     matrix_identity(m);
@@ -1528,7 +1531,7 @@ int tiny_image_vignette(
 
 TINYIMG_EXPORT("tiny_image_sharpen")
 int tiny_image_sharpen(TinyImage* image, float amount) {
-    if (amount < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(amount) || amount < 0.0f) return TINYIMG_ERR_RANGE;
     return tiny_image_unsharp_mask(image, 1.0f, amount, 0.0f);
 }
 
@@ -1551,7 +1554,7 @@ int tiny_image_unsharp_mask(
 TINYIMG_EXPORT("tiny_image_clarity")
 int tiny_image_clarity(TinyImage* image, float amount) {
     if (!image) return TINYIMG_ERR_NULL;
-    if (amount < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(amount) || amount < 0.0f) return TINYIMG_ERR_RANGE;
 
     // a large radius, so what it raises is the contrast between regions rather
     // than the contrast at an edge, which is what separates it from a sharpen
@@ -1640,7 +1643,7 @@ int tiny_image_outline(TinyImage* image, uint32_t radius) {
 
 TINYIMG_EXPORT("tiny_image_motion_blur")
 int tiny_image_motion_blur(TinyImage* image, float length, float angle) {
-    if (length < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(length) || length < 0.0f) return TINYIMG_ERR_RANGE;
 
     float p[4] = {length, angle, 0.0f, 0.0f};
     return run_effect(image, TINYIMG_FX_MOTION_BLUR, p);
@@ -1648,7 +1651,7 @@ int tiny_image_motion_blur(TinyImage* image, float length, float angle) {
 
 TINYIMG_EXPORT("tiny_image_radial_blur")
 int tiny_image_radial_blur(TinyImage* image, float degrees) {
-    if (degrees < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(degrees) || degrees < 0.0f) return TINYIMG_ERR_RANGE;
 
     float p[4] = {degrees, 0.0f, 0.0f, 0.0f};
     return run_effect(image, TINYIMG_FX_RADIAL_BLUR, p);
@@ -1656,7 +1659,7 @@ int tiny_image_radial_blur(TinyImage* image, float degrees) {
 
 TINYIMG_EXPORT("tiny_image_zoom_blur")
 int tiny_image_zoom_blur(TinyImage* image, float strength) {
-    if (strength < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(strength) || strength < 0.0f) return TINYIMG_ERR_RANGE;
 
     float p[4] = {strength, 0.0f, 0.0f, 0.0f};
     return run_effect(image, TINYIMG_FX_ZOOM_BLUR, p);
@@ -1675,7 +1678,7 @@ int tiny_image_blur_region(
     TinyImage* image, uint32_t x, uint32_t y, uint32_t width, uint32_t height,
     float sigma
 ) {
-    if (sigma < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(sigma) || sigma < 0.0f) return TINYIMG_ERR_RANGE;
 
     TinyPlan plan;
     int result = tiny_plan_init_image(&plan, image);
@@ -1725,7 +1728,10 @@ int tiny_image_scanlines(TinyImage* image, uint32_t period, float strength) {
 TINYIMG_EXPORT("tiny_image_glow")
 int tiny_image_glow(TinyImage* image, float sigma, float strength) {
     if (!image || !image->data) return TINYIMG_ERR_NULL;
-    if (sigma < 0.0f || strength < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(sigma) || !tiny_finite(strength) || sigma < 0.0f ||
+        strength < 0.0f) {
+        return TINYIMG_ERR_RANGE;
+    }
 
     TinyImage soft;
     int result = image_clone(image, &soft);
@@ -1764,7 +1770,7 @@ int tiny_image_drop_shadow(
     const uint8_t* color
 ) {
     if (!image || !image->data) return TINYIMG_ERR_NULL;
-    if (sigma < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(sigma) || sigma < 0.0f) return TINYIMG_ERR_RANGE;
 
     if (image->channels == 1u || image->channels == 3u) {
         int result = tiny_image_to_rgba(image);
@@ -1876,7 +1882,7 @@ static float noise_at(uint32_t x, uint32_t y, uint32_t channel) {
 TINYIMG_EXPORT("tiny_image_noise")
 int tiny_image_noise(TinyImage* image, float amount, int monochrome) {
     if (!image || !image->data) return TINYIMG_ERR_NULL;
-    if (amount < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(amount) || amount < 0.0f) return TINYIMG_ERR_RANGE;
 
     uint8_t colors = color_channels(image);
 
@@ -1897,7 +1903,7 @@ int tiny_image_noise(TinyImage* image, float amount, int monochrome) {
 TINYIMG_EXPORT("tiny_image_film_grain")
 int tiny_image_film_grain(TinyImage* image, float amount) {
     if (!image || !image->data) return TINYIMG_ERR_NULL;
-    if (amount < 0.0f) return TINYIMG_ERR_RANGE;
+    if (!tiny_finite(amount) || amount < 0.0f) return TINYIMG_ERR_RANGE;
 
     uint8_t colors = color_channels(image);
 

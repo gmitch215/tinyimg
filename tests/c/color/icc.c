@@ -1,6 +1,7 @@
 #include <math.h>
 
 #include "tinyimg/color.h"
+#include "tinyimg/memory.h"
 
 #include "test.h"
 
@@ -655,6 +656,57 @@ static int refuses_what_it_cannot_read(void) {
     return failures;
 }
 
+/**
+ * The four profiles the module carries.
+ *
+ * Each one is compared field for field against the same profile read from
+ * `derived/icc`, which is what the differential test measures against
+ * ImageMagick. That makes the inlined copy the validated profile rather than a
+ * second one that happens to parse.
+ */
+static int builtins_match_the_files(void) {
+    int failures = 0;
+
+    static const char* ids[4] = {
+        "srgb", "display-p3", "adobe-rgb-1998", "rec2020"
+    };
+
+    tiny_blob_free_all();
+
+    for (uint32_t i = 0; i < 4u; i++) {
+        char path[64];
+        snprintf(path, sizeof(path), "derived/icc/%s.icc", ids[i]);
+
+        TinyIccProfile file;
+        TinyIccProfile inlined;
+
+        failures += assertTrue(load(&file, path));
+        failures +=
+            assertEquals(tiny_icc_builtin(&inlined, ids[i]), TINYIMG_OK);
+
+        // member by member rather than one memcmp, because the structure has
+        // padding after `linear` and two stack copies of it need not agree
+        // there
+        failures +=
+            assertEquals(memcmp(file.to_xyz, inlined.to_xyz, 9u * 4u), 0);
+        failures += assertEquals(memcmp(file.white, inlined.white, 3u * 4u), 0);
+        failures +=
+            assertEquals(memcmp(file.curve, inlined.curve, 3u * 256u * 4u), 0);
+        failures += assertEquals((long) file.linear, (long) inlined.linear);
+    }
+
+    // NULL is sRGB, and a name nothing answers to is a miss rather than a
+    // silent fallback to it
+    TinyIccProfile any;
+    failures += assertEquals(tiny_icc_builtin(&any, 0), TINYIMG_OK);
+    failures += assertEquals(
+        tiny_icc_builtin(&any, "prophoto"), TINYIMG_ERR_BLOB_MISSING
+    );
+    failures += assertEquals(tiny_icc_builtin(0, "srgb"), TINYIMG_ERR_NULL);
+
+    return failures;
+}
+
 int main(void) {
     int failures = 0;
 
@@ -669,6 +721,7 @@ int main(void) {
     failures += curve_forms();
     failures += against_magick();
     failures += refuses_what_it_cannot_read();
+    failures += builtins_match_the_files();
 
     printf("%s\n", failures == 0 ? "PASSED" : "FAILED");
     return failures == 0 ? 0 : 1;

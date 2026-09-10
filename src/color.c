@@ -991,6 +991,18 @@ int tiny_icc_srgb(TinyIccProfile* profile) {
     return TINYIMG_OK;
 }
 
+TINYIMG_EXPORT("tiny_icc_builtin")
+int tiny_icc_builtin(TinyIccProfile* profile, const char* id) {
+    if (!profile) return TINYIMG_ERR_NULL;
+
+    size_t size = 0;
+    const uint8_t* data =
+        tiny_blob_get(TINYIMG_BLOB_ICC, id ? id : "srgb", &size);
+
+    if (!data) return TINYIMG_ERR_BLOB_MISSING;
+    return tiny_icc_parse(profile, data, size);
+}
+
 /** The inverse of a 3x3, by its adjugate. */
 static int matrix3_inverse(float* out, const float* m) {
     float a = m[4] * m[8] - m[5] * m[7];

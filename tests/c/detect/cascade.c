@@ -37,8 +37,8 @@ static int loading(void) {
 
     tiny_blob_free_all();
 
-    // nothing resident, so a search has nothing to run rather than finding
-    // nothing
+    // with nothing resident the two builtin cascades are what a search runs,
+    // so a flat image finds nothing rather than reporting a missing blob
     TinyImage image;
     memset(&image, 0, sizeof(image));
     tiny_image_create(&image, 200, 200, 1);
@@ -46,12 +46,11 @@ static int loading(void) {
     TinyFaceBox boxes[4];
     uint32_t count = 99;
 
-    failures += assertEquals(
-        tiny_image_detect_faces(&image, boxes, 4u, &count),
-        TINYIMG_ERR_BLOB_MISSING
-    );
+    failures +=
+        assertEquals(tiny_image_detect_faces(&image, boxes, 4u, &count), 0);
     failures += assertEquals(count, 0);
-    failures += assertEquals(tiny_cascade_check(0), TINYIMG_ERR_BLOB_MISSING);
+    failures += assertEquals(tiny_cascade_check(0), TINYIMG_OK);
+    failures += assertEquals(tiny_cascade_check("lbp-profileface"), TINYIMG_OK);
 
     failures += assertEquals(install("frontal", "lbp-frontalface"), TINYIMG_OK);
     failures += assertEquals(tiny_cascade_check(0), TINYIMG_OK);

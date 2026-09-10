@@ -1,6 +1,6 @@
 #include "tinyimg/work.h"
 
-#define TINY_WORK_COUNT 10
+#define TINY_WORK_COUNT 11
 
 static uint32_t counters[TINY_WORK_COUNT];
 

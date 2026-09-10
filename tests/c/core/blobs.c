@@ -8,6 +8,91 @@ static uint8_t* makeBlob(uint8_t fill, size_t size) {
     return data;
 }
 
+/**
+ * The data the module carries, which resolves with nothing loaded.
+ *
+ * Two rules, and the second is the one a caller notices. A name resolves
+ * against the residents and then the builtins, so `sans` always works. An
+ * enumeration is different: **one resident blob of a kind hides every builtin
+ * of that kind**, which is what stops a host that installed its own cascade
+ * from also running the two that ship.
+ */
+static int builtins(void) {
+    int r = 0;
+    size_t size = 0;
+
+    tiny_blob_free_all();
+
+    r |= assertEquals((long) tiny_blob_builtin_count, 7L);
+
+    // one face, four profiles, two cascades, and nothing under a kind's name
+    // that belongs to another kind
+    r |= assertNotNull(tiny_blob_get(TINYIMG_BLOB_FONT, "sans", &size));
+    r |= assertGreaterThan((double) size, 1000.0);
+    r |= assertNotNull(tiny_blob_get(TINYIMG_BLOB_ICC, "display-p3", 0));
+    r |= assertNotNull(tiny_blob_get(TINYIMG_BLOB_ICC, "adobe-rgb-1998", 0));
+    r |= assertNotNull(tiny_blob_get(TINYIMG_BLOB_ICC, "rec2020", 0));
+    r |= assertNotNull(
+        tiny_blob_get(TINYIMG_BLOB_CASCADE, "lbp-frontalface", 0)
+    );
+    r |= assertNotNull(
+        tiny_blob_get(TINYIMG_BLOB_CASCADE, "lbp-profileface", 0)
+    );
+    r |= assertNull(tiny_blob_get(TINYIMG_BLOB_FONT, "srgb", 0));
+    r |= assertNull(tiny_blob_get(TINYIMG_BLOB_ICC, "sans", 0));
+
+    // a NULL id resolves to the first builtin of the kind
+    r |= assertTrue(
+        tiny_blob_get(TINYIMG_BLOB_FONT, 0, 0) ==
+        tiny_blob_get(TINYIMG_BLOB_FONT, "sans", 0)
+    );
+
+    // and the walk reaches all of them with their ids
+    const char* id = 0;
+    r |= assertNotNull(tiny_blob_at(TINYIMG_BLOB_CASCADE, 0u, &id, 0));
+    r |= assertEquals(tiny_strcmp(id, "lbp-frontalface"), 0);
+    r |= assertNotNull(tiny_blob_at(TINYIMG_BLOB_CASCADE, 1u, &id, 0));
+    r |= assertEquals(tiny_strcmp(id, "lbp-profileface"), 0);
+    r |= assertNull(tiny_blob_at(TINYIMG_BLOB_CASCADE, 2u, 0, 0));
+
+    // a builtin lives in the data section, so releasing it is a miss rather
+    // than a free of something that was never allocated
+    r |= assertEquals(
+        tiny_blob_free(TINYIMG_BLOB_FONT, "sans"), TINYIMG_ERR_NOT_FOUND
+    );
+    r |= assertEquals(
+        tiny_blob_free(TINYIMG_BLOB_CASCADE, 0), TINYIMG_ERR_NOT_FOUND
+    );
+    r |= assertNotNull(tiny_blob_get(TINYIMG_BLOB_FONT, "sans", 0));
+
+    // one resident cascade, and the walk stops reporting the builtins
+    uint8_t* own = makeBlob(0x11, 24);
+    r |= assertNotNull(own);
+    r |= assertEquals(
+        tiny_blob_load(TINYIMG_BLOB_CASCADE, "mine", own, 24), TINYIMG_OK
+    );
+
+    r |= assertTrue(tiny_blob_at(TINYIMG_BLOB_CASCADE, 0u, 0, 0) == own);
+    r |= assertNull(tiny_blob_at(TINYIMG_BLOB_CASCADE, 1u, 0, 0));
+
+    // the other kinds are untouched by that, and a name still reaches the
+    // hidden builtin
+    r |= assertNotNull(tiny_blob_at(TINYIMG_BLOB_FONT, 0u, 0, 0));
+    r |= assertNotNull(
+        tiny_blob_get(TINYIMG_BLOB_CASCADE, "lbp-profileface", 0)
+    );
+
+    // tiny_blob_builtin_at reports what ships whatever is resident, which is
+    // what a host listing the available faces reads
+    r |= assertNotNull(tiny_blob_builtin_at(TINYIMG_BLOB_CASCADE, 0u, &id, 0));
+    r |= assertEquals(tiny_strcmp(id, "lbp-frontalface"), 0);
+    r |= assertNull(tiny_blob_builtin_at(TINYIMG_BLOB_CASCADE, 2u, 0, 0));
+    r |= assertNull(tiny_blob_builtin_at(TINYIMG_BLOB_FONT, 1u, 0, 0));
+
+    tiny_blob_free_all();
+    return r;
+}
+
 int main(void) {
     int r = 0;
 
@@ -111,8 +196,14 @@ int main(void) {
 
     tiny_blob_free_all();
     r |= assertNull(tiny_blob_get(TINYIMG_BLOB_FONT, "inter", &size));
-    r |= assertNull(tiny_blob_get(TINYIMG_BLOB_ICC, "srgb", &size));
     r |= assertNull(tiny_blob_get(TINYIMG_BLOB_CASCADE, truncated, &size));
+
+    // "srgb" is not gone, because it names a builtin: what free_all released
+    // was the resident blob that had been shadowing it
+    const uint8_t* shipped = tiny_blob_get(TINYIMG_BLOB_ICC, "srgb", &size);
+    r |= assertNotNull(shipped);
+    r |= assertTrue(shipped != profile);
+    r |= assertEquals((long) size, 2588L);
 
     // every blob the table held is back in the heap
     TinyHeapStats empty;
@@ -130,6 +221,8 @@ int main(void) {
     r |= assertEquals(
         tiny_blob_free(TINYIMG_BLOB_ICC, "p3"), TINYIMG_ERR_NOT_FOUND
     );
+
+    r |= builtins();
 
     return r;
 }

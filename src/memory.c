@@ -517,7 +517,13 @@ TINYIMG_EXPORT("tiny_blob_load")
 int tiny_blob_load(
     TinyBlobKind kind, const char* id, const uint8_t* data, size_t size
 ) {
-    if (!data || size == 0) return TINYIMG_ERR_NULL;
+    // ownership transfers on every path, so a refused load frees rather than
+    // stranding the bytes: the documented owner is this function and the caller
+    // has already been told it no longer holds them
+    if (!data || size == 0) {
+        tiny_free((void*) data);
+        return TINYIMG_ERR_NULL;
+    }
 
     char name[TINYIMG_BLOB_ID_MAX];
     tiny_strcopy(name, id, sizeof(name));
@@ -535,7 +541,10 @@ int tiny_blob_load(
         }
     }
 
-    if (!slot) return TINYIMG_ERR_MEMORY;
+    if (!slot) {
+        tiny_free((void*) data);
+        return TINYIMG_ERR_MEMORY;
+    }
 
     slot->kind = kind;
     slot->data = data;
@@ -545,12 +554,45 @@ int tiny_blob_load(
     return TINYIMG_OK;
 }
 
+TINYIMG_EXPORT("tiny_blob_builtin_at")
+const uint8_t* tiny_blob_builtin_at(
+    TinyBlobKind kind, uint32_t index, const char** id, size_t* size
+) {
+    uint32_t seen = 0;
+
+    for (uint32_t i = 0; i < tiny_blob_builtin_count; i++) {
+        const TinyBlobBuiltin* entry = &tiny_blob_builtins[i];
+
+        if (entry->kind != kind) continue;
+        if (seen++ != index) continue;
+
+        if (id) *id = entry->id;
+        if (size) *size = entry->size;
+        return entry->data;
+    }
+
+    return 0;
+}
+
 const uint8_t* tiny_blob_get(TinyBlobKind kind, const char* id, size_t* size) {
     TinyBlobSlot* slot = blob_find(kind, id);
-    if (!slot) return 0;
 
-    if (size) *size = slot->size;
-    return slot->data;
+    if (slot) {
+        if (size) *size = slot->size;
+        return slot->data;
+    }
+
+    for (uint32_t i = 0; i < tiny_blob_builtin_count; i++) {
+        const TinyBlobBuiltin* entry = &tiny_blob_builtins[i];
+
+        if (entry->kind != kind) continue;
+        if (id && tiny_strcmp(entry->id, id) != 0) continue;
+
+        if (size) *size = entry->size;
+        return entry->data;
+    }
+
+    return 0;
 }
 
 const uint8_t* tiny_blob_at(
@@ -567,7 +609,11 @@ const uint8_t* tiny_blob_at(
         return blobs[i].data;
     }
 
-    return 0;
+    // one resident blob of a kind hides the builtins of that kind, so a host
+    // that installs its own cascade runs that one rather than three
+    if (seen > 0u) return 0;
+
+    return tiny_blob_builtin_at(kind, index, id, size);
 }
 
 TINYIMG_EXPORT("tiny_blob_free")

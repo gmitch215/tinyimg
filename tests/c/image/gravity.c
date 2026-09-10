@@ -311,7 +311,9 @@ static int plannedGravity(void) {
     printf("auto vs face: ");
     failures += assertNotEquals((long) hashes[1], (long) hashes[2]);
 
-    // and with no cascade, face gives exactly what auto gives
+    // and with nothing resident the builtin cascades run, so face gives the
+    // face crop rather than falling back to auto: the two ids installed above
+    // are the same packed cascades the module carries
     tiny_blob_free_all();
 
     uint64_t fallback = 0;
@@ -325,8 +327,10 @@ static int plannedGravity(void) {
     tiny_image_phash(&out, &fallback);
     tiny_image_destroy(&out);
 
-    printf("face with no cascade equals auto: ");
-    failures += assertEquals((long) fallback, (long) hashes[1]);
+    printf("face with no resident cascade equals face: ");
+    failures += assertEquals((long) fallback, (long) hashes[2]);
+    printf("and still differs from auto: ");
+    failures += assertNotEquals((long) fallback, (long) hashes[1]);
 
     // resolution alone is unchanged by any of this: it is a function of the
     // plan, and a plan whose focus has not been answered still resolves
