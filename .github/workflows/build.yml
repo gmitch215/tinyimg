@@ -42,7 +42,7 @@ jobs:
   wasm:
     name: Build WASM
     needs: format
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
 
     permissions:
@@ -165,7 +165,7 @@ jobs:
   sanitizers:
     name: Sanitizers (ASan + UBSan)
     needs: format
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 25
 
     permissions:
@@ -183,7 +183,7 @@ jobs:
   vitest:
     name: Test TypeScript
     needs: wasm
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 25
 
     permissions:
