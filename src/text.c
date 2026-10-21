@@ -1966,6 +1966,10 @@ static int raster_fill(
 
 #pragma region bitmap faces
 
+// a wider or taller cell is a bad header, and every product below stays in 32
+// bits
+#define BITMAP_MAX_CELL 1024u
+
 /**
  * @brief Parses a PSF header.
  *
@@ -1998,6 +2002,9 @@ static int psf_load(TinyFont* font) {
         if (width == 0u || height == 0u || glyphs == 0u) {
             return TINYIMG_ERR_CORRUPT;
         }
+        if (width > BITMAP_MAX_CELL || height > BITMAP_MAX_CELL) {
+            return TINYIMG_ERR_CORRUPT;
+        }
         if (bytes < (width + 7u) / 8u * height) return TINYIMG_ERR_CORRUPT;
 
         font->cell_width = width;
@@ -2007,9 +2014,11 @@ static int psf_load(TinyFont* font) {
         font->glyphs = glyphs;
     }
 
-    if (!face_holds(
-            &face, font->bitmap, (size_t) font->glyph_bytes * font->glyphs
-        )) {
+    // size_t is 32 bits on wasm32, so the span is formed wide before it is
+    // compared
+    uint64_t span = (uint64_t) font->glyph_bytes * font->glyphs;
+
+    if (span > face.size || !face_holds(&face, font->bitmap, (size_t) span)) {
         return TINYIMG_ERR_CORRUPT;
     }
 
@@ -2129,7 +2138,9 @@ static int bdf_load(TinyFont* font) {
         at = bdf_line(&face, at);
     }
 
-    if (font->cell_width == 0u || font->cell_height == 0u) {
+    if (font->cell_width == 0u || font->cell_height == 0u ||
+        font->cell_width > BITMAP_MAX_CELL ||
+        font->cell_height > BITMAP_MAX_CELL) {
         tiny_free(font->index);
         font->index = 0;
         return TINYIMG_ERR_CORRUPT;
@@ -2172,7 +2183,8 @@ static int bitmap_glyph(
 
         for (uint32_t y = 0; y < height; y++) {
             for (uint32_t x = 0; x < width; x++) {
-                uint32_t byte = face_u8(&face, at + y * stride + x / 8u);
+                uint32_t byte =
+                    face_u8(&face, at + (size_t) y * stride + x / 8u);
 
                 if (byte & (0x80u >> (x & 7u))) {
                     mask[(size_t) y * width + x] = 255u;

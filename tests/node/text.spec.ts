@@ -167,6 +167,60 @@ describe('detection through the wasm module', () => {
 		abi = new TinyAbi(new WebAssembly.Instance(new WebAssembly.Module(bytes), {}));
 	});
 
+	it('refuses a bitmap face whose header sizes a cell or a glyph table past 32 bits', () => {
+		// magic, version, header size, flags, glyph count, bytes per glyph, height, width
+		const psf2 = (
+			glyphs: number,
+			bytes: number,
+			height: number,
+			width: number,
+			data: number
+		) => {
+			const out = new Uint8Array(32 + data).fill(0xff);
+			const view = new DataView(out.buffer);
+
+			out.set([0x72, 0xb5, 0x4a, 0x86], 0);
+			view.setUint32(8, 32, true);
+			view.setUint32(16, glyphs, true);
+			view.setUint32(20, bytes, true);
+			view.setUint32(24, height, true);
+			view.setUint32(28, width, true);
+
+			return out;
+		};
+		const bdf = (box: string) =>
+			new TextEncoder().encode(
+				`STARTFONT 2.1\nFONTBOUNDINGBOX ${box}\nCHARS 1\nSTARTCHAR a\nENCODING 97\nBITMAP\n00\nENDCHAR\nENDFONT\n`
+			);
+
+		const faces: [string, Uint8Array][] = [
+			// two bytes a row times 0x80000001 rows wraps to two, so the size check passes
+			['rows', psf2(256, 2, 0x80000001, 16, 512)],
+			['wide', psf2(256, 8, 8, 0xffffffff, 2048)],
+			// a glyph count and size whose product wraps to what the file holds
+			['table', psf2(0x10001, 0x10000, 8, 8, 0x10000)],
+			['bdf', bdf('4000 8 0 0')],
+			['negative', bdf('-1 8 0 0')]
+		];
+
+		try {
+			for (const [id, face] of faces) {
+				expect(abi.loadBlob(Blob.font, id, face), id).toBe(Err.ok);
+				expect(
+					abi.drawText({ font: id, text: 'A', size: 8, width: 40, height: 20 }).result,
+					id
+				).toBe(Err.corrupt);
+			}
+		} finally {
+			for (const [id] of faces) {
+				const name = abi.writeString(id);
+
+				abi.exports.tiny_blob_free(Blob.font, name);
+				abi.exports.tiny_free(name);
+			}
+		}
+	});
+
 	it('finds faces with nothing loaded, because the cascades ship', () => {
 		const found = abi.detectFaces(fixture('smile.jpg'));
 
