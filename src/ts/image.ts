@@ -65,6 +65,17 @@ const KERNELS: [number, string][] = [
 	[1 << 8, 'neighborhood']
 ];
 
+/** What turns an image stored under each EXIF orientation upright: a mirror, then a clockwise turn. */
+const ORIENTATION: Record<number, { flip?: FlipAxis; turn?: 90 | 180 | 270 }> = {
+	2: { flip: 'horizontal' },
+	3: { turn: 180 },
+	4: { flip: 'vertical' },
+	5: { flip: 'horizontal', turn: 270 },
+	6: { turn: 90 },
+	7: { flip: 'horizontal', turn: 90 },
+	8: { turn: 270 }
+};
+
 /** `TINYIMG_FX_UNSHARP`. */
 const FX_UNSHARP = 0;
 
@@ -186,6 +197,7 @@ export class Image {
 	readonly #size: number;
 	readonly #format: ImageFormat | 'unknown';
 	readonly #frames: number;
+	readonly #orientation: number;
 	readonly #after: ((image: number) => void)[] = [];
 
 	#background: Uint8Array | undefined;
@@ -197,7 +209,8 @@ export class Image {
 		buffer: number,
 		size: number,
 		format: ImageFormat | 'unknown',
-		frames: number
+		frames: number,
+		orientation: number
 	) {
 		this.#module = module;
 		this.#plan = plan;
@@ -205,6 +218,7 @@ export class Image {
 		this.#size = size;
 		this.#format = format;
 		this.#frames = frames;
+		this.#orientation = orientation;
 	}
 
 	/**
@@ -235,7 +249,15 @@ export class Image {
 			throw error;
 		}
 
-		return new Image(module, plan, buffer, bytes.byteLength, info.format, info.frames);
+		return new Image(
+			module,
+			plan,
+			buffer,
+			bytes.byteLength,
+			info.format,
+			info.frames,
+			info.orientation
+		);
 	}
 
 	/** The container the source arrived in, and the default {@link bytes} encodes back to. */
@@ -337,6 +359,32 @@ export class Image {
 		if (axis === 'vertical' || axis === 'both') {
 			this.#append(this.#module.exports.tiny_plan_flip_vertical(this.#plan), 'flip');
 		}
+
+		return this;
+	}
+
+	/**
+	 * Turns the source upright by the orientation its EXIF names.
+	 *
+	 * The decoder returns pixels as stored and a plan's output carries no EXIF block, so an image
+	 * tagged as rotated would otherwise come out sideways. This appends the flip and turn that
+	 * orientation stands for, which fold into the output addressing like any other, so it costs no
+	 * pass. A source with no tag, and every format but JPEG, appends nothing.
+	 *
+	 * Call it before any other operation: a crop or resize after it works in display coordinates,
+	 * and one before it would not.
+	 *
+	 * @throws Error If an operation has already been appended.
+	 */
+	autoOrient(): this {
+		if (this.operations > 0) {
+			throw new Error('autoOrient has to be the first operation');
+		}
+
+		const step = ORIENTATION[this.#orientation];
+
+		if (step?.flip) this.flip(step.flip);
+		if (step?.turn) this.rotate(step.turn);
 
 		return this;
 	}

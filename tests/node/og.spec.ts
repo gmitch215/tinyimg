@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import wasm from '../../bin/tinyimg.wasm?bin';
-import { Font, og, TinyImgModule } from '../../src/ts/index.js';
+import { Font, og, TinyImgModule, transform } from '../../src/ts/index.js';
 
 const fixtures = join(import.meta.dirname, '../fixtures');
 
@@ -104,6 +104,22 @@ describe('the og card helper', () => {
 		// a photograph does not compress to a few hundred bytes, so this is the image and not the
 		// solid background path
 		expect(card.data.byteLength).toBeGreaterThan(10_000);
+	});
+
+	it('turns a rotated photograph upright before it covers the card', async () => {
+		const rotated = fixture('derived/base-exif-rotated.jpg');
+		const upright = (await transform(tinyimg, rotated, { format: 'png' })).bytes();
+		const options = {
+			width: 400,
+			height: 300,
+			title: 'Over a photograph',
+			format: 'png'
+		} as const;
+
+		const fromRotated = await og(tinyimg, { ...options, image: rotated });
+		const fromUpright = await og(tinyimg, { ...options, image: upright });
+
+		expect(Buffer.compare(fromRotated.data, fromUpright.data)).toBe(0);
 	});
 
 	it('hands back a Response ready to serve', async () => {

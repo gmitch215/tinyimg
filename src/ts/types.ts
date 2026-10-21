@@ -161,7 +161,7 @@ export interface TransformOptions {
 	lossless?: boolean;
 	/** Write a progressive or interlaced stream. */
 	progressive?: boolean;
-	/** Whether to carry EXIF and other metadata into the output. Defaults to `keep`. */
+	/** Accepted for the encoders that write metadata. A transformation's output carries none. */
 	metadata?: MetadataPolicy;
 }
 
@@ -206,6 +206,13 @@ export interface ImageInfo {
 	hasAlpha: boolean;
 	/** Whether this is a progressive JPEG, which cannot stream a region. */
 	progressive: boolean;
+	/**
+	 * The EXIF orientation, 1 through 8, or 1 when there is none.
+	 *
+	 * Read from a JPEG header only; every other format reports 1. `width` and `height` are the
+	 * stored extent, so a value of 5 through 8 means the image displays with them swapped.
+	 */
+	orientation: number;
 }
 
 /** Decoded samples, with the extent they describe. */

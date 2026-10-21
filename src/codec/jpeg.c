@@ -2285,6 +2285,47 @@ static int jpeg_probe(const uint8_t* buffer, size_t size, TinyImageInfo* info) {
     return TINYIMG_ERR_CORRUPT;
 }
 
+TINYIMG_EXPORT("tiny_jpeg_orientation")
+uint32_t tiny_jpeg_orientation(const uint8_t* buffer, size_t size) {
+    if (!buffer || !jpeg_sniff(buffer, size)) return 0;
+
+    size_t at = 2;
+
+    while (at + 1 < size) {
+        if (buffer[at] != 0xFF) {
+            at++;
+            continue;
+        }
+
+        uint8_t marker = buffer[at + 1];
+        at += 2;
+
+        if (marker == 0xFF || marker == 0x00) continue;
+        if (marker == JPEG_EOI || marker == JPEG_SOS) break;
+        if (marker >= JPEG_RST0 && marker <= JPEG_RST7) continue;
+
+        if (at + 2 > size) break;
+
+        uint32_t length = read_be16(buffer + at);
+        if (length < 2 || at + length > size) break;
+
+        const uint8_t* segment = buffer + at + 2;
+        uint32_t payload = length - 2;
+
+        // same test as the decoder's: the first EXIF segment is the one that
+        // counts
+        if (marker == JPEG_APP1 && payload > 6 && segment[0] == 'E' &&
+            segment[1] == 'x' && segment[2] == 'i' && segment[3] == 'f' &&
+            segment[4] == 0) {
+            return exif_orientation(segment + 6, payload - 6);
+        }
+
+        at += length;
+    }
+
+    return 0;
+}
+
 #pragma endregion
 
 #pragma region forward transform

@@ -36,6 +36,69 @@ function fixture(name: string): Uint8Array<ArrayBuffer> {
 	return out;
 }
 
+/** A copy of a JPEG whose EXIF orientation tag has been rewritten to `value`. */
+function withOrientation(source: Uint8Array<ArrayBuffer>, value: number): Uint8Array<ArrayBuffer> {
+	const out = source.slice();
+	const view = new DataView(out.buffer);
+
+	let at = 2;
+	while (at + 4 < out.length) {
+		const marker = out[at + 1]!;
+		const length = view.getUint16(at + 2);
+		const data = at + 4;
+
+		if (marker === 0xe1 && String.fromCharCode(...out.subarray(data, data + 4)) === 'Exif') {
+			const tiff = data + 6;
+			const little = out[tiff] === 0x49;
+			const count = view.getUint16(tiff + view.getUint32(tiff + 4, little), little);
+
+			for (let i = 0; i < count; i++) {
+				const entry = tiff + view.getUint32(tiff + 4, little) + 2 + i * 12;
+
+				if (view.getUint16(entry, little) === 0x0112) {
+					view.setUint16(entry + 8, value, little);
+					return out;
+				}
+			}
+		}
+
+		at += 2 + length;
+	}
+
+	throw new Error('no orientation tag to rewrite');
+}
+
+/**
+ * The stored sample an EXIF orientation shows at a displayed position, as the specification lays
+ * the eight out: where row 0 and column 0 of the stored image land when it is displayed.
+ */
+function storedAt(
+	orientation: number,
+	x: number,
+	y: number,
+	storedWidth: number,
+	storedHeight: number
+): [column: number, row: number] {
+	switch (orientation) {
+		case 1:
+			return [x, y];
+		case 2:
+			return [storedWidth - 1 - x, y];
+		case 3:
+			return [storedWidth - 1 - x, storedHeight - 1 - y];
+		case 4:
+			return [x, storedHeight - 1 - y];
+		case 5:
+			return [y, x];
+		case 6:
+			return [y, storedHeight - 1 - x];
+		case 7:
+			return [storedWidth - 1 - y, storedHeight - 1 - x];
+		default:
+			return [storedWidth - 1 - y, x];
+	}
+}
+
 /**
  * The shipped wrapper, driven the way a caller will.
  *
@@ -83,7 +146,8 @@ describe('the wrapper', () => {
 			channels: 3,
 			bitDepth: 8,
 			hasAlpha: false,
-			progressive: false
+			progressive: false,
+			orientation: 1
 		});
 
 		// the one progressive fixture, which is the case that cannot stream a region
@@ -93,6 +157,19 @@ describe('the wrapper', () => {
 		const avif = await tinyimg.probe(fixture('derived/base.avif'));
 		expect(avif.format).toBe('avif');
 		expect(avif.width).toBeGreaterThan(0);
+	});
+
+	it('reports the EXIF orientation of a JPEG, and 1 for anything without one', async () => {
+		const upright = fixture('derived/base-exif.jpg');
+
+		expect((await tinyimg.probe(fixture('derived/base-exif-rotated.jpg'))).orientation).toBe(6);
+		expect((await tinyimg.probe(upright)).orientation).toBe(1);
+		expect((await tinyimg.probe(fixture('derived/base-444.jpg'))).orientation).toBe(1);
+		expect((await tinyimg.probe(fixture('derived/base.png'))).orientation).toBe(1);
+
+		for (let value = 1; value <= 8; value++) {
+			expect((await tinyimg.probe(withOrientation(upright, value))).orientation).toBe(value);
+		}
 	});
 
 	it('takes every shape a source can arrive in', async () => {
@@ -214,6 +291,25 @@ describe('the chainable image', () => {
 
 	beforeAll(async () => {
 		tinyimg = await TinyImgModule.loadBytes(wasm);
+	});
+
+	it('appends the turn an orientation stands for, and only as the first operation', async () => {
+		using rotated = await Image.open(tinyimg, fixture('derived/base-exif-rotated.jpg'));
+		using plain = await Image.open(tinyimg, fixture('derived/base-444.jpg'));
+		using late = await Image.open(tinyimg, fixture('derived/base-exif-rotated.jpg'));
+
+		expect(rotated.autoOrient().operations).toBe(1);
+		expect(plain.autoOrient().operations).toBe(0);
+		expect(() => late.resize(100).autoOrient()).toThrow('first operation');
+
+		using mirrored = await Image.open(
+			tinyimg,
+			withOrientation(fixture('derived/base-exif.jpg'), 5)
+		);
+
+		// a mirror and a turn, which fold into one pass between them
+		expect(mirrored.autoOrient().operations).toBe(2);
+		expect(mirrored.decide().passes).toBe(1);
 	});
 
 	it('appends without running, and runs once at the end', async () => {
@@ -359,6 +455,75 @@ describe('the one-shot transform', () => {
 
 	beforeAll(async () => {
 		tinyimg = await TinyImgModule.loadBytes(wasm);
+	});
+
+	it('turns a JPEG upright for each of the eight EXIF orientations', async () => {
+		const source = fixture('derived/base-exif.jpg');
+		const stored = await tinyimg.decode(source);
+		const { width: sw, height: sh, channels } = stored;
+
+		for (let orientation = 1; orientation <= 8; orientation++) {
+			const out = await transform(tinyimg, withOrientation(source, orientation), {
+				format: 'png'
+			});
+			const shown = await tinyimg.decode(out.bytes());
+
+			const turned = orientation >= 5;
+			expect([shown.width, shown.height], `orientation ${orientation}`).toEqual(
+				turned ? [sh, sw] : [sw, sh]
+			);
+
+			let wrong = 0;
+			for (let y = 0; y < shown.height; y++) {
+				for (let x = 0; x < shown.width; x++) {
+					const [column, row] = storedAt(orientation, x, y, sw, sh);
+
+					for (let c = 0; c < channels; c++) {
+						const a = shown.pixels[(y * shown.width + x) * channels + c];
+						const b = stored.pixels[(row * sw + column) * channels + c];
+						if (a !== b) wrong++;
+					}
+				}
+			}
+
+			expect(wrong, `orientation ${orientation}`).toBe(0);
+		}
+	});
+
+	it('does not leave a rotated JPEG sideways when it becomes a WebP', async () => {
+		const out = await transform(tinyimg, fixture('derived/base-exif-rotated.jpg'), {
+			format: 'webp',
+			quality: 80
+		});
+		const info = await tinyimg.probe(out.bytes());
+
+		expect([out.width, out.height]).toEqual([180, 320]);
+		expect([info.width, info.height]).toEqual([180, 320]);
+	});
+
+	it('reads width and height as the displayed extent of a rotated JPEG', async () => {
+		const out = await transform(tinyimg, fixture('derived/base-exif-rotated.jpg'), {
+			width: 90,
+			format: 'webp'
+		});
+
+		expect([out.width, out.height]).toEqual([90, 160]);
+	});
+
+	it('compares a rotated JPEG to a request by its displayed extent when passing it through', async () => {
+		const source = fixture('derived/base-exif-rotated.jpg');
+
+		// 180 wide as displayed, so a request for 200 has nothing to do
+		const kept = await transform(tinyimg, source, { width: 200 });
+
+		expect(Buffer.compare(kept.bytes(), source)).toBe(0);
+		expect([kept.width, kept.height]).toEqual([180, 320]);
+
+		// stored 320 wide but displayed 180, so 100 is a real reduction
+		const reduced = await transform(tinyimg, source, { width: 100 });
+
+		expect(Buffer.compare(reduced.bytes(), source)).not.toBe(0);
+		expect(reduced.width).toBe(100);
 	});
 
 	it('does nothing but decode and re-encode for an empty option object', async () => {

@@ -1,3 +1,4 @@
+#include "tinyimg/codec/jpeg.h"
 #include "../test.h"
 #include "tinyimg/codec/codec.h"
 #include "tinyimg/memory.h"
@@ -888,6 +889,37 @@ int main(void) {
     r |= assertEquals(tiny_image_has_exif(&bare), 0);
     r |= assertNull(bare.meta);
     tiny_image_destroy(&bare);
+
+    // the header read finds the same tag without decoding, and is zero where
+    // the decoder reports no key
+    const char* oriented[] = {
+        "derived/base-exif-rotated.jpg", "derived/base-exif.jpg",
+        "derived/base-444.jpg"
+    };
+    long expected[] = {6L, 1L, 0L};
+
+    for (int i = 0; i < 3; i++) {
+        size_t header_size = 0;
+        unsigned char* header = readFixture(oriented[i], &header_size);
+
+        r |= assertTrue(header != NULL);
+        if (!header) continue;
+
+        r |= assertEquals(
+            (long) tiny_jpeg_orientation(header, header_size), expected[i]
+        );
+
+        // a header cut off inside the first segment is not an error, only zero
+        r |= assertEquals((long) tiny_jpeg_orientation(header, 6), 0L);
+
+        free(header);
+    }
+
+    r |= assertEquals((long) tiny_jpeg_orientation(NULL, 0), 0L);
+    r |= assertEquals(
+        (long) tiny_jpeg_orientation((const uint8_t*) "not a jpeg at all", 17),
+        0L
+    );
 
     // re-encoding carries the payload through byte for byte
     TinyEncodeOpts keep = {85, 0, 0, 0, 0};

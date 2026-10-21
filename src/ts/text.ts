@@ -301,7 +301,7 @@ export async function og(module: TinyImgModule, options: OgOptions = {}): Promis
 			// the background photograph is fitted by the planner, so a 4000 px source is never
 			// decoded at 4000 px to end up 1200 wide
 			using base = await Image.open(module, await readSource(options.image));
-			base.fit(width, height, { fit: 'cover' });
+			base.autoOrient().fit(width, height, { fit: 'cover' });
 
 			const raw = await base.pixels();
 

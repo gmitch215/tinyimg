@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+import rotated from '../fixtures/derived/base-exif-rotated.jpg?bin';
 import base from '../fixtures/derived/base.png?bin';
 import broken from '../fixtures/derived/malformed/not-an-image.bin?bin';
 import photo from '../fixtures/sf-24.jpg?bin';
@@ -56,6 +57,18 @@ describe('the shipped wrapper inside workerd', () => {
 			bytes
 		);
 		expect(probed).toMatchObject({ width: 400, height: 300, format: 'webp' });
+	});
+
+	it('turns a rotated JPEG upright before it is encoded', async () => {
+		const response = await call('format=webp&quality=80', rotated);
+		expect(response.status).toBe(200);
+
+		const probed = await json<{ width: number; height: number }>(
+			'probe',
+			new Uint8Array(await response.arrayBuffer())
+		);
+
+		expect(probed).toMatchObject({ width: 180, height: 320 });
 	});
 
 	it('encodes every container the build carries', async () => {

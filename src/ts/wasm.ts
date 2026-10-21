@@ -165,6 +165,7 @@ export interface TinyExports {
 	tiny_face_box_sizeof(): number;
 
 	tiny_image_probe(buffer: number, size: number, info: number): number;
+	tiny_jpeg_orientation(buffer: number, size: number): number;
 	tiny_image_destroy(image: number): number;
 	tiny_image_getwidth(image: number): number;
 	tiny_image_getheight(image: number): number;
@@ -506,16 +507,21 @@ export class TinyImgModule {
 
 			// TinyImageInfo is part of the ABI: three u32, an enum, then four u8, in that order
 			const view = this.view();
+			const format = FORMATS[view.getUint32(info + 12, true)] ?? 'unknown';
 
 			return {
 				width: view.getUint32(info, true),
 				height: view.getUint32(info + 4, true),
 				frames: view.getUint32(info + 8, true),
-				format: FORMATS[view.getUint32(info + 12, true)] ?? 'unknown',
+				format,
 				channels: view.getUint8(info + 16),
 				bitDepth: view.getUint8(info + 17),
 				hasAlpha: view.getUint8(info + 18) !== 0,
-				progressive: view.getUint8(info + 19) !== 0
+				progressive: view.getUint8(info + 19) !== 0,
+				orientation:
+					format === 'jpeg'
+						? this.exports.tiny_jpeg_orientation(buffer, bytes.byteLength) || 1
+						: 1
 			};
 		} finally {
 			this.free(info);

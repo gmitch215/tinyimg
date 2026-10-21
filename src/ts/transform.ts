@@ -186,6 +186,7 @@ export async function transform(
 	const image = await Image.open(module, bytes);
 
 	try {
+		image.autoOrient();
 		apply(image, options);
 
 		let decided = image.decide();
@@ -427,11 +428,16 @@ async function passThrough(
 
 	if (wanted !== undefined && wanted !== info.format) return undefined;
 
+	// the extent as displayed, which an orientation of 5 through 8 swaps
+	const turned = info.orientation >= 5;
+	const shownWidth = turned ? info.height : info.width;
+	const shownHeight = turned ? info.width : info.height;
+
 	const width = options.width;
 	const height = options.height;
 
-	if (width !== undefined && width < info.width) return undefined;
-	if (height !== undefined && height < info.height) return undefined;
+	if (width !== undefined && width < shownWidth) return undefined;
+	if (height !== undefined && height < shownHeight) return undefined;
 
 	// `fit` with both extents pads or crops to reach them exactly, so it is never a pass-through
 	if (width !== undefined && height !== undefined) return undefined;
@@ -442,7 +448,7 @@ async function passThrough(
 			? (bytes as Uint8Array<ArrayBuffer>)
 			: new Uint8Array(bytes);
 
-	return result(view, info.format, info.width, info.height);
+	return result(view, info.format, shownWidth, shownHeight);
 }
 
 /** Container ids as `TinyImageFormat` numbers them, for the cost estimate. */

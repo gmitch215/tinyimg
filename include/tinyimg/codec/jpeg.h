@@ -59,6 +59,20 @@ extern "C" {
  */
 extern const TinyCodec tiny_codec_jpeg;
 
+/**
+ * @brief Reads the EXIF orientation out of a JPEG header.
+ *
+ * Walks the marker segments up to the first scan and reads the orientation tag
+ * from the first EXIF segment, so no pixel is decoded. The decoder reports the
+ * same tag as the `exif:Orientation` metadata key and does not apply it.
+ *
+ * @param buffer The encoded JPEG.
+ * @param size Length of `buffer`.
+ * @return uint32_t 1 through 8, numbered as EXIF numbers them, or 0 when the
+ * buffer is not a JPEG or carries no orientation tag.
+ */
+uint32_t tiny_jpeg_orientation(const uint8_t* buffer, size_t size);
+
 #ifdef __cplusplus
 }
 #endif

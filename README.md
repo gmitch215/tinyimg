@@ -1,6 +1,6 @@
 # 🏞️ tinyimg
 
-> Lightweight & fast image processing library for Cloudflare Workers
+> Lightweight & fast image processing library for WebAssembly
 
 tinyimg decodes, transforms, draws on and re-encodes images inside a Worker, with no binding, no
 subrequest and no per-transformation charge. It is freestanding C compiled to one wasm32 module,
@@ -298,11 +298,17 @@ carry `.bytes()`, `.blob()`, `.response()` and `.dataUrl()`.
 | `format`                                        | `ImageFormat`                          | Container to encode as. Defaults to the source's own.                 |
 | `quality`                                       | `number`                               | 1 through 100, for a lossy format.                                    |
 | `lossless`, `progressive`                       | `boolean`                              | Where the format has the mode.                                        |
-| `metadata`                                      | `'keep' \| 'none'`                     | Whether EXIF survives the encode. Defaults to `keep`.                 |
+| `metadata`                                      | `'keep' \| 'none'`                     | Accepted, but a transformation writes no EXIF either way.             |
 
 The options apply in a fixed order, exported as `TRANSFORM_ORDER`: crop, resize or fit, rotate, flip,
 the color adjustments, blur, sharpen, trim. An option object has no order of its own, so two callers
 writing the same keys get the same image.
+
+A JPEG with an EXIF orientation is turned upright before anything else runs, so `width`, `height`,
+`crop` and `fit` all read the image as displayed. A phone photo stored landscape and tagged 90
+degrees comes out portrait, and a request for 400 wide is a portrait 400 wide. `probe` reports the
+tag as `orientation`, and the chainable API applies it with `Image.autoOrient()`, which has to be
+the first operation. Only JPEG reports it; every other format reports 1.
 
 ### Fit Modes
 

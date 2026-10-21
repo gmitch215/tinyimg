@@ -260,6 +260,7 @@ describe('the wasm module under node', () => {
 			'tiny_interpolate_hsl',
 			'tiny_interpolate_hsv',
 			'tiny_interpolate_rgb',
+			'tiny_jpeg_orientation',
 			'tiny_multigradient_cmyk',
 			'tiny_multigradient_cmyk_sized',
 			'tiny_multigradient_hsl',
