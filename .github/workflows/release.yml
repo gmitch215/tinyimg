@@ -22,7 +22,7 @@ on:
 jobs:
   build:
     name: Build Release Artifacts
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
 
     permissions:
@@ -77,7 +77,7 @@ jobs:
   publish:
     name: Publish to Registries
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
 
     permissions:
