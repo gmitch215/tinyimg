@@ -4,7 +4,7 @@ set(PROJECT_VERSION "1.1.0")
 project(tinyimg
 	LANGUAGES C
 	VERSION ${PROJECT_VERSION}
-	DESCRIPTION "Lightweight and fast image processing library for Cloudflare Workers"
+	DESCRIPTION "Lightweight and fast image processing library for WebAssembly"
 	HOMEPAGE_URL "https://github.com/gmitch215/tinyimg"
 )
 set(PROJECT_DOCUMENTATION "https://tinyimg.gmitch215.dev")

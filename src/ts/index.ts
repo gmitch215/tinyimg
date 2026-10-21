@@ -1,5 +1,5 @@
 /**
- * tinyimg: image decoding, transformation and drawing for Cloudflare Workers.
+ * tinyimg: image decoding, transformation and drawing for WebAssembly.
  *
  * The module has to arrive already compiled, because workerd refuses to compile wasm from bytes.
  * Importing the file is what makes it work there; {@link TinyImgModule.loadBytes} is for node, bun
