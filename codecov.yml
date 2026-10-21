@@ -37,6 +37,7 @@ ignore:
   - 'dist/**/*'
   - 'bin/**/*'
   - 'blobs/**/*'
+  - 'src/codec/av1-tables.h'
   - 'build*/**/*'
   - '**/*.spec.ts'
   - 'vitest.config.ts'
