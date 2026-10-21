@@ -10,7 +10,7 @@
 <h1>tinyimg - v1.1.0</h1></div>
 <div class="tsd-panel tsd-typography"><h1 id="🏞️-tinyimg" class="tsd-anchor-link">🏞️ tinyimg<a href="#🏞️-tinyimg" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h1>
 <blockquote>
-<p>Lightweight &amp; fast image processing library for Cloudflare Workers</p>
+<p>Lightweight &amp; fast image processing library for WebAssembly</p>
 </blockquote>
 <p>tinyimg decodes, transforms, draws on and re-encodes images inside a Worker, with no binding, no
 subrequest and no per-transformation charge. It is freestanding C compiled to one wasm32 module,
@@ -496,13 +496,18 @@ carry <code>.bytes()</code>, <code>.blob()</code>, <code>.response()</code> and 
 <tr>
 <td><code>metadata</code></td>
 <td><code>'keep' | 'none'</code></td>
-<td>Whether EXIF survives the encode. Defaults to <code>keep</code>.</td>
+<td>Accepted, but a transformation writes no EXIF either way.</td>
 </tr>
 </tbody>
 </table>
 <p>The options apply in a fixed order, exported as <code>TRANSFORM_ORDER</code>: crop, resize or fit, rotate, flip,
 the color adjustments, blur, sharpen, trim. An option object has no order of its own, so two callers
 writing the same keys get the same image.</p>
+<p>A JPEG with an EXIF orientation is turned upright before anything else runs, so <code>width</code>, <code>height</code>,
+<code>crop</code> and <code>fit</code> all read the image as displayed. A phone photo stored landscape and tagged 90
+degrees comes out portrait, and a request for 400 wide is a portrait 400 wide. <code>probe</code> reports the
+tag as <code>orientation</code>, and the chainable API applies it with <code>Image.autoOrient()</code>, which has to be
+the first operation. Only JPEG reports it; every other format reports 1.</p>
 <h3 id="fit-modes" class="tsd-anchor-link">Fit Modes<a href="#fit-modes" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <table>
 <thead>
