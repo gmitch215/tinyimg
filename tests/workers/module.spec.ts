@@ -29,7 +29,7 @@ describe('the wasm module inside workerd', () => {
 
 	it('instantiates and reports the version the header declares', async () => {
 		const result = await probe();
-		expect(result.version).toBe((1 << 16) | (1 << 8));
+		expect(result.version).toBe((1 << 16) | (1 << 8) | 1);
 		expect(result.abi).toBe(2);
 	});
 

@@ -32,7 +32,7 @@ extern "C" {
 /**
  * @brief Patch version of the library.
  */
-#define TINYIMG_VERSION_PATCH 0
+#define TINYIMG_VERSION_PATCH 1
 
 /**
  * @brief The version packed into a single integer as

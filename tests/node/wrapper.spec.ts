@@ -114,8 +114,8 @@ describe('the wrapper', () => {
 	});
 
 	it('reports the version, abi and features the module was built with', () => {
-		expect(tinyimg.versionText).toBe('1.1.0');
-		expect(tinyimg.version).toEqual([1, 1, 0]);
+		expect(tinyimg.versionText).toBe('1.1.1');
+		expect(tinyimg.version).toEqual([1, 1, 1]);
 		expect(tinyimg.abi).toBe(2);
 
 		expect(tinyimg.has('png')).toBe(true);

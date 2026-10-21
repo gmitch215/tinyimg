@@ -14,7 +14,7 @@ int main(void) {
     r |= assertEquals((long) tiny_version(), (long) TINYIMG_VERSION);
     // the packing spelled out rather than derived from the macro, so a wrong
     // macro fails here instead of agreeing with itself
-    r |= assertEquals((long) tiny_version(), (1L << 16) | (1L << 8));
+    r |= assertEquals((long) tiny_version(), (1L << 16) | (1L << 8) | 1L);
     r |= assertEquals((long) tiny_abi_version(), (long) TINYIMG_ABI_VERSION);
 
     // tiny_init has to be safe to call twice, and safe not to call at all:

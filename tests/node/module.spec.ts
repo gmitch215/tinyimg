@@ -19,7 +19,7 @@ describe('the wasm module under node', () => {
 	};
 
 	it('reports the version and abi the header declares', () => {
-		expect(exports.tiny_version()).toBe((1 << 16) | (1 << 8));
+		expect(exports.tiny_version()).toBe((1 << 16) | (1 << 8) | 1);
 		expect(exports.tiny_abi_version()).toBe(2);
 	});
 

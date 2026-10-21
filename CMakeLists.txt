@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(PROJECT_VERSION "1.1.0")
+set(PROJECT_VERSION "1.1.1")
 project(tinyimg
 	LANGUAGES C
 	VERSION ${PROJECT_VERSION}
