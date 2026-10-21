@@ -80,7 +80,7 @@
 		"url": "https://github.com/gmitch215/tinyimg/issues"
 	},
 	"devDependencies": {
-		"@cloudflare/vitest-pool-workers": "^0.22.0",
+		"@cloudflare/vitest-pool-workers": "^0.23.0",
 		"@cloudflare/workers-types": "^5.20260910.1",
 		"@jsquash/jpeg": "^1.6.0",
 		"@jsquash/png": "^3.1.1",
@@ -92,7 +92,7 @@
 		"marked-gfm-heading-id": "^4.1.4",
 		"prettier": "^3.9.6",
 		"prettier-plugin-organize-imports": "^4.3.0",
-		"prettier-plugin-sh": "^0.19.0",
+		"prettier-plugin-sh": "^0.20.0",
 		"shiki": "^4.4.3",
 		"typedoc": "^0.28.20",
 		"typescript": "^5.9.3",
