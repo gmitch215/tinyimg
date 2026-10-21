@@ -6,7 +6,7 @@
 		<title>tinyimg</title>
 		<meta
 			name="description"
-			content="Lightweight and fast image processing library for Cloudflare Workers."
+			content="Lightweight and fast image processing library for WebAssembly."
 		/>
 		<style>
 			:root {
@@ -193,7 +193,7 @@
 	<body>
 		<main>
 			<h1>🏞️ tinyimg</h1>
-			<p class="lead">Lightweight and fast image processing for Cloudflare Workers.</p>
+			<p class="lead">Lightweight and fast image processing for WebAssembly.</p>
 			<div class="links">
 				<a class="card" href="doxygen/">
 					<strong>C API</strong>
@@ -689,12 +689,17 @@ carry <code>.bytes()</code>, <code>.blob()</code>, <code>.response()</code> and 
 <tr>
 <td><code>metadata</code></td>
 <td><code>&#39;keep&#39; | &#39;none&#39;</code></td>
-<td>Whether EXIF survives the encode. Defaults to <code>keep</code>.</td>
+<td>Accepted, but a transformation writes no EXIF either way.</td>
 </tr>
 </tbody></table></div>
 <p>The options apply in a fixed order, exported as <code>TRANSFORM_ORDER</code>: crop, resize or fit, rotate, flip,
 the color adjustments, blur, sharpen, trim. An option object has no order of its own, so two callers
 writing the same keys get the same image.</p>
+<p>A JPEG with an EXIF orientation is turned upright before anything else runs, so <code>width</code>, <code>height</code>,
+<code>crop</code> and <code>fit</code> all read the image as displayed. A phone photo stored landscape and tagged 90
+degrees comes out portrait, and a request for 400 wide is a portrait 400 wide. <code>probe</code> reports the
+tag as <code>orientation</code>, and the chainable API applies it with <code>Image.autoOrient()</code>, which has to be
+the first operation. Only JPEG reports it; every other format reports 1.</p>
 <h3 id="fit-modes">Fit Modes</h3>
 <div class="table"><table>
 <thead>

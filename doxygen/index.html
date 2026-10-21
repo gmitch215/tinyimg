@@ -26,7 +26,7 @@
   <td id="projectalign">
    <div id="projectname">tinyimg<span id="projectnumber">&#160;1.1.0</span>
    </div>
-   <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
+   <div id="projectbrief">Lightweight image manipulation library for WebAssembly</div>
   </td>
  </tr>
  </tbody>
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <div class="contents">
 <div class="textblock"><p><a class="anchor" id="md__2home_2runner_2work_2tinyimg_2tinyimg_2README"></a></p>
 <blockquote class="doxtable">
-<p>Lightweight &amp; fast image processing library for Cloudflare Workers </p>
+<p>Lightweight &amp; fast image processing library for WebAssembly </p>
 </blockquote>
 <p>tinyimg decodes, transforms, draws on and re-encodes images inside a Worker, with no binding, no subrequest and no per-transformation charge. It is freestanding C compiled to one wasm32 module, wrapped by a TypeScript package.</p>
 <p>Cloudflare Images bills per transformation, and the Workers runtime has no Canvas API: no <span class="tt">OffscreenCanvas</span>, no <span class="tt">createImageBitmap</span>, no 2D context. tinyimg does both jobs inside the Worker's own CPU budget.</p>
@@ -341,9 +341,10 @@ Transformations</h1>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><span class="tt">lossless</span>, <span class="tt">progressive</span>  </td><td class="markdownTableBodyNone"><span class="tt">boolean</span>  </td><td class="markdownTableBodyNone">Where the format has the mode.  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><span class="tt">metadata</span>  </td><td class="markdownTableBodyNone"><span class="tt">'keep' \| 'none'</span>  </td><td class="markdownTableBodyNone">Whether EXIF survives the encode. Defaults to <span class="tt">keep</span>.  </td></tr>
+<td class="markdownTableBodyNone"><span class="tt">metadata</span>  </td><td class="markdownTableBodyNone"><span class="tt">'keep' \| 'none'</span>  </td><td class="markdownTableBodyNone">Accepted, but a transformation writes no EXIF either way.  </td></tr>
 </table>
 <p>The options apply in a fixed order, exported as <span class="tt">TRANSFORM_ORDER</span>: crop, resize or fit, rotate, flip, the color adjustments, blur, sharpen, trim. An option object has no order of its own, so two callers writing the same keys get the same image.</p>
+<p>A JPEG with an EXIF orientation is turned upright before anything else runs, so <span class="tt">width</span>, <span class="tt">height</span>, <span class="tt">crop</span> and <span class="tt">fit</span> all read the image as displayed. A phone photo stored landscape and tagged 90 degrees comes out portrait, and a request for 400 wide is a portrait 400 wide. <span class="tt">probe</span> reports the tag as <span class="tt">orientation</span>, and the chainable API applies it with <span class="tt">Image.autoOrient()</span>, which has to be the first operation. Only JPEG reports it; every other format reports 1.</p>
 <h2 class="doxsection"><a class="anchor" id="fit-modes"></a>
 Fit Modes</h2>
 <table class="markdownTable">

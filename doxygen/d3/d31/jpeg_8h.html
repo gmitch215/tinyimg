@@ -26,7 +26,7 @@
   <td id="projectalign">
    <div id="projectname">tinyimg<span id="projectnumber">&#160;1.1.0</span>
    </div>
-   <div id="projectbrief">Lightweight image manipulation library for Cloudflare Workers</div>
+   <div id="projectbrief">Lightweight image manipulation library for WebAssembly</div>
   </td>
  </tr>
  </tbody>
@@ -100,6 +100,7 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <div id="doc-content">
 <div class="header">
   <div class="summary">
+<a href="#func-members">Functions</a> &#124;
 <a href="#var-members">Variables</a>  </div>
   <div class="headertitle"><div class="title">jpeg.h File Reference</div></div>
 </div><!--header-->
@@ -111,6 +112,11 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 </div>
 <p><a href="../../d3/d31/jpeg_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-func-members" class="groupheader"><a id="func-members" name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:a1ee9a28ace927d3dd790697b2f11a590" id="r_a1ee9a28ace927d3dd790697b2f11a590"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a1ee9a28ace927d3dd790697b2f11a590">tiny_jpeg_orientation</a> (const uint8_t *buffer, size_t size)</td></tr>
+<tr class="memdesc:a1ee9a28ace927d3dd790697b2f11a590"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads the EXIF orientation out of a JPEG header.  <br /></td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-var-members" class="groupheader"><a id="var-members" name="var-members"></a>
 Variables</h2></td></tr>
 <tr class="memitem:afd779441567af90fa85ad2bd1d0bb23b" id="r_afd779441567af90fa85ad2bd1d0bb23b"><td class="memItemLeft">const <a class="el" href="../../d6/d6c/structTinyCodec.html">TinyCodec</a>&#160;</td><td class="memItemRight"><a class="el" href="#afd779441567af90fa85ad2bd1d0bb23b">tiny_codec_jpeg</a></td></tr>
@@ -122,7 +128,40 @@ Variables</h2></td></tr>
 <dl class="section version"><dt>Version</dt><dd>1.0.0 </dd></dl>
 <dl class="section date"><dt>Date</dt><dd>2026-09-02</dd></dl>
 <dl class="section copyright"><dt>Copyright</dt><dd>Copyright (c) 2026 </dd></dl>
-</div><a name="doc-var-members" id="doc-var-members"></a><h2 id="header-doc-var-members" class="groupheader">Variable Documentation</h2>
+</div><a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Function Documentation</h2>
+<a id="a1ee9a28ace927d3dd790697b2f11a590" name="a1ee9a28ace927d3dd790697b2f11a590"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1ee9a28ace927d3dd790697b2f11a590">&#9670;&#160;</a></span>tiny_jpeg_orientation()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t tiny_jpeg_orientation </td>
+          <td>(</td>
+          <td class="paramtype">const uint8_t *</td>          <td class="paramname"><span class="paramname"><em>buffer</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t</td>          <td class="paramname"><span class="paramname"><em>size</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Reads the EXIF orientation out of a JPEG header. </p>
+<p>Walks the marker segments up to the first scan and reads the orientation tag from the first EXIF segment, so no pixel is decoded. The decoder reports the same tag as the <span class="tt">exif:Orientation</span> metadata key and does not apply it.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">buffer</td><td>The encoded JPEG. </td></tr>
+    <tr><td class="paramname">size</td><td>Length of <span class="tt">buffer</span>. </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>uint32_t 1 through 8, numbered as EXIF numbers them, or 0 when the buffer is not a JPEG or carries no orientation tag. </dd></dl>
+
+</div>
+</div>
+<a name="doc-var-members" id="doc-var-members"></a><h2 id="header-doc-var-members" class="groupheader">Variable Documentation</h2>
 <a id="afd779441567af90fa85ad2bd1d0bb23b" name="afd779441567af90fa85ad2bd1d0bb23b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afd779441567af90fa85ad2bd1d0bb23b">&#9670;&#160;</a></span>tiny_codec_jpeg</h2>
 
