@@ -1,5 +1,13 @@
 import { COMPRESSION, Image, mimeFor, type EncodeOptions } from './image.js';
-import { readSource, type ImageFormat, type Source, type TransformOptions } from './types.js';
+import {
+	Err,
+	TinyImgBudgetError,
+	readSource,
+	type Admission,
+	type ImageFormat,
+	type Source,
+	type TransformOptions
+} from './types.js';
 import type { FeatureName, TinyImgModule } from './wasm.js';
 
 /**
@@ -39,6 +47,13 @@ export interface TransformResult {
 	 * `'compression'` is the one that costs bytes rather than fidelity: a lossless output's
 	 * compressor was turned down because the encoder alone was over budget. It never appears when
 	 * {@link TransformOptions.compression} named a level.
+	 *
+	 * `'alpha'` means the output format could not carry the transparency the image has: JPEG and
+	 * AVIF write no alpha plane, and GIF keeps only a one-bit mask, so it is reported when the
+	 * image has any alpha below 255 for the first two and any partial alpha for GIF. An image
+	 * whose alpha is all 255 never reports it. WebP, PNG, TIFF and BMP carry alpha in full.
+	 * The encoder counts the samples it dropped while it converts them, so reporting adds no
+	 * second run of the plan.
 	 *
 	 * The same lossy-outcome-you-may-want-to-refuse shape as {@link TransformResult.flattened}.
 	 */
@@ -190,7 +205,37 @@ export async function transform(
 		apply(image, options);
 
 		let decided = image.decide();
-		const format = chooseFormat(module, image, options, decided);
+
+		// an omitted `admission` is the budget this option has always been: the point estimate, no
+		// guard. Naming a mode opts in to the calibrated bound and the work guard, which is the
+		// only way a caller's existing budget keeps meaning what it meant
+		const mode = options.admission;
+		const guarded = options.budgetMs !== undefined && mode !== undefined;
+		const scale = options.platformScale ?? 1;
+
+		// the model and the plan speak in the calibrated machine's milliseconds; the caller's
+		// budget is on its own machine
+		const room = options.budgetMs === undefined ? undefined : options.budgetMs / scale;
+
+		const price = (format: ImageFormat, level: NonNullable<EncodeOptions['compression']>) =>
+			guarded
+				? encodeUpperMs(module, FORMAT_ID[format], decided, options, level)
+				: module.exports.tiny_encode_cost_at(
+						FORMAT_ID[format],
+						decided.output.width,
+						decided.output.height,
+						COMPRESSION.indexOf(level)
+					) / 1000;
+
+		const format = chooseFormat(
+			module,
+			image,
+			options,
+			decided,
+			guarded
+				? (candidate) => (decided.costUpperMs + price(candidate, 'auto')) * scale
+				: undefined
+		);
 
 		/*
 		 * Container first, then quality. Choosing the cheaper encoder costs the caller nothing but
@@ -203,14 +248,10 @@ export async function transform(
 		let compression: NonNullable<EncodeOptions['compression']> | undefined =
 			options.compression;
 
-		if (options.budgetMs !== undefined) {
+		if (options.budgetMs !== undefined && mode !== 'strict') {
+			const budget = guarded ? room! : options.budgetMs;
 			const priced = (level: NonNullable<EncodeOptions['compression']>) =>
-				module.exports.tiny_encode_cost_at(
-					FORMAT_ID[format],
-					decided.output.width,
-					decided.output.height,
-					COMPRESSION.indexOf(level)
-				) / 1000;
+				price(format, level);
 
 			/*
 			 * Turn the compressor down before touching the picture.
@@ -231,7 +272,7 @@ export async function transform(
 			if (compression === undefined && priced('none') < priced('default')) {
 				for (const level of ['default', 'fast', 'none'] as const) {
 					compression = level;
-					if (options.budgetMs - priced(level) > 0) break;
+					if (budget - priced(level) > 0) break;
 				}
 			}
 
@@ -240,7 +281,7 @@ export async function transform(
 			// a microsecond rather than zero, which means no budget at all: when the encoder
 			// alone is over even at its cheapest, degrading the plan as far as it goes is still
 			// the answer the caller asked for
-			image.budget(Math.max(0.001, options.budgetMs - encodeMs));
+			image.budget(Math.max(0.001, budget - encodeMs), guarded ? 'upper' : 'point');
 			decided = image.decide();
 		}
 
@@ -255,7 +296,78 @@ export async function transform(
 			...(compression === undefined ? {} : { compression })
 		};
 
-		const data = await image.bytes(format, encode);
+		// the source handed back, for a request that cannot be met and may be answered with it
+		const giveBack = async (error: TinyImgBudgetError): Promise<TransformResult> => {
+			const info = await module.probe(bytes);
+
+			if (info.format === 'unknown' || info.format !== format) {
+				error.message = `${error.message}; cannot pass the source through because the output is ${format} and the source is ${info.format}`;
+				throw error;
+			}
+
+			const turned = info.orientation >= 5;
+			const view: Uint8Array<ArrayBuffer> =
+				bytes.buffer instanceof ArrayBuffer
+					? (bytes as Uint8Array<ArrayBuffer>)
+					: new Uint8Array(bytes);
+
+			return result(
+				view,
+				info.format,
+				turned ? info.height : info.width,
+				turned ? info.width : info.height,
+				false,
+				['passthrough']
+			);
+		};
+
+		if (guarded) {
+			const verdict = image.admit(options.budgetMs!, {
+				mode: mode === 'strict' ? 'strict' : 'degrade',
+				format,
+				platformScale: scale,
+				...(options.quality === undefined ? {} : { quality: options.quality }),
+				...(options.lossless === undefined ? {} : { lossless: options.lossless }),
+				...(options.effort === undefined ? {} : { effort: options.effort }),
+				...(compression === undefined ? {} : { compression })
+			});
+
+			if (verdict.decision === 'reject' && mode !== 'degrade') {
+				const error = boundError(module, verdict, options.budgetMs!);
+
+				if (mode === 'strict') throw error;
+				return giveBack(error);
+			}
+		}
+
+		// bytes() runs the whole decode and encode before it returns, so reading right after the
+		// call, and before the await, keeps another request's work on this module out of the
+		// comparison. The work limit is module-wide for the same reason, so it is set and cleared
+		// around that one synchronous call and never across an await
+		const dropped = module.alphaDropped();
+		let pending: ReturnType<Image['bytes']>;
+
+		if (guarded) module.exports.tiny_work_set_limit(Math.max(1, Math.ceil(room! * 1000)));
+
+		try {
+			pending = image.bytes(format, encode);
+		} finally {
+			if (guarded) module.exports.tiny_work_set_limit(0);
+		}
+
+		const lost = module.alphaDropped() !== dropped;
+		let data: Uint8Array<ArrayBuffer>;
+
+		try {
+			data = await pending;
+		} catch (error) {
+			if (guarded && error instanceof TinyImgBudgetError) {
+				error.message = `the work counters passed the ${options.budgetMs} ms budget; ${error.message}`;
+				if (mode === 'passthrough') return giveBack(error);
+			}
+
+			throw error;
+		}
 
 		// the compressor coming down is a real give-up, of output size rather than of fidelity, so
 		// it is reported the same way the planner's levers are
@@ -272,7 +384,7 @@ export async function transform(
 			decided.output.width,
 			decided.output.height,
 			image.sourceFrames > 1,
-			gave_up
+			lost ? [...gave_up, 'alpha'] : gave_up
 		);
 	} finally {
 		image.dispose();
@@ -491,7 +603,8 @@ function chooseFormat(
 	module: TinyImgModule,
 	image: Image,
 	options: TransformOptions,
-	decided: { output: { width: number; height: number }; estimateMs: number }
+	decided: { output: { width: number; height: number }; estimateMs: number },
+	bound?: (format: (typeof AUTO_ORDER)[number]) => number
 ): ImageFormat {
 	const asked = options.format;
 
@@ -500,9 +613,13 @@ function chooseFormat(
 	const budget = options.budgetMs;
 	const { width, height } = decided.output;
 
+	// `bound`, when given, is the upper bound times the machine factor, so it is compared with
+	// the budget as the caller wrote it
 	const cost = (format: (typeof AUTO_ORDER)[number]) =>
-		decided.estimateMs +
-		module.exports.tiny_encode_cost(FORMAT_ID[format], width, height) / 1000;
+		bound
+			? bound(format)
+			: decided.estimateMs +
+				module.exports.tiny_encode_cost(FORMAT_ID[format], width, height) / 1000;
 
 	if (asked === 'auto') {
 		if (budget === undefined) {
@@ -525,6 +642,58 @@ function chooseFormat(
 
 	// an explicit format is never substituted, even over budget: the caller named it
 	return source;
+}
+
+/**
+ * The calibrated upper bound on one encode, in the calibrated machine's milliseconds.
+ *
+ * Priced from what the caller set: quality, lossless, effort and the compression level, and the
+ * output's channel count for the alpha term.
+ */
+function encodeUpperMs(
+	module: TinyImgModule,
+	format: number,
+	decided: { output: { width: number; height: number; channels: number } },
+	options: TransformOptions,
+	level: NonNullable<EncodeOptions['compression']>
+): number {
+	const opts = module.alloc(8);
+
+	try {
+		const view = module.view();
+
+		view.setUint8(opts, options.quality ?? 0);
+		view.setUint8(opts + 1, options.lossless ? 1 : 0);
+		view.setUint8(opts + 2, COMPRESSION.indexOf(level));
+		view.setUint8(opts + 3, decided.output.channels);
+		view.setUint8(opts + 4, options.effort === 'fast' ? 1 : 0);
+
+		return (
+			module.exports.tiny_encode_cost_upper_for(
+				format,
+				decided.output.width,
+				decided.output.height,
+				opts
+			) / 1000
+		);
+	} finally {
+		module.free(opts);
+	}
+}
+
+/** The error a request over its bound throws in strict mode, carrying the numbers. */
+function boundError(module: TinyImgModule, admission: Admission, budgetMs: number) {
+	const error = new TinyImgBudgetError(
+		Err.budget,
+		module.errorName(Err.budget),
+		`the upper bound ${admission.costUpperMs} ms is over the ${budgetMs} ms budget ` +
+			`(point estimate ${admission.costMs} ms, margin ${admission.marginMs} ms)`
+	);
+
+	error.reason = 'bound';
+	error.admission = admission;
+
+	return error;
 }
 
 /** Wraps encoded bytes in the conveniences. */

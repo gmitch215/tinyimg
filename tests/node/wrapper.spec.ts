@@ -114,8 +114,8 @@ describe('the wrapper', () => {
 	});
 
 	it('reports the version, abi and features the module was built with', () => {
-		expect(tinyimg.versionText).toBe('1.1.1');
-		expect(tinyimg.version).toEqual([1, 1, 1]);
+		expect(tinyimg.versionText).toBe('1.2.0');
+		expect(tinyimg.version).toEqual([1, 2, 0]);
 		expect(tinyimg.abi).toBe(2);
 
 		expect(tinyimg.has('png')).toBe(true);
@@ -338,6 +338,32 @@ describe('the chainable image', () => {
 		const png = await image.bytes('png');
 		expect(png.byteLength).toBeGreaterThan(0);
 		expect(await tinyimg.probe(png)).toMatchObject({ width: 300, height: 200, format: 'png' });
+	});
+
+	it('hands edit() widened RGBA after the plan and encodes what it wrote', async () => {
+		using image = await Image.open(tinyimg, fixture('sf-24.jpg'));
+		const seen: number[] = [];
+
+		image.crop(100, 100, 6, 4).edit((raw) => {
+			seen.push(raw.width, raw.height, raw.channels, raw.pixels.byteLength);
+			for (let i = 0; i < raw.pixels.length; i += 4) {
+				raw.pixels.set([10, 20, 30, 255], i);
+			}
+		});
+
+		// the source is a 3 channel JPEG, so the view is the widened copy
+		const out = await image.pixels();
+		expect(seen).toEqual([6, 4, 4, 96]);
+		expect(out).toMatchObject({ width: 6, height: 4, channels: 4 });
+		expect([...out.pixels.subarray(0, 4)]).toEqual([10, 20, 30, 255]);
+		expect([...out.pixels.subarray(92, 96)]).toEqual([10, 20, 30, 255]);
+
+		const png = await image.bytes('png');
+		const decoded = await tinyimg.decode(png);
+		expect([...decoded.pixels.subarray(0, 3)]).toEqual([10, 20, 30]);
+
+		image.dispose();
+		expect(() => image.edit(() => {})).toThrow('disposed');
 	});
 
 	it('reports what the rewrites removed', async () => {

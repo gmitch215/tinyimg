@@ -1,8 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { crc32, deflateSync } from 'node:zlib';
 import { beforeAll, describe, expect, it } from 'vitest';
 import wasm from '../../bin/tinyimg.wasm?bin';
-import { Image, TinyImgModule, artifactKey, transform } from '../../src/ts/index.js';
+import {
+	Err,
+	Image,
+	TinyImgBudgetError,
+	TinyImgModule,
+	artifactKey,
+	transform
+} from '../../src/ts/index.js';
 
 const fixtures = join(import.meta.dirname, '../fixtures');
 
@@ -107,12 +115,13 @@ describe('the cost estimate', () => {
 
 		expect(jpeg).toBeGreaterThan(0);
 
-		// measured: webp is about 4x jpeg per sample and png about 28x
+		// measured on the corpus: webp is about 2.2x jpeg per sample and png about 18x
 		expect(webp / jpeg).toBeGreaterThan(2);
 		expect(png / jpeg).toBeGreaterThan(10);
 
-		// a format this build cannot write has no price
-		expect(tinyimg.exports.tiny_encode_cost(7, wide, high)).toBe(0);
+		// AVIF is priced since the corpus fit; HEIF is the format this build cannot write
+		expect(tinyimg.exports.tiny_encode_cost(7, wide, high)).toBeGreaterThan(0);
+		expect(tinyimg.exports.tiny_encode_cost(8, wide, high)).toBe(0);
 	});
 });
 
@@ -205,6 +214,23 @@ describe('a budget degrading the request', () => {
 	});
 
 	it('gives up the effort tier first, and says so', async () => {
+		using probe = await Image.open(tinyimg, fixture('toyota_racing.webp'));
+		probe.resize(500, 0);
+
+		const undegraded = probe.decide().estimateMs;
+		const encodeMs = tinyimg.exports.tiny_encode_cost(2, 500, 333) / 1000;
+
+		const out = await transform(tinyimg, fixture('toyota_racing.webp'), {
+			width: 500,
+			format: 'jpeg',
+			budgetMs: undegraded + encodeMs - 0.001
+		});
+
+		expect(out.degraded).toEqual(['effort']);
+		expect(out.width).toBe(500);
+	});
+
+	it('does not report the effort tier alone where JPEG decode gains nothing from it', async () => {
 		using probe = await Image.open(tinyimg, fixture('mountains.jpg'));
 		probe.resize(600, 0);
 
@@ -217,7 +243,8 @@ describe('a budget degrading the request', () => {
 			budgetMs: undegraded + encodeMs - 0.001
 		});
 
-		expect(out.degraded).toEqual(['effort']);
+		expect(out.degraded).not.toEqual(['effort']);
+		expect(out.degraded).toContain('filter');
 		expect(out.width).toBe(600);
 	});
 
@@ -357,6 +384,32 @@ describe('the pass-through', () => {
 		expect(work.decodedSamples).toBe(0);
 		expect(work.transforms).toBe(0);
 		expect(work.encoded).toBe(0);
+		expect(work.entropyBytes).toBe(0);
+	});
+
+	it('reports the entropy bytes a decode consumed', async () => {
+		const source = fixture('sf-24.jpg');
+
+		const run = () => tinyimg.measure(() => transform(tinyimg, source, { width: 200 }));
+		const first = (await run()).work;
+		const second = (await run()).work;
+
+		// a Huffman scan is most of a baseline file, and none of it can exceed the file
+		expect(first.entropyBytes).toBeGreaterThan(source.byteLength * 0.8);
+		expect(first.entropyBytes).toBeLessThanOrEqual(source.byteLength);
+		expect(second).toEqual(first);
+	});
+
+	it('reports the match search a PNG encode did', async () => {
+		const source = fixture('sf-24.jpg');
+
+		const png = await tinyimg.measure(() =>
+			transform(tinyimg, source, { width: 200, format: 'png' })
+		);
+		const jpeg = await tinyimg.measure(() => transform(tinyimg, source, { width: 200 }));
+
+		expect(png.work.encodeProbes).toBeGreaterThan(0);
+		expect(jpeg.work.encodeProbes).toBe(0);
 	});
 });
 
@@ -586,14 +639,14 @@ describe('effort', () => {
 		expect(free.degraded).not.toContain('compression');
 
 		// a budget the encoder alone cannot meet at its default level
-		const tight = await transform(tinyimg, source, { ...request, budgetMs: 30 });
+		const tight = await transform(tinyimg, source, { ...request, budgetMs: 20 });
 
 		expect(tight.degraded).toContain('compression');
 
 		// naming a level pins it, and the planner degrades instead
 		const pinned = await transform(tinyimg, source, {
 			...request,
-			budgetMs: 30,
+			budgetMs: 20,
 			compression: 'best'
 		});
 
@@ -635,5 +688,563 @@ describe('effort', () => {
 		jpegThumb.resize(160, 0);
 
 		expect(jpegThumb.decide().estimateMs).toBeLessThan(jpegFull.decide().estimateMs);
+	});
+});
+
+/** An RGBA PNG whose alpha at each pixel comes from `alpha`, built with zlib and nothing else. */
+function rgbaPng(
+	width: number,
+	height: number,
+	alpha: (x: number, y: number) => number
+): Uint8Array<ArrayBuffer> {
+	const raw = Buffer.alloc((width * 4 + 1) * height);
+
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const at = y * (width * 4 + 1) + 1 + x * 4;
+
+			raw[at] = (x * 255) / width;
+			raw[at + 1] = (y * 255) / height;
+			raw[at + 2] = 90;
+			raw[at + 3] = alpha(x, y);
+		}
+	}
+
+	const chunk = (tag: string, data: Buffer) => {
+		const out = Buffer.alloc(12 + data.length);
+
+		out.writeUInt32BE(data.length, 0);
+		out.write(tag, 4, 'latin1');
+		data.copy(out, 8);
+		out.writeUInt32BE(
+			crc32(Buffer.concat([Buffer.from(tag, 'latin1'), data])),
+			8 + data.length
+		);
+		return out;
+	};
+
+	const header = Buffer.alloc(13);
+
+	header.writeUInt32BE(width, 0);
+	header.writeUInt32BE(height, 4);
+	header.set([8, 6, 0, 0, 0], 8);
+
+	const png = Buffer.concat([
+		Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+		chunk('IHDR', header),
+		chunk('IDAT', deflateSync(raw)),
+		chunk('IEND', Buffer.alloc(0))
+	]);
+
+	const out = new Uint8Array(png.byteLength);
+
+	out.set(png);
+	return out;
+}
+
+/**
+ * Transparency an output format cannot keep.
+ *
+ * The planner knows the channel count and not the values, so `degraded` names `'alpha'` only when
+ * the pixels handed to the encoder carry some and the format writes less than all of it. WebP
+ * writes all of it, so it never reports.
+ */
+describe('alpha the output format cannot carry', () => {
+	let tinyimg: TinyImgModule;
+
+	beforeAll(async () => {
+		tinyimg = await TinyImgModule.load(await WebAssembly.compile(wasm));
+	});
+
+	const ramp = () => rgbaPng(64, 32, (x) => Math.round((x * 255) / 63));
+	const mask = () => rgbaPng(64, 32, (x, y) => ((x - 32) ** 2 + (y - 16) ** 2 < 150 ? 255 : 0));
+	const opaque = () => rgbaPng(64, 32, () => 255);
+
+	it.each(['jpeg', 'avif'] as const)(
+		'reports it for partial alpha and a mask to %s',
+		async (format) => {
+			for (const source of [ramp(), mask()]) {
+				const out = await transform(tinyimg, source, { format, quality: 75 });
+
+				expect(out.degraded).toEqual(['alpha']);
+			}
+		}
+	);
+
+	it('reports partial alpha to gif, which keeps one bit of it, and not a mask', async () => {
+		expect((await transform(tinyimg, ramp(), { format: 'gif' })).degraded).toEqual(['alpha']);
+		expect((await transform(tinyimg, mask(), { format: 'gif' })).degraded).toEqual([]);
+	});
+
+	it('reports nothing for a format that carries alpha in full', async () => {
+		for (const options of [
+			{ format: 'webp', quality: 75 },
+			{ format: 'webp', lossless: true },
+			{ format: 'png' },
+			{ format: 'tiff' },
+			{ format: 'bmp' }
+		] as const) {
+			const out = await transform(tinyimg, ramp(), { width: 32, ...options });
+
+			expect(out.degraded).toEqual([]);
+		}
+	});
+
+	it('keeps the alpha of a lossy webp, in a frame that declares it', async () => {
+		const out = await transform(tinyimg, ramp(), { format: 'webp', quality: 75 });
+		const tag = (at: number) => new TextDecoder('latin1').decode(out.data.subarray(at, at + 4));
+
+		expect(tag(12)).toBe('VP8X');
+		expect(tag(30)).toBe('ALPH');
+
+		using decoded = await Image.open(tinyimg, out.data);
+		const raw = await decoded.pixels();
+
+		expect(raw.channels).toBe(4);
+		expect(raw.pixels[3]).toBe(0);
+		expect(raw.pixels[63 * 4 + 3]).toBe(255);
+	});
+
+	it('reports nothing for an opaque RGBA source, and writes the plain frame', async () => {
+		for (const format of ['jpeg', 'avif', 'gif', 'webp', 'png'] as const) {
+			const out = await transform(tinyimg, opaque(), { format, quality: 75 });
+
+			expect(out.degraded).toEqual([]);
+		}
+
+		const webp = await transform(tinyimg, opaque(), { format: 'webp', quality: 75 });
+
+		expect(new TextDecoder('latin1').decode(webp.data.subarray(12, 16))).toBe('VP8 ');
+	});
+
+	it('looks at the output, so a crop onto the opaque part reports nothing', async () => {
+		const source = rgbaPng(64, 32, (x) => (x < 32 ? x * 8 : 255));
+
+		const whole = await transform(tinyimg, source, { format: 'jpeg' });
+		const part = await transform(tinyimg, source, {
+			format: 'jpeg',
+			crop: { x: 40, y: 0, width: 20, height: 20 }
+		});
+
+		expect(whole.degraded).toEqual(['alpha']);
+		expect(part.degraded).toEqual([]);
+	});
+
+	it('reports it from the encoder, with the plan run once', async () => {
+		for (const format of ['jpeg', 'avif', 'gif'] as const) {
+			const { value, work } = await tinyimg.measure(() =>
+				transform(tinyimg, ramp(), { format, quality: 75 })
+			);
+
+			expect(value.degraded).toEqual(['alpha']);
+			expect(work.passes).toBe(1);
+			expect(work.alphaDropped).toBeGreaterThan(0);
+		}
+
+		const opaqueRun = await tinyimg.measure(() =>
+			transform(tinyimg, opaque(), { format: 'jpeg' })
+		);
+
+		expect(opaqueRun.work.alphaDropped).toBe(0);
+		expect(opaqueRun.work.passes).toBe(1);
+	});
+
+	it('does not report alpha that another request on the same module dropped', async () => {
+		for (const lossyFirst of [true, false]) {
+			const jobs = [
+				transform(tinyimg, opaque(), { format: 'jpeg' }),
+				transform(tinyimg, ramp(), { format: 'jpeg' })
+			];
+			if (lossyFirst) jobs.reverse();
+
+			const done = await Promise.all(jobs);
+			const clean = lossyFirst ? done[1]! : done[0]!;
+			const lossy = lossyFirst ? done[0]! : done[1]!;
+
+			expect(clean.degraded, `lossy first: ${lossyFirst}`).toEqual([]);
+			expect(lossy.degraded, `lossy first: ${lossyFirst}`).toEqual(['alpha']);
+		}
+	});
+
+	it('does not look when the source has no alpha channel', async () => {
+		const out = await transform(tinyimg, fixture('sf-24.jpg'), { width: 64, format: 'avif' });
+
+		expect(out.degraded).toEqual([]);
+	});
+});
+
+/**
+ * Admission on the calibrated bound, and the work guard behind it.
+ *
+ * Nothing here compares a timing: the bound and the work clock are both functions of the request,
+ * so the assertions are about decisions, about bytes, and about which error comes out.
+ */
+describe('admission', () => {
+	let tinyimg: TinyImgModule;
+
+	beforeAll(async () => {
+		tinyimg = await TinyImgModule.loadBytes(wasm);
+	});
+
+	it('admits a request whose bound fits, with no margin to spare at the bound itself', async () => {
+		using image = await Image.open(tinyimg, fixture('sf-24.jpg'));
+		image.resize(200, 0);
+
+		const whole = image.admit(1000, { mode: 'strict', format: 'webp' });
+		expect(whole.decision).toBe('admit');
+		expect(whole.costUpperMs).toBeGreaterThan(0);
+		expect(whole.costUpperMs).toBeGreaterThanOrEqual(whole.costMs);
+		expect(whole.encodeUpperMs).toBeGreaterThan(0);
+		expect(whole.degraded).toEqual([]);
+
+		const exact = image.admit(whole.costUpperMs, { mode: 'strict', format: 'webp' });
+		expect(exact.decision).toBe('admit');
+		expect(exact.marginMs).toBe(0);
+
+		const under = image.admit(whole.costUpperMs - 0.001, { mode: 'strict', format: 'webp' });
+		expect(under.decision).toBe('reject');
+		expect(under.marginMs).toBeCloseTo(-0.001, 6);
+		expect(under.degraded).toEqual([]);
+	});
+
+	it('multiplies the bound by the platform factor', async () => {
+		using image = await Image.open(tinyimg, fixture('sf-24.jpg'));
+		image.resize(200, 0);
+
+		const one = image.admit(1000, { mode: 'strict', format: 'webp' });
+		const two = image.admit(1000, { mode: 'strict', format: 'webp', platformScale: 2 });
+
+		expect(two.costUpperMs).toBeCloseTo(one.costUpperMs * 2, 3);
+		expect(image.admit(one.costUpperMs, { mode: 'strict', format: 'webp' }).decision).toBe(
+			'admit'
+		);
+		expect(
+			image.admit(one.costUpperMs, { mode: 'strict', format: 'webp', platformScale: 2 })
+				.decision
+		).toBe('reject');
+	});
+
+	it('degrades a request to a rung whose bound fits, and rejects when none does', async () => {
+		using image = await Image.open(tinyimg, fixture('mountains.jpg'));
+		image.resize(600, 0);
+
+		const whole = image.admit(1000, { format: 'webp' });
+		let degraded = 0;
+		let rejected = 0;
+
+		for (let budget = whole.costUpperMs; budget > 0.05; budget *= 0.9) {
+			const got = image.admit(budget, { format: 'webp' });
+
+			if (got.decision === 'degraded') {
+				degraded++;
+				expect(got.costUpperMs).toBeLessThanOrEqual(budget);
+				expect(got.degraded.length).toBeGreaterThan(0);
+			} else if (got.decision === 'reject') {
+				rejected++;
+				expect(got.costUpperMs).toBeGreaterThan(budget);
+			}
+		}
+
+		expect(degraded).toBeGreaterThan(0);
+		expect(rejected).toBeGreaterThan(0);
+	});
+
+	it('throws from strict with the numbers, and gives nothing up', async () => {
+		const error = await transform(tinyimg, fixture('sf-24.jpg'), {
+			width: 200,
+			format: 'webp',
+			budgetMs: 0.01,
+			admission: 'strict'
+		}).catch((caught: unknown) => caught);
+
+		expect(error).toBeInstanceOf(TinyImgBudgetError);
+
+		const budget = error as TinyImgBudgetError;
+
+		expect(budget.reason).toBe('bound');
+		expect(budget.code).toBe(Err.budget);
+		expect(budget.admission?.decision).toBe('reject');
+		expect(budget.admission?.degraded).toEqual([]);
+		expect(budget.admission!.costUpperMs).toBeGreaterThan(0.01);
+		expect(budget.admission!.marginMs).toBeLessThan(0);
+		expect(budget.message).toContain('budget');
+	});
+
+	it('returns the source bytes unchanged from passthrough when nothing fits', async () => {
+		const source = fixture('sf-24.jpg');
+		const out = await transform(tinyimg, source, {
+			width: 200,
+			budgetMs: 0.01,
+			admission: 'passthrough'
+		});
+
+		expect(out.degraded).toEqual(['passthrough']);
+		expect(out.format).toBe('jpeg');
+		expect(Buffer.compare(Buffer.from(out.data), Buffer.from(source))).toBe(0);
+	});
+
+	it('refuses a passthrough that would change the container, and says why', async () => {
+		const error = await transform(tinyimg, fixture('sf-24.jpg'), {
+			width: 200,
+			format: 'webp',
+			budgetMs: 0.01,
+			admission: 'passthrough'
+		}).catch((caught: unknown) => caught);
+
+		expect(error).toBeInstanceOf(TinyImgBudgetError);
+		expect((error as Error).message).toContain('cannot pass the source through');
+	});
+
+	it('serves an affordable request the same bytes with or without a guard', async () => {
+		const request = { width: 200, format: 'webp' } as const;
+		const plain = await transform(tinyimg, fixture('sf-24.jpg'), request);
+
+		for (const admission of ['strict', 'degrade', 'passthrough'] as const) {
+			const guarded = await transform(tinyimg, fixture('sf-24.jpg'), {
+				...request,
+				budgetMs: 1000,
+				admission
+			});
+
+			expect(guarded.degraded, admission).toEqual([]);
+			expect(Buffer.compare(Buffer.from(guarded.data), Buffer.from(plain.data))).toBe(0);
+		}
+	});
+
+	it('leaves a budget with no admission mode exactly as it was', async () => {
+		const request = { width: 200, format: 'webp', budgetMs: 0.01 } as const;
+		const { value, work } = await tinyimg.measure(() =>
+			transform(tinyimg, fixture('sf-24.jpg'), request)
+		);
+
+		// over budget and still served, which is what a budget has always meant
+		expect(value.data.byteLength).toBeGreaterThan(0);
+		expect(value.degraded.length).toBeGreaterThan(0);
+		expect(work.encoded).toBeGreaterThan(0);
+	});
+
+	it('stops an admitted-by-nothing request part way, and says it was the work counters', async () => {
+		const error = await transform(tinyimg, fixture('sf-24.jpg'), {
+			width: 200,
+			format: 'webp',
+			budgetMs: 0.01,
+			admission: 'degrade'
+		}).catch((caught: unknown) => caught);
+
+		expect(error).toBeInstanceOf(TinyImgBudgetError);
+		expect((error as TinyImgBudgetError).code).toBe(Err.budget);
+		expect((error as TinyImgBudgetError).reason).toBe('work');
+	});
+
+	it('stops a decode and an encode through the module, whatever the format', async () => {
+		for (const name of ['sf-24.jpg', 'mountains.jpg']) {
+			using image = await Image.open(tinyimg, fixture(name));
+			image.resize(200, 0);
+
+			tinyimg.exports.tiny_work_set_limit(1);
+
+			try {
+				await expect(image.bytes('png')).rejects.toBeInstanceOf(TinyImgBudgetError);
+			} finally {
+				tinyimg.exports.tiny_work_set_limit(0);
+			}
+
+			// the limit is gone, and the same image runs to the end
+			expect((await image.bytes('png')).byteLength).toBeGreaterThan(0);
+		}
+	});
+
+	it('reads the same work clock for the same request', async () => {
+		const run = () =>
+			tinyimg.measure(() =>
+				transform(tinyimg, fixture('sf-24.jpg'), { width: 200, format: 'webp' })
+			);
+
+		const first = await run();
+		const second = await run();
+
+		expect(first.work.clockMicros).toBeGreaterThan(0);
+		expect(first.work.clockMicros).toBe(second.work.clockMicros);
+		expect(first.work.decodeMicros).toBeGreaterThan(0);
+		expect(first.work.clockMicros).toBeGreaterThan(first.work.decodeMicros);
+	});
+
+	it('keeps one request out of another on the same module', async () => {
+		const aborted = transform(tinyimg, fixture('sf-24.jpg'), {
+			width: 200,
+			format: 'webp',
+			budgetMs: 0.01,
+			admission: 'degrade'
+		});
+		const fine = transform(tinyimg, fixture('sf-24.jpg'), {
+			width: 200,
+			format: 'webp',
+			budgetMs: 1000,
+			admission: 'degrade'
+		});
+		const plain = transform(tinyimg, fixture('sf-24.jpg'), { width: 200, format: 'webp' });
+
+		const [stopped, kept, free] = await Promise.allSettled([aborted, fine, plain]);
+
+		expect(stopped.status).toBe('rejected');
+		expect(kept.status).toBe('fulfilled');
+		expect(free.status).toBe('fulfilled');
+
+		if (kept.status === 'fulfilled' && free.status === 'fulfilled') {
+			expect(Buffer.compare(Buffer.from(kept.value.data), Buffer.from(free.value.data))).toBe(
+				0
+			);
+		}
+	});
+
+	it('never trips the work guard on a request admitted at exactly its bound', async () => {
+		for (const name of ['sf-24.jpg', 'toyota_racing.webp', 'drupflare.png', 'ball_kick.gif']) {
+			for (const format of ['webp', 'png'] as const) {
+				using image = await Image.open(tinyimg, fixture(name));
+				image.autoOrient().resize(200, 0);
+
+				const bound = image.admit(1000, { mode: 'strict', format }).costUpperMs;
+				const result = await transform(tinyimg, fixture(name), {
+					width: 200,
+					format,
+					budgetMs: bound,
+					admission: 'passthrough'
+				});
+
+				expect(result.degraded, `${name} to ${format}`).not.toContain('passthrough');
+			}
+		}
+	});
+});
+
+describe('selection', () => {
+	let tinyimg: TinyImgModule;
+
+	beforeAll(async () => {
+		tinyimg = await TinyImgModule.loadBytes(wasm);
+	});
+
+	it('picks a feasible choice that is one of the candidates it looked at', async () => {
+		using image = await Image.open(tinyimg, fixture('sf-24.jpg'));
+		image.resize(200, 0);
+
+		const picked = image.select();
+
+		expect(picked.feasible).toBe(true);
+		expect(picked.reason).toBe('none');
+		expect(picked.considered.length).toBeGreaterThan(0);
+		expect(picked.considered.length).toBeLessThanOrEqual(288);
+		expect(picked.width).toBe(200);
+
+		const choice = picked.choice!;
+
+		expect(['jpeg', 'webp']).toContain(choice.format);
+		expect(
+			picked.considered.some(
+				(c) =>
+					c.reason === 'none' &&
+					c.format === choice.format &&
+					c.quality === choice.quality &&
+					c.lossless === choice.lossless
+			)
+		).toBe(true);
+	});
+
+	it('answers the same twice, and reads no pixels', async () => {
+		using image = await Image.open(tinyimg, fixture('sf-24.jpg'));
+		image.resize(200, 0);
+
+		const first = await tinyimg.measure(() => image.select());
+		const again = image.select();
+
+		expect(again).toEqual(first.value);
+		expect(first.work.decodedSamples).toBe(0);
+		expect(first.work.encoded).toBe(0);
+	});
+
+	it('names the check the nearest miss failed when nothing fits', async () => {
+		using image = await Image.open(tinyimg, fixture('sf-24.jpg'));
+		image.resize(200, 0);
+
+		const none = image.select({ budgetMs: 0.001 });
+
+		expect(none.feasible).toBe(false);
+		expect(none.reason).toBe('budget');
+		expect(none.choice).toBeUndefined();
+		await expect(image.bytesFor(none)).rejects.toThrow(TypeError);
+	});
+
+	it('limits the output to the formats it is given', async () => {
+		using image = await Image.open(tinyimg, fixture('sf-24.jpg'));
+		image.resize(200, 0);
+
+		const picked = image.select({ formats: ['png'] });
+
+		expect(picked.choice?.format).toBe('png');
+		expect(picked.considered.filter((c) => c.reason !== 'format')).toSatisfy((rows: any[]) =>
+			rows.every((c) => c.format === 'png')
+		);
+	});
+
+	it('holds a quality floor on the predicted figure', async () => {
+		using image = await Image.open(tinyimg, fixture('sf-24.jpg'));
+		image.resize(200, 0);
+
+		const picked = image.select({ minDb: 40 });
+
+		if (picked.feasible) expect(picked.choice!.db!).toBeGreaterThanOrEqual(40);
+		else expect(picked.reason).toBe('quality');
+
+		for (const c of picked.considered) {
+			if (c.reason === 'none') expect(c.db!).toBeGreaterThanOrEqual(40);
+		}
+	});
+
+	it('writes what it chose, at the extent it reported', async () => {
+		using image = await Image.open(tinyimg, fixture('sf-24.jpg'));
+		image.resize(200, 0);
+
+		const picked = image.select({ formats: ['jpeg', 'webp'], objective: 'bytes' });
+		const data = await image.bytesFor(picked);
+		const info = await tinyimg.probe(data);
+
+		expect(info.format).toBe(picked.choice!.format);
+		expect(info.width).toBe(picked.width);
+		expect(info.height).toBe(picked.height);
+	});
+
+	it('keeps operations added after the plan when it writes', async () => {
+		using plain = await Image.open(tinyimg, fixture('sf-24.jpg'));
+		using turned = await Image.open(tinyimg, fixture('sf-24.jpg'));
+
+		plain.resize(200, 0);
+		turned.resize(200, 0).rotate(90);
+
+		const a = await tinyimg.probe(await plain.bytesFor(plain.select({ formats: ['jpeg'] })));
+		const b = await tinyimg.probe(await turned.bytesFor(turned.select({ formats: ['jpeg'] })));
+
+		expect(b.width).toBe(a.height);
+		expect(b.height).toBe(a.width);
+	});
+
+	it('refuses an output that cannot carry alpha unless told the pixels are opaque', async () => {
+		using image = await Image.open(tinyimg, fixture('drupflare.png'));
+		image.resize(128, 0);
+
+		const refused = image.select({ formats: ['jpeg'] });
+
+		expect(refused.alpha).toBe(true);
+		expect(refused.feasible).toBe(false);
+		expect(refused.reason).toBe('alpha');
+
+		const allowed = image.select({ formats: ['jpeg'], assumeOpaque: true });
+
+		expect(allowed.feasible).toBe(true);
+	});
+
+	it('rejects an objective it does not know', async () => {
+		using image = await Image.open(tinyimg, fixture('sf-24.jpg'));
+
+		expect(() => image.select({ objective: 'speed' as never })).toThrow(TypeError);
 	});
 });

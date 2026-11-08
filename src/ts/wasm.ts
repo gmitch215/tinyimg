@@ -31,7 +31,11 @@ const Counter = {
 	resampled: 7,
 	encoded: 8,
 	passes: 9,
-	scansSkipped: 10
+	scansSkipped: 10,
+	entropyBytes: 11,
+	encodeProbes: 12,
+	alphaDropped: 13,
+	decodeMicros: 14
 } as const;
 
 type Counter = (typeof Counter)[keyof typeof Counter];
@@ -72,6 +76,36 @@ export interface WorkCounters {
 	 * everything and so has nothing to skip.
 	 */
 	scansSkipped: number;
+	/**
+	 * Compressed bytes the entropy decoder pulled in, counted from its reader's position.
+	 *
+	 * It runs a few bytes ahead of the bits actually used, and it is zero for an uncompressed TIFF
+	 * or BMP. A region or scaled request that stops reading early lowers it; one that decodes
+	 * everything and discards the rest does not.
+	 */
+	entropyBytes: number;
+	/**
+	 * Hash chain candidates the deflate match finder compared while encoding a PNG or a Deflate
+	 * TIFF, which `encoded` cannot show: same-sized images differ by an order of magnitude here.
+	 */
+	encodeProbes: number;
+	/**
+	 * Samples whose alpha an encoder wrote without it: every sample below 255 for JPEG and AVIF,
+	 * and every sample strictly between 0 and 255 for GIF. Zero for RGB input and for encoders
+	 * that keep alpha.
+	 */
+	alphaDropped: number;
+	/**
+	 * Microseconds the cost model charges for the decode's sample term, added once per decode.
+	 * The decode half of {@link WorkCounters.clockMicros} together with `entropyBytes`.
+	 */
+	decodeMicros: number;
+	/**
+	 * What the counters add up to, in microseconds of the machine the cost model was calibrated
+	 * on: a pure function of the counters, so two runs of one request read the same value.
+	 * Multiply by your own machine factor to compare against a clock you trust.
+	 */
+	clockMicros: number;
 }
 
 /** What {@link TinyImgModule.measure} hands back. */
@@ -152,6 +186,8 @@ export interface TinyExports {
 
 	tiny_work_reset(): void;
 	tiny_work_read(counter: number): number;
+	tiny_work_set_limit(micros: number): void;
+	tiny_work_clock_us(): number;
 
 	tiny_alloc(size: number): number;
 	tiny_free(pointer: number): void;
@@ -166,6 +202,7 @@ export interface TinyExports {
 
 	tiny_image_probe(buffer: number, size: number, info: number): number;
 	tiny_jpeg_orientation(buffer: number, size: number): number;
+	tiny_avif_orientation(buffer: number, size: number): number;
 	tiny_image_destroy(image: number): number;
 	tiny_image_getwidth(image: number): number;
 	tiny_image_getheight(image: number): number;
@@ -201,6 +238,7 @@ export interface TinyExports {
 		color: number
 	): number;
 	tiny_image_trim(image: number, tolerance: number): number;
+	tiny_image_convert_channels(image: number, channels: number): number;
 
 	tiny_font_sizeof(): number;
 	tiny_text_style_sizeof(): number;
@@ -242,6 +280,7 @@ export interface TinyExports {
 	tiny_plan_set_fusion(plan: number, enabled: number): number;
 	tiny_plan_set_effort(plan: number, effort: number): number;
 	tiny_plan_set_budget(plan: number, microseconds: number): number;
+	tiny_plan_set_budget_basis(plan: number, basis: number): number;
 	tiny_plan_background(plan: number, color: number): number;
 	tiny_plan_crop(plan: number, x: number, y: number, width: number, height: number): number;
 	tiny_plan_resize(plan: number, width: number, height: number): number;
@@ -278,8 +317,26 @@ export interface TinyExports {
 	tiny_plan_resolve(plan: number, resolution: number): number;
 	tiny_plan_field(resolution: number, field: number): number;
 	tiny_plan_cost(plan: number): number;
+	tiny_plan_cost_upper(plan: number): number;
+	tiny_plan_admit(plan: number, opts: number, admission: number): number;
+	tiny_admit_opts_sizeof(): number;
+	tiny_admission_sizeof(): number;
+	tiny_admission_field(admission: number, field: number): number;
+	tiny_plan_select(plan: number, opts: number, selection: number): number;
+	tiny_plan_run_lattice(plan: number, index: number, out: number): number;
+	tiny_select_opts_sizeof(): number;
+	tiny_selection_sizeof(): number;
+	tiny_selection_field(selection: number, field: number): number;
+	tiny_selection_considered_field(selection: number, index: number, field: number): number;
 	tiny_encode_cost(format: number, width: number, height: number): number;
 	tiny_encode_cost_at(format: number, width: number, height: number, compression: number): number;
+	tiny_encode_cost_upper_at(
+		format: number,
+		width: number,
+		height: number,
+		compression: number
+	): number;
+	tiny_encode_cost_upper_for(format: number, width: number, height: number, opts: number): number;
 	tiny_plan_run(plan: number, out: number): number;
 	tiny_plan_encode(plan: number, format: number, opts: number, writer: number): number;
 
@@ -439,6 +496,18 @@ export class TinyImgModule {
 	}
 
 	/**
+	 * Reads the running total of samples whose alpha an encoder dropped.
+	 *
+	 * The counters are never reset by the library outside {@link measure}, so a caller that wants
+	 * one encode's share takes the difference of two reads.
+	 *
+	 * @return Samples dropped since the counters were last cleared.
+	 */
+	alphaDropped(): number {
+		return this.exports.tiny_work_read(Counter.alphaDropped);
+	}
+
+	/**
 	 * Clears the work counters, then runs `body` and reports what it actually did.
 	 *
 	 * Every reduction this library performs is a claim that some work does not happen, and a
@@ -479,7 +548,12 @@ export class TinyImgModule {
 				resampled: read(Counter.resampled),
 				encoded: read(Counter.encoded),
 				passes: read(Counter.passes),
-				scansSkipped: read(Counter.scansSkipped)
+				scansSkipped: read(Counter.scansSkipped),
+				entropyBytes: read(Counter.entropyBytes),
+				encodeProbes: read(Counter.encodeProbes),
+				alphaDropped: read(Counter.alphaDropped),
+				decodeMicros: read(Counter.decodeMicros),
+				clockMicros: this.exports.tiny_work_clock_us()
 			}
 		};
 	}
@@ -521,7 +595,9 @@ export class TinyImgModule {
 				orientation:
 					format === 'jpeg'
 						? this.exports.tiny_jpeg_orientation(buffer, bytes.byteLength) || 1
-						: 1
+						: format === 'avif'
+							? this.exports.tiny_avif_orientation(buffer, bytes.byteLength) || 1
+							: 1
 			};
 		} finally {
 			this.free(info);

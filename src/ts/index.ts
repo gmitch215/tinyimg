@@ -40,7 +40,14 @@
  * after the first operation has already run.
  */
 
-export { Image, mimeFor, type EncodeOptions, type FitOptions } from './image.js';
+export {
+	Image,
+	mimeFor,
+	type AdmitOptions,
+	type EncodeOptions,
+	type FitOptions,
+	type SelectOptions
+} from './image.js';
 export {
 	Font,
 	og,
@@ -62,6 +69,7 @@ export {
 	Err,
 	TinyImgArgumentError,
 	TinyImgBlobError,
+	TinyImgBudgetError,
 	TinyImgDataError,
 	TinyImgError,
 	TinyImgFormatError,
@@ -70,6 +78,7 @@ export {
 	TinyImgTooLargeError,
 	readColor,
 	readSource,
+	type Admission,
 	type BlobKind,
 	type Color,
 	type Extent,
@@ -84,6 +93,11 @@ export {
 	type RawImage,
 	type Rect,
 	type ResampleFilter,
+	type SelectCandidate,
+	type SelectChoice,
+	type SelectCoverage,
+	type SelectReason,
+	type Selection,
 	type Source,
 	type TransformOptions
 } from './types.js';

@@ -1,6 +1,7 @@
 import {
 	readColor,
 	readSource,
+	type Admission,
 	type Color,
 	type Fit,
 	type FlipAxis,
@@ -9,6 +10,8 @@ import {
 	type PlanDecision,
 	type RawImage,
 	type ResampleFilter,
+	type SelectCandidate,
+	type Selection,
 	type Source
 } from './types.js';
 import { TinyImgModule } from './wasm.js';
@@ -98,7 +101,8 @@ const Field = {
 	passes: 14,
 	kernels: 15,
 	cost: 16,
-	degraded: 17
+	degraded: 17,
+	costUpper: 18
 } as const;
 
 /** `TinyPlanDegrade` bits, paired with the names {@link PlanDecision.degraded} reports. */
@@ -109,6 +113,114 @@ const DEGRADES = [
 ] as const;
 
 type PlanField = keyof typeof Field;
+
+/** `TinyAdmissionDecision`, in order. */
+const DECISIONS = ['admit', 'degraded', 'reject'] as const;
+
+/** Named fields of an admission, mirroring `TinyAdmissionField`. */
+const AdmissionField = {
+	decision: 0,
+	degraded: 1,
+	cost: 2,
+	costUpper: 3,
+	encode: 4,
+	encodeUpper: 5,
+	margin: 6
+} as const;
+
+/** What {@link Image.admit} takes beyond the budget. */
+export interface AdmitOptions {
+	/**
+	 * `'degrade'` walks the budget ladder on the upper bound before it rejects; `'strict'` rejects
+	 * a request that is over as it stands. Defaults to `'degrade'`.
+	 */
+	mode?: 'strict' | 'degrade';
+	/** The container the result is written as, which prices the encoder. Defaults to the source's. */
+	format?: ImageFormat;
+	/** How much slower this machine is than the calibrated one. Defaults to 1. */
+	platformScale?: number;
+	/** The encoder's quality, which moves its price for JPEG, WebP and AVIF. */
+	quality?: number;
+	/** Whether WebP is written lossless, which is dearer to encode. */
+	lossless?: boolean;
+	/** The encoder's compression level for PNG and TIFF. Defaults to `'auto'`. */
+	compression?: EncodeOptions['compression'];
+	/** The encoder's effort. Defaults to `'fancy'`. */
+	effort?: 'fancy' | 'fast';
+}
+
+/** `TinySelectReason`, in order. */
+const SELECT_REASONS = [
+	'none',
+	'format',
+	'alpha',
+	'uncharacterized',
+	'peak',
+	'quality',
+	'budget'
+] as const;
+
+/** `TinySelectObjective`, in order. */
+const OBJECTIVES = ['bytes', 'time', 'quality'] as const;
+
+/** Named fields of a selection, mirroring `TinySelectionField`. */
+const SelectionField = {
+	feasible: 0,
+	reason: 1,
+	candidate: 2,
+	format: 3,
+	quality: 4,
+	lossless: 5,
+	costUpper: 6,
+	peak: 7,
+	dbMilli: 8,
+	dbMedianMilli: 9,
+	dbKnown: 10,
+	bytesPerPixelMicro: 12,
+	bytesKnown: 13,
+	predictedBytes: 14,
+	considered: 15,
+	width: 17,
+	height: 18,
+	alpha: 20,
+	leverCoverage: 21,
+	encodeCoverage: 23,
+	chosen: 24
+} as const;
+
+/** Named fields of one considered candidate, mirroring `TinyConsideredField`. */
+const ConsideredField = {
+	format: 1,
+	quality: 2,
+	lossless: 3,
+	reason: 4,
+	dbMilli: 6,
+	dbKnown: 7,
+	bytesPerPixelMicro: 8,
+	bytesKnown: 9,
+	costUpper: 10,
+	peak: 11
+} as const;
+
+/** What {@link Image.select} takes. */
+export interface SelectOptions {
+	/** CPU the request may spend, in milliseconds on the machine it runs on. Omitted means no limit. */
+	budgetMs?: number;
+	/** How much slower this machine is than the calibrated one. Defaults to 1. */
+	platformScale?: number;
+	/** Largest heap bound a candidate may have, in bytes. Defaults to the module's heap ceiling. */
+	peakBytes?: number;
+	/** Quality floor as predicted PSNR in dB against the undegraded output. Omitted means no floor. */
+	minDb?: number;
+	/** Output containers to consider. Defaults to the source's own, JPEG and WebP. */
+	formats?: ImageFormat[];
+	/** What to minimize among the candidates that fit. Defaults to `'bytes'`. */
+	objective?: 'bytes' | 'time' | 'quality';
+	/** What to do with a candidate whose quality is unknown. Defaults to `'refuse'`. */
+	uncharacterized?: 'refuse' | 'allow';
+	/** Treat an RGBA source as opaque, so the search may pick JPEG, AVIF or GIF. */
+	assumeOpaque?: boolean;
+}
 
 /** What {@link Image.bytes} and its siblings take. */
 export interface EncodeOptions {
@@ -364,12 +476,13 @@ export class Image {
 	}
 
 	/**
-	 * Turns the source upright by the orientation its EXIF names.
+	 * Turns the source upright by the orientation its EXIF (JPEG) or its `irot` and `imir`
+	 * properties (AVIF) name.
 	 *
 	 * The decoder returns pixels as stored and a plan's output carries no EXIF block, so an image
 	 * tagged as rotated would otherwise come out sideways. This appends the flip and turn that
 	 * orientation stands for, which fold into the output addressing like any other, so it costs no
-	 * pass. A source with no tag, and every format but JPEG, appends nothing.
+	 * pass. A source with no tag, and every format but JPEG and AVIF, appends nothing.
 	 *
 	 * Call it before any other operation: a crop or resize after it works in display coordinates,
 	 * and one before it would not.
@@ -435,6 +548,42 @@ export class Image {
 
 		this.#after.push((image) => {
 			this.#module.check(this.#module.exports.tiny_image_trim(image, tolerance), 'trim');
+		});
+
+		return this;
+	}
+
+	/**
+	 * Changes the materialized pixels in place, with a function of your own.
+	 *
+	 * **Runs after the plan rather than inside it.** The escape hatch for per-pixel arithmetic the
+	 * library does not carry, such as another library's exact integer blend or a fixed convolution
+	 * kernel. The image is widened to RGBA first, so `fn` always sees four channels, and it gets a
+	 * live view into the module's memory: write to `pixels` and the encoder reads what you wrote.
+	 * The extent and the channel count cannot change, and the view is only valid inside the call.
+	 *
+	 * @param fn Receives the extent and `width * height * 4` bytes, rows tightly packed.
+	 */
+	edit(fn: (image: RawImage) => void): this {
+		this.#alive();
+
+		this.#after.push((image) => {
+			const module = this.#module;
+
+			module.check(module.exports.tiny_image_convert_channels(image, 4), 'widen to RGBA');
+
+			const width = module.exports.tiny_image_getwidth(image);
+			const height = module.exports.tiny_image_getheight(image);
+			const data = module.exports.tiny_image_getdata(image);
+
+			fn({
+				width,
+				height,
+				channels: 4,
+				pixels: module
+					.bytes()
+					.subarray(data, data + width * height * 4) as Uint8Array<ArrayBuffer>
+			});
 		});
 
 		return this;
@@ -651,6 +800,7 @@ export class Image {
 				passes: field('passes'),
 				kernels: KERNELS.filter(([bit]) => (bits & bit) !== 0).map(([, name]) => name),
 				estimateMs: field('cost') / 1000,
+				costUpperMs: field('costUpper') / 1000,
 				degraded: DEGRADES.filter(([bit]) => (field('degraded') & bit) !== 0).map(
 					([, name]) => name
 				)
@@ -680,8 +830,11 @@ export class Image {
 	 * {@link transform}, which does that for you.
 	 *
 	 * @param milliseconds The budget, or 0 to remove it.
+	 * @param basis Which cost the ladder compares to the budget. `'point'`, the default, is the
+	 * estimate; `'upper'` is the calibrated upper bound, so a rung that fits is one whose bound
+	 * fits.
 	 */
-	budget(milliseconds: number): this {
+	budget(milliseconds: number, basis: 'point' | 'upper' = 'point'): this {
 		this.#alive();
 		this.#module.check(
 			this.#module.exports.tiny_plan_set_budget(
@@ -690,8 +843,175 @@ export class Image {
 			),
 			'budget setting'
 		);
+		this.#module.check(
+			this.#module.exports.tiny_plan_set_budget_basis(this.#plan, basis === 'upper' ? 1 : 0),
+			'budget basis setting'
+		);
 
 		return this;
+	}
+
+	/**
+	 * Decides whether this request fits a CPU budget, on the calibrated upper bound.
+	 *
+	 * Prices the plan undegraded, adds the encoder for the format being written, and multiplies by
+	 * `platformScale`. The request is admitted when that bound is within `budgetMs`. In the default
+	 * `'degrade'` mode an over-budget request walks the planner's ladder on the bound and is
+	 * `'degraded'` when a rung fits and `'reject'` when none does; `'strict'` rejects without
+	 * trying. The plan's own {@link budget} is not read and not changed.
+	 *
+	 * The bound is a prediction under exchangeability, not a guarantee, and it is relative to the
+	 * machine the cost model was calibrated on.
+	 *
+	 * @param budgetMs CPU the request may spend, in milliseconds on the machine it runs on.
+	 * @param options The mode, the output format, the machine factor and the encoder's settings.
+	 * @return The decision and the numbers behind it.
+	 */
+	admit(budgetMs: number, options: AdmitOptions = {}): Admission {
+		this.#alive();
+
+		const module = this.#module;
+		const format = options.format ?? this.#format;
+		const opts = module.alloc(module.exports.tiny_admit_opts_sizeof());
+		const out = module.alloc(module.exports.tiny_admission_sizeof());
+
+		try {
+			const view = module.view();
+			const values = [
+				Math.min(0xffffffff, Math.max(0, Math.round(budgetMs * 1000))),
+				Math.min(0xffffffff, Math.max(1, Math.round((options.platformScale ?? 1) * 1000))),
+				options.mode === 'strict' ? 0 : 1,
+				format === 'unknown' ? 0 : module.formatId(format),
+				COMPRESSION.indexOf(options.compression ?? 'auto'),
+				options.quality ?? 0,
+				options.lossless ? 1 : 0,
+				options.effort === 'fast' ? 1 : 0
+			];
+
+			values.forEach((value, index) => view.setUint32(opts + index * 4, value, true));
+
+			module.check(module.exports.tiny_plan_admit(this.#plan, opts, out), 'admit the plan');
+
+			const field = (name: keyof typeof AdmissionField) =>
+				module.exports.tiny_admission_field(out, AdmissionField[name]);
+
+			return {
+				decision: DECISIONS[field('decision')] ?? 'reject',
+				costMs: field('cost') / 1000,
+				costUpperMs: field('costUpper') / 1000,
+				encodeMs: field('encode') / 1000,
+				encodeUpperMs: field('encodeUpper') / 1000,
+				// the module reads the margin as a signed 32 bit value
+				marginMs: (field('margin') | 0) / 1000,
+				degraded: DEGRADES.filter(([bit]) => (field('degraded') & bit) !== 0).map(
+					([, name]) => name
+				)
+			};
+		} finally {
+			module.free(out);
+			module.free(opts);
+		}
+	}
+
+	/**
+	 * Searches the ways to run this request and picks the best one that fits the limits.
+	 *
+	 * Crosses the planner's decode levers (scale, filter, effort) with the output format and its
+	 * quality, drops each combination that breaks a limit, and takes the best by `objective`. It
+	 * reads no pixels and no clock, so it costs a few table lookups per candidate. Run the choice
+	 * with {@link bytesFor}.
+	 *
+	 * The limits are the options', not the plan's own {@link budget}. A selection with `feasible`
+	 * false is a normal answer: `reason` names the check the nearest miss failed.
+	 *
+	 * @param options The limits and the objective.
+	 * @return The choice, the predicted figures behind it and every candidate looked at.
+	 */
+	select(options: SelectOptions = {}): Selection {
+		this.#alive();
+
+		const module = this.#module;
+		const opts = module.alloc(module.exports.tiny_select_opts_sizeof());
+		const out = module.alloc(module.exports.tiny_selection_sizeof());
+
+		try {
+			const view = module.view();
+			const mask = (options.formats ?? []).reduce(
+				(bits, format) => bits | (1 << module.formatId(format)),
+				0
+			);
+			const u32 = (value: number) => Math.min(0xffffffff, Math.max(0, Math.round(value)));
+			const objective = OBJECTIVES.indexOf(options.objective ?? 'bytes');
+
+			if (objective < 0) throw new TypeError(`'${options.objective}' is not an objective`);
+
+			view.setUint32(opts, u32((options.budgetMs ?? 0) * 1000), true);
+			view.setUint32(opts + 4, u32(Math.max(1, (options.platformScale ?? 1) * 1000)), true);
+			view.setUint32(opts + 8, u32(options.peakBytes ?? 0), true);
+			view.setFloat32(opts + 12, options.minDb ?? 0, true);
+			view.setUint32(opts + 16, mask >>> 0, true);
+			view.setUint32(opts + 20, objective, true);
+			view.setUint32(opts + 24, options.uncharacterized === 'allow' ? 1 : 0, true);
+			view.setUint32(opts + 28, options.assumeOpaque ? 1 : 0, true);
+
+			module.check(module.exports.tiny_plan_select(this.#plan, opts, out), 'select');
+
+			const field = (name: keyof typeof SelectionField) =>
+				module.exports.tiny_selection_field(out, SelectionField[name]);
+			const width = field('width');
+			const height = field('height');
+
+			const read = (index: number): SelectCandidate => {
+				const part = (name: keyof typeof ConsideredField) =>
+					module.exports.tiny_selection_considered_field(
+						out,
+						index,
+						ConsideredField[name]
+					);
+
+				return {
+					format: module.formatName(part('format')) as ImageFormat,
+					quality: part('quality'),
+					lossless: part('lossless') !== 0,
+					reason: SELECT_REASONS[part('reason')] ?? 'none',
+					costUpperMs: part('costUpper') / 1000,
+					peakBytes: part('peak'),
+					db: part('dbKnown') ? part('dbMilli') / 1000 : undefined,
+					bytes: part('bytesKnown')
+						? Math.round((part('bytesPerPixelMicro') / 1e6) * width * height)
+						: undefined
+				};
+			};
+
+			const considered = Array.from({ length: field('considered') }, (_, index) =>
+				read(index)
+			);
+			const feasible = field('feasible') !== 0;
+
+			return {
+				feasible,
+				reason: SELECT_REASONS[field('reason')] ?? 'none',
+				choice: feasible
+					? {
+							...(considered[field('chosen')] as SelectCandidate),
+							candidate: field('candidate'),
+							dbMedian: field('dbKnown') ? field('dbMedianMilli') / 1000 : undefined,
+							...(field('bytesKnown') ? { bytes: field('predictedBytes') } : {})
+						}
+					: undefined,
+				width,
+				height,
+				alpha: field('alpha') !== 0,
+				coverage: {
+					lever: field('leverCoverage') / 1000,
+					encode: field('encodeCoverage') / 1000
+				},
+				considered
+			};
+		} finally {
+			module.free(out);
+			module.free(opts);
+		}
 	}
 
 	/**
@@ -708,6 +1028,45 @@ export class Image {
 		format?: ImageFormat,
 		options: EncodeOptions = {}
 	): Promise<Uint8Array<ArrayBuffer>> {
+		return this.#encode(format, options);
+	}
+
+	/**
+	 * Runs the plan the way a {@link select} chose and encodes it as that choice says.
+	 *
+	 * Decodes at the lattice point the selection names (its scale, filter and effort) and writes
+	 * the format, quality and coding it names. `options` supplies the settings the selection does
+	 * not carry: `progressive`, `stripMetadata`, `effort` and `compression`. The selection has to
+	 * come from this image, with no operation added since.
+	 *
+	 * @param selection A feasible selection from {@link select}.
+	 * @param options Encoder settings other than quality and lossless.
+	 * @return The encoded bytes.
+	 */
+	async bytesFor(
+		selection: Selection,
+		options: Omit<EncodeOptions, 'quality' | 'lossless'> = {}
+	): Promise<Uint8Array<ArrayBuffer>> {
+		const choice = selection.choice;
+
+		if (!selection.feasible || !choice) {
+			throw new TypeError(
+				`the selection is not feasible (${selection.reason}), so there is nothing to run`
+			);
+		}
+
+		return this.#encode(
+			choice.format,
+			{ ...options, quality: choice.quality, lossless: choice.lossless },
+			choice.candidate
+		);
+	}
+
+	#encode(
+		format: ImageFormat | undefined,
+		options: EncodeOptions,
+		lattice?: number
+	): Uint8Array<ArrayBuffer> {
 		this.#alive();
 
 		const target = format ?? this.#format;
@@ -731,7 +1090,7 @@ export class Image {
 			module.check(module.exports.tiny_writer_init(writer, 0), 'prepare the encoder');
 
 			try {
-				if (this.#after.length === 0) {
+				if (this.#after.length === 0 && lattice === undefined) {
 					module.check(
 						module.exports.tiny_plan_encode(
 							this.#plan,
@@ -742,7 +1101,7 @@ export class Image {
 						'run and encode'
 					);
 				} else {
-					this.#runWithAfter(target, opts, writer);
+					this.#runWithAfter(target, opts, writer, lattice);
 				}
 
 				return module.copyOut(
@@ -886,12 +1245,17 @@ export class Image {
 	}
 
 	/** Runs the plan, applies the operations that cannot be plan operations, then encodes. */
-	#runWithAfter(target: ImageFormat, opts: number, writer: number): void {
+	#runWithAfter(target: ImageFormat, opts: number, writer: number, lattice?: number): void {
 		const module = this.#module;
 		const image = module.alloc(module.exports.tiny_image_sizeof());
 
 		try {
-			module.check(module.exports.tiny_plan_run(this.#plan, image), 'run the plan');
+			module.check(
+				lattice === undefined
+					? module.exports.tiny_plan_run(this.#plan, image)
+					: module.exports.tiny_plan_run_lattice(this.#plan, lattice, image),
+				'run the plan'
+			);
 
 			try {
 				for (const step of this.#after) step(image);

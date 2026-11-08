@@ -146,6 +146,39 @@ export interface TransformOptions {
 	 * is a decision, and this option does not overrule it.
 	 */
 	budgetMs?: number;
+	/**
+	 * What to do when `budgetMs` cannot be met. Read only beside `budgetMs`.
+	 *
+	 * - `'degrade'` takes the planner's levers, judged on the calibrated upper bound rather than
+	 *   the point estimate, and runs the cheapest request that results.
+	 * - `'strict'` throws {@link TinyImgBudgetError} when the upper bound is over budget, and
+	 *   gives nothing up.
+	 * - `'passthrough'` degrades as far as the ladder goes, and when even that does not fit
+	 *   returns the source bytes unchanged with `'passthrough'` in `degraded`.
+	 *
+	 * Leaving this unset keeps `budgetMs` exactly as it behaved before the option existed: the
+	 * point estimate, no bound and no guard, so an existing caller sees no change. Naming
+	 * `'degrade'` is the opt-in to the bound and the guard.
+	 *
+	 * Whatever the mode, an admitted request that turns out heavier than predicted stops itself
+	 * when the work counted so far passes the budget: `'passthrough'` then returns the source,
+	 * and the other two throw {@link TinyImgBudgetError}. The guard counts work rather than
+	 * reading a clock, because a Worker's timers do not advance while code runs.
+	 *
+	 * A passthrough needs the output format to be the source's own, or none to be asked for;
+	 * otherwise the same error is thrown and says why.
+	 *
+	 * The bound is a calibrated prediction under exchangeability, not a guarantee, and it is
+	 * relative to the machine it was calibrated on; see {@link TransformOptions.platformScale}.
+	 */
+	admission?: 'degrade' | 'strict' | 'passthrough';
+	/**
+	 * How much slower the machine running this is than the one the cost model was calibrated on.
+	 * 1 means the same machine and is the default. A Worker ran the same module 1.90 times slower
+	 * at the median and 2.4 to 4.7 times slower on cheap requests, so pass your own measured
+	 * factor. The library never supplies one.
+	 */
+	platformScale?: number;
 	/** Quality for a lossy format, 1 through 100. */
 	quality?: number;
 	/**
@@ -207,9 +240,10 @@ export interface ImageInfo {
 	/** Whether this is a progressive JPEG, which cannot stream a region. */
 	progressive: boolean;
 	/**
-	 * The EXIF orientation, 1 through 8, or 1 when there is none.
+	 * The orientation, 1 through 8, or 1 when there is none.
 	 *
-	 * Read from a JPEG header only; every other format reports 1. `width` and `height` are the
+	 * Read from a JPEG's EXIF or an AVIF's `irot` and `imir` properties; every other format
+	 * reports 1. `width` and `height` are the
 	 * stored extent, so a value of 5 through 8 means the image displays with them swapped.
 	 */
 	orientation: number;
@@ -266,14 +300,29 @@ export interface PlanDecision {
 	/**
 	 * What running this plan is expected to cost in milliseconds, before any encoder.
 	 *
-	 * An estimate and not a promise: the rates behind it were measured on one machine, and against
-	 * real transforms it lands within about 20%. That is the accuracy the question needs when the
-	 * question is whether work will fit inside a CPU limit, and it is not a substitute for
-	 * measuring, which {@link TinyImgModule.measure} does.
+	 * A point estimate and not a promise: the rates behind it were timed on one machine. Over a
+	 * held-out half of the calibration corpus its median absolute decode error is 1% for BMP, 7%
+	 * for PNG, 9% for JPEG and AVIF, 16% for GIF, 17% for WebP and 57% for TIFF (which it prices
+	 * from one multiplier although the compression coding spans 5x), and single requests spread
+	 * wider; {@link PlanDecision.costUpperMs} is the
+	 * bound for a question about whether work fits. Neither substitutes for measuring, which
+	 * {@link TinyImgModule.measure} does.
 	 *
 	 * 0 when the source header could not be read.
 	 */
 	estimateMs: number;
+	/**
+	 * A calibrated upper bound on {@link PlanDecision.estimateMs}, in the same unit, never below it.
+	 *
+	 * The decode phase scaled by a per-format factor from the 95th percentile of measured over
+	 * estimated time on held-out calibration cells. A prediction bound under exchangeability, not
+	 * a guarantee, and relative to the machine those cells were timed on (darwin, native node,
+	 * the shipping module): a Worker runs the same module about 1.9x slower at the median, so
+	 * scale it by your own machine factor before admitting work against a CPU limit.
+	 *
+	 * 0 when the source header could not be read.
+	 */
+	costUpperMs: number;
 	/**
 	 * What the planner gave up to fit a budget, by name.
 	 *
@@ -286,6 +335,101 @@ export interface PlanDecision {
 	 * A caller who would rather fail than serve a softer image reads this and refuses.
 	 */
 	degraded: string[];
+}
+
+/**
+ * Whether a request fits a CPU budget, and the numbers behind the answer.
+ *
+ * Every figure is in milliseconds and already multiplied by the machine factor the caller gave,
+ * so `marginMs` is comparable to the budget as it was passed in. The upper bound is a prediction
+ * under exchangeability on the machine the model was calibrated on, not a guarantee.
+ */
+export interface Admission {
+	/**
+	 * `'admit'` when the request fits as it is, `'degraded'` when it fits after the levers in
+	 * `degraded`, and `'reject'` when it does not fit and, in degrade mode, no lever makes it.
+	 */
+	decision: 'admit' | 'degraded' | 'reject';
+	/** Point estimate of decode, resample and encode. */
+	costMs: number;
+	/** The calibrated upper bound on the same. */
+	costUpperMs: number;
+	/** The encoder's share of `costMs`. */
+	encodeMs: number;
+	/** The encoder's share of `costUpperMs`. */
+	encodeUpperMs: number;
+	/** Budget minus `costUpperMs`; negative when over. */
+	marginMs: number;
+	/** The levers the figures assume, as {@link PlanDecision.degraded} names them. */
+	degraded: string[];
+}
+
+/** What removed a candidate from a {@link Selection}, in the order the checks run. */
+export type SelectReason =
+	'none' | 'format' | 'alpha' | 'uncharacterized' | 'peak' | 'quality' | 'budget';
+
+/** One way of running a request that {@link Image.select} looked at. */
+export interface SelectCandidate {
+	/** The output container. */
+	format: ImageFormat;
+	/** The encoder quality to write at; 0 for a format that takes none. */
+	quality: number;
+	/** Whether the coding is lossless. */
+	lossless: boolean;
+	/** What removed it, or `'none'` when it met every limit. */
+	reason: SelectReason;
+	/** Calibrated upper bound on decode, resample and encode, times `platformScale`; 0 when removed before it was priced. */
+	costUpperMs: number;
+	/** Upper bound on the heap the plan's run uses, in bytes. */
+	peakBytes: number;
+	/** Predicted PSNR against the undegraded output, from the fifth percentiles; undefined when unknown. */
+	db: number | undefined;
+	/** Predicted median encoded bytes for the whole output; undefined when unknown. */
+	bytes: number | undefined;
+}
+
+/** The candidate {@link Image.select} chose. */
+export interface SelectChoice extends SelectCandidate {
+	/** Position in the plan's lattice, which {@link Image.bytesFor} runs. */
+	candidate: number;
+	/** Predicted median PSNR in dB, composed like `db`; undefined when unknown. */
+	dbMedian: number | undefined;
+}
+
+/** How often a fifth-percentile prediction held on images that were not in the fit. */
+export interface SelectCoverage {
+	/** For the decode lever's table, at this source format; 0 when not measured. */
+	lever: number;
+	/** For the encoder's table, at the chosen format; 0 when not measured. */
+	encode: number;
+}
+
+/**
+ * What {@link Image.select} decided, and what it looked at.
+ *
+ * The predicted figures are table medians and percentiles measured on other images, so they are a
+ * prediction under exchangeability and not a guarantee. `db` is the PSNR against what this plan
+ * produces with no lever given up, composed from the lever's and the encoder's fifth percentiles;
+ * its measured out-of-sample coverage is in `coverage`. `bytes` is a median over 99 opaque images
+ * and says more about the order of two formats than about this image's size.
+ */
+export interface Selection {
+	/** Whether a candidate met every limit. When false, `reason` says which check the nearest miss failed. */
+	feasible: boolean;
+	/** The check the nearest miss failed; `'none'` when feasible. */
+	reason: SelectReason;
+	/** The choice; undefined when not feasible. */
+	choice: SelectChoice | undefined;
+	/** Width of the output image. */
+	width: number;
+	/** Height of the output image. */
+	height: number;
+	/** Whether the source was treated as having alpha, which makes `db` pessimistic and `bytes` omit the alpha plane. */
+	alpha: boolean;
+	/** Measured held-out coverage, 0 to 1, of the lever's fifth percentile for this source format. */
+	coverage: SelectCoverage;
+	/** Every candidate looked at, in search order. */
+	considered: SelectCandidate[];
 }
 
 /**
@@ -364,6 +508,24 @@ export class TinyImgPlanError extends TinyImgError {
 	override readonly name = 'TinyImgPlanError';
 }
 
+/**
+ * The request was over its CPU budget: refused up front in strict mode, or stopped part way by the
+ * work counters.
+ *
+ * `reason` says which. `admission` carries the numbers when the refusal came from the bound; a stop
+ * part way has the code `-15` from the module and no decision to report.
+ */
+export class TinyImgBudgetError extends TinyImgError {
+	/** The error's class, for a caller matching on it without instanceof. */
+	override readonly name = 'TinyImgBudgetError';
+
+	/** `'bound'` when the upper bound was over budget, `'work'` when the work counters stopped it. */
+	reason: 'bound' | 'work' = 'work';
+
+	/** The decision and the numbers, set when `reason` is `'bound'`. */
+	admission?: Admission;
+}
+
 /** Error codes, mirroring `enum TinyImageError`. */
 export const Err = {
 	/** The call succeeded. */
@@ -395,7 +557,9 @@ export const Err = {
 	/** The requested key or metadata entry does not exist. */
 	notFound: -13,
 	/** The plan is full, or holds an operation it cannot combine. */
-	plan: -14
+	plan: -14,
+	/** The work clock passed the limit and the operation stopped itself. */
+	budget: -15
 } as const;
 
 /**
@@ -431,6 +595,8 @@ export function errorFor(code: number, codeName: string, context?: string): Tiny
 			return new TinyImgBlobError(code, codeName, context);
 		case Err.plan:
 			return new TinyImgPlanError(code, codeName, context);
+		case Err.budget:
+			return new TinyImgBudgetError(code, codeName, context);
 		default:
 			return new TinyImgError(code, codeName, context);
 	}

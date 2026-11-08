@@ -19,7 +19,7 @@ describe('the wasm module under node', () => {
 	};
 
 	it('reports the version and abi the header declares', () => {
-		expect(exports.tiny_version()).toBe((1 << 16) | (1 << 8) | 1);
+		expect(exports.tiny_version()).toBe((1 << 16) | (2 << 8) | 0);
 		expect(exports.tiny_abi_version()).toBe(2);
 	});
 
@@ -31,8 +31,12 @@ describe('the wasm module under node', () => {
 		expect(Object.keys(instance.exports).sort()).toEqual([
 			'memory',
 			'tiny_abi_version',
+			'tiny_admission_field',
+			'tiny_admission_sizeof',
+			'tiny_admit_opts_sizeof',
 			'tiny_alloc',
 			'tiny_arena_reset',
+			'tiny_avif_orientation',
 			'tiny_blob_builtin_at',
 			'tiny_blob_free',
 			'tiny_blob_free_all',
@@ -61,6 +65,8 @@ describe('the wasm module under node', () => {
 			'tiny_display_translate',
 			'tiny_encode_cost',
 			'tiny_encode_cost_at',
+			'tiny_encode_cost_upper_at',
+			'tiny_encode_cost_upper_for',
 			'tiny_encode_opts_sizeof',
 			'tiny_error_name',
 			'tiny_face_box_sizeof',
@@ -272,11 +278,13 @@ describe('the wasm module under node', () => {
 			'tiny_multigradient_rgba',
 			'tiny_multigradient_rgba_sized',
 			'tiny_phash_distance',
+			'tiny_plan_admit',
 			'tiny_plan_background',
 			'tiny_plan_blur',
 			'tiny_plan_brightness',
 			'tiny_plan_contrast',
 			'tiny_plan_cost',
+			'tiny_plan_cost_upper',
 			'tiny_plan_count',
 			'tiny_plan_crop',
 			'tiny_plan_curve',
@@ -302,8 +310,11 @@ describe('the wasm module under node', () => {
 			'tiny_plan_resolve',
 			'tiny_plan_rotate',
 			'tiny_plan_run',
+			'tiny_plan_run_lattice',
 			'tiny_plan_saturation',
+			'tiny_plan_select',
 			'tiny_plan_set_budget',
+			'tiny_plan_set_budget_basis',
 			'tiny_plan_set_effort',
 			'tiny_plan_set_fusion',
 			'tiny_plan_sizeof',
@@ -312,6 +323,10 @@ describe('the wasm module under node', () => {
 			'tiny_rgb_to_grayscale',
 			'tiny_rgb_to_hsl',
 			'tiny_rgb_to_hsv',
+			'tiny_select_opts_sizeof',
+			'tiny_selection_considered_field',
+			'tiny_selection_field',
+			'tiny_selection_sizeof',
 			'tiny_text_box_sizeof',
 			'tiny_text_line_sizeof',
 			'tiny_text_lines',
@@ -323,8 +338,10 @@ describe('the wasm module under node', () => {
 			'tiny_text_style',
 			'tiny_text_style_sizeof',
 			'tiny_version',
+			'tiny_work_clock_us',
 			'tiny_work_read',
 			'tiny_work_reset',
+			'tiny_work_set_limit',
 			'tiny_writer_data',
 			'tiny_writer_detach',
 			'tiny_writer_free',
