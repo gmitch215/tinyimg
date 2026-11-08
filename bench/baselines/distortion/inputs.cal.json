@@ -1,0 +1,568 @@
+{
+	"corpus": "cal",
+	"manifest_sha256": "32137f5ab7df8bf18ab3ffb81bdb3b5ea264638691786fed5cd1ff6c0d65deec",
+	"widths": [200, 400, 800],
+	"encode_width": 400,
+	"files": [
+		{
+			"id": "commons-jpeg-100152205.jpg",
+			"sha256": "2304f66b6e1211f651704d048fb0db0e93391a9f814df3ec9e8b03068bdc3100"
+		},
+		{
+			"id": "commons-jpeg-107361305.jpg",
+			"sha256": "3d3e18c7846ce794d4a31eca0d069a40b8342dfae5705f720d77693401418bbf"
+		},
+		{
+			"id": "commons-jpeg-107361308.jpg",
+			"sha256": "57a3a06b6070b9f8e201a913b2061c97eb20828144014aa7bc8a7fa2e848a549"
+		},
+		{
+			"id": "commons-jpeg-109948404.jpg",
+			"sha256": "bd7d9193412d15197ee066f6b28ffa7a9aeff0c7349251afbbb83fd1ed414734"
+		},
+		{
+			"id": "commons-jpeg-110150237.jpg",
+			"sha256": "4a08dc1def708dfb9ac802325d867738332966f768e311b84bebf4e7344fef54"
+		},
+		{
+			"id": "commons-jpeg-113682311.jpg",
+			"sha256": "bb278ff8d71725d9213e72fd55c72d5c7ef6172f7c703e79f3474e6fe81e84d8"
+		},
+		{
+			"id": "commons-jpeg-117701838.jpg",
+			"sha256": "5ef8ee7a49f83c5cc9b18f449d0910fde70f8c2fcbd04cf639d44a432d6fc453"
+		},
+		{
+			"id": "commons-jpeg-119903200.jpg",
+			"sha256": "62aa62feb3ea7b01083f7676be85b9d59bcec04dd91e2ca5b8ff9e486c6bcc8b"
+		},
+		{
+			"id": "commons-jpeg-121642185.jpg",
+			"sha256": "dc4a5ff6c578e9cf4587c05dc0dce1a82afe792731b572231acd46a28ffc9870"
+		},
+		{
+			"id": "commons-jpeg-122824145.jpg",
+			"sha256": "ca3bf6c7806b9bce87cc787771a9c9515fef5942c0697f72ba0fba926f131a06"
+		},
+		{
+			"id": "commons-jpeg-12366669.jpg",
+			"sha256": "33598c8802a1848fb86e94eb651b231f95753349482f275bc371c1597247ae08"
+		},
+		{
+			"id": "commons-jpeg-12410342.jpg",
+			"sha256": "d5ac3eff7ab225e8f7f35225ce3126b6d0e5a8edc16f4933eb76caaa19909d3f"
+		},
+		{
+			"id": "commons-jpeg-125920892.jpg",
+			"sha256": "2273f5fb55e5b6b0649ea49c29756f663d4d165a0f246798851d506752071db9"
+		},
+		{
+			"id": "commons-jpeg-127409140.jpg",
+			"sha256": "8182d5cbb07708fb77c9c951be1c022c7833e501a3a06b13e9a5a59ab9a622f3"
+		},
+		{
+			"id": "commons-jpeg-128849547.jpg",
+			"sha256": "793b573f9c85e627ef30ea87eb7df3fc9bf99d4d3f25a876db18f89b6c986ab9"
+		},
+		{
+			"id": "commons-jpeg-129498877.jpg",
+			"sha256": "9c1dd0a992472258c6bcee8ed90cdf77f3cda077d94d2927104c613a4e0a52c3"
+		},
+		{
+			"id": "commons-jpeg-129609329.jpg",
+			"sha256": "96fb2266ef51022b2c104fa9cb79756f4aa92f9493e8cab06183911de859596b"
+		},
+		{
+			"id": "commons-jpeg-131151327.jpg",
+			"sha256": "7ccccb6ea06a37160f8b11e2cf47b1c90281dcfc9c80c05983bc7dceb2921b26"
+		},
+		{
+			"id": "commons-jpeg-131506632.jpg",
+			"sha256": "0406b8f73b930cb0baef1b4bbf1f06b73ee877257581c2507263804b60bdff89"
+		},
+		{
+			"id": "commons-jpeg-134513189.jpg",
+			"sha256": "dd2ae64411e4d2f786f9815ae8266a8c3e8c271dca7506d6ad5fa1245713a86c"
+		},
+		{
+			"id": "commons-jpeg-135073355.jpg",
+			"sha256": "581eb54930f46e834bb947c3150984f1ff06a441725b69f36d10fee8b8fff338"
+		},
+		{
+			"id": "commons-jpeg-135250251.jpg",
+			"sha256": "2cfefe684ab99b6438434949b253ac028f9d62cbdd3afb05a5c888fb471ab4f1"
+		},
+		{
+			"id": "commons-jpeg-136539405.jpg",
+			"sha256": "4ceaa943efdbc1a7a3559f43f52fa543799ce5b069bb105338710e17f6ef0611"
+		},
+		{
+			"id": "commons-jpeg-13807368.jpg",
+			"sha256": "b2725f002cb7d9ab5435730498517c7b0013a0d4ce3853714ea2dd864c039e69"
+		},
+		{
+			"id": "commons-jpeg-142333825.jpg",
+			"sha256": "831cf687f79555d84f3d9387b4bef7516b7069ad747115b4737bc64d6172ce3a"
+		},
+		{
+			"id": "commons-jpeg-142916199.jpg",
+			"sha256": "e99ad43836bb810b3964b1162906f80dc1b6c72444a46ef16a5f0b7baba5f8d5"
+		},
+		{
+			"id": "commons-jpeg-144348175.jpg",
+			"sha256": "da5bf363ee9835f39deb34052ad30926f03ab75ab7ee42f460edd48cfaf49444"
+		},
+		{
+			"id": "commons-jpeg-145712499.jpg",
+			"sha256": "b26373917a4f3a56da051297401542cabefd2ddc95db0cfa29ed84c0003b802a"
+		},
+		{
+			"id": "commons-jpeg-146639438.jpg",
+			"sha256": "b938851b410f927bdcdf044cdba8684f9cffb35d4b1bed58284d46938457af01"
+		},
+		{
+			"id": "commons-jpeg-146869927.jpg",
+			"sha256": "8b574b65b448820a3f44b445b98f186b8eb895212c7eefb219be759adf95d499"
+		},
+		{
+			"id": "commons-jpeg-148548416.jpg",
+			"sha256": "51db4552f01b83514c0c9a4f8a9d3d346bb1532382723c26abf7a01b6de3d185"
+		},
+		{
+			"id": "commons-jpeg-14972833.jpg",
+			"sha256": "9d65cd9409b2331cf253a82fe12908417620523a6d435c5a466f77593df49c2e"
+		},
+		{
+			"id": "commons-jpeg-149935912.jpg",
+			"sha256": "6841330b2141f73fa108c98b1a596e186909d4ce05f65e5ca97314bc8409ef07"
+		},
+		{
+			"id": "commons-jpeg-150385937.jpg",
+			"sha256": "5ae927c840bb65071433be74328c7e294921a09ee7552572540ffc17558ef0b0"
+		},
+		{
+			"id": "commons-jpeg-153826288.jpg",
+			"sha256": "34ae9029fe6ba3504f4cec045435f39b370540f7fa07d301034982fd5ac451c4"
+		},
+		{
+			"id": "commons-jpeg-153826296.jpg",
+			"sha256": "b6572dc4496e206fb4a0a354e4ea9610caac5d85d24832569bbafa9cfac05c7d"
+		},
+		{
+			"id": "commons-jpeg-155245236.jpg",
+			"sha256": "25653487a2bad6dbe480155bb27fde399baeb964a951c9e4f02bd66d6adbb56d"
+		},
+		{
+			"id": "commons-jpeg-15739462.jpg",
+			"sha256": "4536126a18f6bf7c7c0cb7d9c4ea22760d47d04d1f266387b531c5470a2df757"
+		},
+		{
+			"id": "commons-jpeg-16267790.jpg",
+			"sha256": "9bbe306b4a213440fe75ea143a184b5cba20f33437a2ac0b3cd4d542b3cf8f02"
+		},
+		{
+			"id": "commons-jpeg-167557961.jpg",
+			"sha256": "a8e7916fd820c297394fc25f50b8a3c9ab0945c0527db90127fe3205d58d2d1b"
+		},
+		{
+			"id": "commons-jpeg-167715913.jpg",
+			"sha256": "4bc1838f38e120e6d8289856336f2e507d964f2f1ee83a0f070f4f0364aa2f74"
+		},
+		{
+			"id": "commons-jpeg-17239529.jpg",
+			"sha256": "c9884b3066f8ae8e8762edc781719a01d42d11fd9767887bd76935e12bb134ec"
+		},
+		{
+			"id": "commons-jpeg-177334319.jpg",
+			"sha256": "342e92de9539c8a6831c2a0c302758655cb6922542a9c45e039e1550087fb2b2"
+		},
+		{
+			"id": "commons-jpeg-184831343.jpg",
+			"sha256": "1b2286012c9b5a15b3117f57292713591cc4848626d92da3dea01a29ea66388e"
+		},
+		{
+			"id": "commons-jpeg-187583149.jpg",
+			"sha256": "ac046dfb2424ab50d7c01a3d82536272f783673bcc272bffbda6eef38a6d836a"
+		},
+		{
+			"id": "commons-jpeg-188351365.jpg",
+			"sha256": "96d2df61f10e2e2b8a1255d290c6ecc939721d3db060b7abaedd28f1e1a11e61"
+		},
+		{
+			"id": "commons-jpeg-189956918.jpg",
+			"sha256": "83fab71535109789faded83185f9af270710fc43263561ea7ddf13b6c9d9c7c6"
+		},
+		{
+			"id": "commons-jpeg-189956961.jpg",
+			"sha256": "9e70a452c58fd4a0222d5e3a90cc93e5c779090ae87045744c66c030374c88fe"
+		},
+		{
+			"id": "commons-jpeg-191942807.jpg",
+			"sha256": "603afab5b95a0f5b2440f104acd63d30e40a093951844a05ef6a190f68cf8705"
+		},
+		{
+			"id": "commons-jpeg-195964596.jpg",
+			"sha256": "e5cfe933a1626d7f09aadb8606c9f515a518108b7730df4fe0ea0e00719dea18"
+		},
+		{
+			"id": "commons-jpeg-201329998.jpg",
+			"sha256": "96dfb836b59a4d54360b99242cb0c98844ced61a4efad8c4c4b44df74feb07cb"
+		},
+		{
+			"id": "commons-jpeg-21253159.jpg",
+			"sha256": "5ebd3ee708907a89d48da8a678549187a800c8fa2d15f569e430ca03901e843b"
+		},
+		{
+			"id": "commons-jpeg-217417.jpg",
+			"sha256": "0632815f6c030e2dd1a9da5aceaa5b9337b413ba0474f8de54179066db1511b6"
+		},
+		{
+			"id": "commons-jpeg-2489758.jpg",
+			"sha256": "96b75fe4b08e263fbbab4225571221ac12f06cbfad45a0f17779974351e985e2"
+		},
+		{
+			"id": "commons-jpeg-25277791.jpg",
+			"sha256": "1288eecde1798b6731697473080ac09cc233803f2dd67be39417458dfa22151d"
+		},
+		{
+			"id": "commons-jpeg-26244423.jpg",
+			"sha256": "1f19641070f7114f0789f29aec83a0f06f6aa8bcd530fcbdd94ad4832f9d7266"
+		},
+		{
+			"id": "commons-jpeg-2717440.jpg",
+			"sha256": "1e5cb904421253d713d00191a4cddb6d978663108a39a940725cec7b691dacae"
+		},
+		{
+			"id": "commons-jpeg-2955836.jpg",
+			"sha256": "b7240bcdca43cbf52c261fc4c71a213a3271ba31c45297a32dfadffafa9103e8"
+		},
+		{
+			"id": "commons-jpeg-3616567.jpg",
+			"sha256": "c0af8a60c1fea312be45f03c54074f3a9665276f5eb76335c41480c8b3db2bbf"
+		},
+		{
+			"id": "commons-jpeg-37877284.jpg",
+			"sha256": "58c047b5f1a30298344b0b7c73200dc08490c70a96c4d26242b2bc51feb2ab51"
+		},
+		{
+			"id": "commons-jpeg-39467576.jpg",
+			"sha256": "ebc919aaba9876808a6e1aaf90ba5397bcb7109bbc764b4608d8fc97a969ce85"
+		},
+		{
+			"id": "commons-jpeg-396894.jpg",
+			"sha256": "6bf8fb45c011434b9d3c3382156e83cbd588e6519ab910591a9e30b88558faaa"
+		},
+		{
+			"id": "commons-jpeg-41709017.jpg",
+			"sha256": "6ca6a93b0d12a2bd8785c3b51f0341439af3485e786a49e375bc2276121baae0"
+		},
+		{
+			"id": "commons-jpeg-41918223.jpg",
+			"sha256": "e17278acf255e8fd9a1a639da8fa3ea284726790ab7632c1209abc57bf78eed0"
+		},
+		{
+			"id": "commons-jpeg-484386.jpg",
+			"sha256": "cefe8f53286365fa337460903fa2ea5485014cb9516794d3fae7e4e2aedc4c07"
+		},
+		{
+			"id": "commons-jpeg-49101604.jpg",
+			"sha256": "d90656d991450b9c312e0bd143a140653a905a91b2091ab43c3a6d37bafa333f"
+		},
+		{
+			"id": "commons-jpeg-54050153.jpg",
+			"sha256": "4dca6f511c1134d72e4b0df697d8f058b2d443771929cc6fc00b4522749ae547"
+		},
+		{
+			"id": "commons-jpeg-541384.jpg",
+			"sha256": "0abbf668d64d9ba348d93282eb63fbcc18677dceff499ec4effd7a5391dde4e3"
+		},
+		{
+			"id": "commons-jpeg-54197838.jpg",
+			"sha256": "6768922f49e954d039b1d8bd999681e64f175aa107cd385b10fbf7b4d0d1efbd"
+		},
+		{
+			"id": "commons-jpeg-55047728.jpg",
+			"sha256": "665aa54e33d856bb21b840ea0fe63527a9c9ad960d7a92dcb2856213a088f943"
+		},
+		{
+			"id": "commons-jpeg-57773907.jpg",
+			"sha256": "995e7a7f3ed2f3c308ec0f5053756131d03c12b57cf9547f83259d7212df794a"
+		},
+		{
+			"id": "commons-jpeg-5875037.jpg",
+			"sha256": "dc7c75c23340e6df59e975a81cf37a9827a64563ecabcf1dd5f31592cf7557e1"
+		},
+		{
+			"id": "commons-jpeg-60898402.jpg",
+			"sha256": "3898fb010e6e835689e474234b70e590ef62f6865750bee713bcf43dda8682da"
+		},
+		{
+			"id": "commons-jpeg-60952063.jpg",
+			"sha256": "83359a6dd48b5d10e30fbd0feabf654cd169ee54e2df6cdcb81ce10ed449a7d3"
+		},
+		{
+			"id": "commons-jpeg-62585731.jpg",
+			"sha256": "bb87fbc15f84c633c2707dbf2144a08b04e6ae038bd8a750890342e8c018269b"
+		},
+		{
+			"id": "commons-jpeg-67065530.jpg",
+			"sha256": "53a8b55dfc737fe3f55b521250f75f32454c78b5a59708bd9febae2f334b459f"
+		},
+		{
+			"id": "commons-jpeg-71985919.jpg",
+			"sha256": "f088e791962c32be6e695e028b980706b1eb07c2a044c49284e2e1d17c2d0062"
+		},
+		{
+			"id": "commons-jpeg-74553027.jpg",
+			"sha256": "dc6e04a804b3f35d19b20004d35e95b6757bfde3d2e57213c46a7350a1d8a74b"
+		},
+		{
+			"id": "commons-jpeg-78268141.jpg",
+			"sha256": "959ab12d2a8f1374853f703194d5bce344d903be37a53bf4a15a06ac5f33a475"
+		},
+		{
+			"id": "commons-jpeg-7837545.jpg",
+			"sha256": "168848195fa19a09ace9f6994d653a0e819b544a8e92d4b3909ce2a7097d1519"
+		},
+		{
+			"id": "commons-jpeg-79008107.jpg",
+			"sha256": "79bb54689d07de180a1cc47ae4502f7e5d0c50750fa1949a986e9f067e1d5282"
+		},
+		{
+			"id": "commons-jpeg-79030732.jpg",
+			"sha256": "728f8426e6aba9a6f56f8d0b588d7f84898793358906f26686e7cc4dd287561c"
+		},
+		{
+			"id": "commons-jpeg-89164692.jpg",
+			"sha256": "6ab709eaca393a728fb550429a69f7d862fbd4305b2e4b5deb9d7b7d3478e563"
+		},
+		{
+			"id": "commons-jpeg-9437797.jpg",
+			"sha256": "74d09a7c6463a844572c58634a798d4fa1b646aeff8be81a42ab68915e54e049"
+		},
+		{
+			"id": "commons-jpeg-97548401.jpg",
+			"sha256": "0158582135d8dc31b998a7ab1d300d27bb1771544928682659734d3af69adfe2"
+		},
+		{
+			"id": "commons-jpeg-97829420.jpg",
+			"sha256": "c6935cfe4ef362de61b5dc0123aacb01ab758c67a70740b0108cc0c6db2b9a10"
+		},
+		{
+			"id": "commons-png-100294338.png",
+			"sha256": "068b1d2fcd48e0bdc6a808c7a4d8ad5f3718acd4f081297b625ed442a32ecbb8"
+		},
+		{
+			"id": "commons-png-100721814.png",
+			"sha256": "a8ffff2c52daa570e0e5569a30cc84feaf8ce201ccfbce34ac8a9c8d5cead98b"
+		},
+		{
+			"id": "commons-png-140696706.png",
+			"sha256": "2d0d43062a388e44fd687b677f970422ee3465917b66ee24aa4816b33b9cf344"
+		},
+		{
+			"id": "commons-png-148690000.png",
+			"sha256": "bd461d020c6333b0c9b2ac40246dff1a26279979e559822ab5816a0469227475"
+		},
+		{
+			"id": "commons-png-159771618.png",
+			"sha256": "91fb4d6682f7876e25ab37444b010537df61c12a18f9f0c154904f909b2d618d"
+		},
+		{
+			"id": "kodak-kodim01.png",
+			"sha256": "a56e27cbf5f843c048b6af1d6e090760e9c92fadba88b7dee0205918a37523bd"
+		},
+		{
+			"id": "kodak-kodim02.png",
+			"sha256": "4f4b74a79237e311d72cad958237b5f7088d8bce1c82305ebefe1a70e3022dfd"
+		},
+		{
+			"id": "kodak-kodim05.png",
+			"sha256": "10349e963c5c813d327852f82c1795fa4148d69fedffc4c589bee458e3ac3d53"
+		},
+		{
+			"id": "kodak-kodim06.png",
+			"sha256": "363510303b715d4cbc384e1ce227e466b613a09e1b71ae985882bf8e7fbd9b18"
+		},
+		{
+			"id": "kodak-kodim07.png",
+			"sha256": "b77d3f006f42414bb242222e0482e750c0fb9e5ee8d4bed2f6f11c5605fe54a4"
+		},
+		{
+			"id": "kodak-kodim10.png",
+			"sha256": "9dfb70f5867c29ff9ed6313683f19b3d867849e40fbc0c4c54a4a89df341cf23"
+		},
+		{
+			"id": "kodak-kodim15.png",
+			"sha256": "7538cbb80cb9103606c48b806eae57d56c885c7f90b9b3be70a41160f9cbb683"
+		},
+		{
+			"id": "kodak-kodim16.png",
+			"sha256": "a89c7268ccd4718ba424a99fc4643c572cf692ca6eae887185ceb4e9f11d2e54"
+		},
+		{
+			"id": "kodak-kodim17.png",
+			"sha256": "37afcc89fbdcb76d9518e04b2fc011027e2f4cd14b3b2f83cefd721641a47c5b"
+		},
+		{
+			"id": "kodak-kodim18.png",
+			"sha256": "1a9258c365988961d87a0598725b609139c303ad48a5aad6c503c3b1a87849aa"
+		},
+		{
+			"id": "kodak-kodim19.png",
+			"sha256": "b7450b264b1b0a411390d8931b112c27905a992520fc90569dc4b920aa32bbdc"
+		},
+		{
+			"id": "kodak-kodim21.png",
+			"sha256": "ac958597c82073f6bb65129c68f72b651db5b9efd82e11547d07350214bc268b"
+		},
+		{
+			"id": "kodak-kodim23.png",
+			"sha256": "e3111a2fd4da24af15d6459ef9eacfe54106b38e27b4a21821b75c3f5d2d5baf"
+		},
+		{
+			"id": "steam.png",
+			"sha256": "8becbe519b3b70b42d32ca24c87db1afa98623617f6f2dfda3b69068e3c43360"
+		},
+		{
+			"id": "commons-webp-113055407.webp",
+			"sha256": "b4acf34be53f911a0a3071f89cc6c717cd985ebb482c2539255819d0df1982f1"
+		},
+		{
+			"id": "commons-webp-116180275.webp",
+			"sha256": "8e802e4763e641ff43cfb37702b3f1a66f2bd25168e096b661a168721d6060e0"
+		},
+		{
+			"id": "commons-webp-128754698.webp",
+			"sha256": "c6c5a1c97f8da3d3f1721bfcd763ed1432d279787e5d1fc374db413a526e9726"
+		},
+		{
+			"id": "commons-webp-138193913.webp",
+			"sha256": "375e0a6f76c81bc523e54c286b7b4b590c812871d0601e74342af2da72847d90"
+		},
+		{
+			"id": "commons-webp-138310912.webp",
+			"sha256": "30edc216ceb34b39e11e400c97e0316a9eef1c7d996354400a5a6c033534245e"
+		},
+		{
+			"id": "commons-webp-141048249.webp",
+			"sha256": "d24948330ed2c5f8c87b89e710a1192ed7533cda7047070f4576232bec51f22c"
+		},
+		{
+			"id": "commons-webp-141599766.webp",
+			"sha256": "82ba32d1ba6f85018a06dddf6804a597e917ef11fc318bf9877295da5cf17dfc"
+		},
+		{
+			"id": "commons-webp-151582495.webp",
+			"sha256": "df023d00224bcd23631e96aa3900f4643207c9c7545b45f337fbf017b1be2503"
+		},
+		{
+			"id": "commons-webp-152855566.webp",
+			"sha256": "9f9e3a0f2d8bc8fd288efc19ecba07e97df2e367ca0d8eb04d09aaae5b8cb815"
+		},
+		{
+			"id": "commons-webp-153900841.webp",
+			"sha256": "5aad6b0bc207814fd82237c7cae78d3cfa4c55a5f6456f3ba2700f7f0616cb01"
+		},
+		{
+			"id": "commons-webp-179936839.webp",
+			"sha256": "64bed54d7f6cbb9212728a60c4a22dc47c37d72667ec38141197396984d276e5"
+		},
+		{
+			"id": "commons-gif-11177534.gif",
+			"sha256": "285d942e47319eb12fe9799c365b504aa35fa51181e994f9e054e693fd9fdd67"
+		},
+		{
+			"id": "commons-gif-132055916.gif",
+			"sha256": "718371c35fb09bcde861c12d7aa7d9d79e71311cb73741763fb4b5d6bbb776e8"
+		},
+		{
+			"id": "commons-gif-154019888.gif",
+			"sha256": "805bc05135bceb5a7a657535b94dac0ccb89a63d1ce9e063548619b97091001b"
+		},
+		{
+			"id": "commons-gif-3074212.gif",
+			"sha256": "e2e7832aaf253e0a2a86f9b02830e5327262263f276407cb4d437fdb11db30f3"
+		},
+		{
+			"id": "commons-gif-64916885.gif",
+			"sha256": "a5ee9927836055f79bb44397c5bf58b26ba283379d56c0e7ce6471e7e4bf1871"
+		},
+		{
+			"id": "commons-gif-7368521.gif",
+			"sha256": "9f405e32347f74cdc5b87d36de164741117f3e9682f8c053b02b880dfbce9433"
+		},
+		{
+			"id": "commons-gif-7860945.gif",
+			"sha256": "526b68b160eec1db26d40d702040d0a447f5d4854c3ab6ca796ad42f1485d0d3"
+		},
+		{
+			"id": "commons-gif-95473027.gif",
+			"sha256": "f6b61dfded877c1f584106fe18f40a825dabda2f0e0b307b570e0fcad84f4aeb"
+		},
+		{
+			"id": "commons-tiff-100837335.tif",
+			"sha256": "cbd9cb6d125c5447f2834653da4b2f49b6414b73fd0288397a2ea0924f7fa44b"
+		},
+		{
+			"id": "commons-tiff-157663857.tif",
+			"sha256": "5238f17f1c238923ea7fc5dcba3999d37997123072755b0736d30e6b52820536"
+		},
+		{
+			"id": "commons-tiff-53567735.tif",
+			"sha256": "a13b120816404eb41c139e19bbc5dc340e1df9082520486461fc1d3793f8ad7c"
+		},
+		{
+			"id": "bmp-kodak-kodim01.bmp",
+			"sha256": "bc6b36269218157e3aaa8b43ed3f7af340a2dfc2b04666b55156c6c6358b4e54"
+		},
+		{
+			"id": "bmp-kodak-kodim07.bmp",
+			"sha256": "fc689dd110c78b5ff5bd3bedf66e78718186efafea8fd97c1039aa9260a4610a"
+		},
+		{
+			"id": "bmp-kodak-kodim10.bmp",
+			"sha256": "90139888d5fa205a71066bd2dd26ce055395aed73655f17aeeb6bd3820a03c86"
+		},
+		{
+			"id": "bmp-kodak-kodim16.bmp",
+			"sha256": "9ff20187b45696984e8eb3d3431a4315df54583db9136a602b4f7561a82e8edf"
+		},
+		{
+			"id": "bmp-kodak-kodim19.bmp",
+			"sha256": "152b74238bb662161b439dd6be80baa2d8a31b9e83cf8f7b8eebb7767f497a40"
+		},
+		{
+			"id": "bmp-kodak-kodim21.bmp",
+			"sha256": "91847dc399cfe34a5f273709a7d853850edd179bd30b35c87be7759332510122"
+		},
+		{
+			"id": "avif-commons-jpeg-217417.avif",
+			"sha256": "d0a535c720e60c6315af95c595a327acb0a7183ba41731c7022da55149e9cce2"
+		},
+		{
+			"id": "avif-commons-jpeg-2717440.avif",
+			"sha256": "4acdd757a3a68c53a58c220e2f6b80cd245fd8067ae8bfebf4a5a48cc52e63f9"
+		},
+		{
+			"id": "avif-commons-jpeg-2955836.avif",
+			"sha256": "f1976590719cfeb99dae08568d3b7ee139660b9e45a93d5159c220fc6ecbbcf8"
+		},
+		{
+			"id": "avif-kodak-kodim02.avif",
+			"sha256": "c7567454678e0280c6c8e074e289fd5c950b6bab2552efdbc9904030fa8d66b1"
+		},
+		{
+			"id": "avif-kodak-kodim05.avif",
+			"sha256": "92165f167fe82d03bec2b0c3ca89ffe781797dd1cf7aca478a62dd6a0702f1de"
+		},
+		{
+			"id": "avif-kodak-kodim06.avif",
+			"sha256": "ecd704298db3ac4079363d976ee96b446f99ef6c084682ae0101ff44abbda946"
+		},
+		{
+			"id": "avif-kodak-kodim15.avif",
+			"sha256": "78cef1bd6a6b8696e399f0e9b16b69c3f60e5e504f0a37813213246600d90e03"
+		}
+	]
+}

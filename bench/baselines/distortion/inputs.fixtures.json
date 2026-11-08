@@ -1,0 +1,115 @@
+{
+	"corpus": "fixtures",
+	"widths": [200, 400, 800],
+	"encode_width": 400,
+	"files": [
+		{
+			"id": "ball_kick.gif",
+			"sha256": "d301b0b97b8271a00971cd0b4adb6c61b30cc9600a2d084fe0cb933137800674"
+		},
+		{
+			"id": "budapest.jpg",
+			"sha256": "d67afebde6ac61ac8bd072f41852ef045fae8ffa4859b67359156502f6cfb834"
+		},
+		{
+			"id": "dartmouth.jpg",
+			"sha256": "57a799606a798314e3c8a0caeddb426842f800fd8c618474a5738bad289b1dce"
+		},
+		{
+			"id": "dartmouth.tiff",
+			"sha256": "af3735026f3bab89498a5f00367a8185227d77a9fad8dba1988515824631b897"
+		},
+		{
+			"id": "digicam.jpg",
+			"sha256": "fa461513286712f909830e263003526848db86c6203a04a1849c21df4c42b634"
+		},
+		{
+			"id": "dog.jpg",
+			"sha256": "8ab3c0791c99881283901e41f391b55971a3b0cc2b21dc5624afb1a13f31361f"
+		},
+		{
+			"id": "drupflare.png",
+			"sha256": "13dbdc4b53e7c0df3546fa01995d0f44b5dd3da26ef3d7444e26706f2e8241a3"
+		},
+		{
+			"id": "face_art.jpg",
+			"sha256": "17261add54ec772b5cc2b1853bda44555c05ee9eec4b2a011f975a8742ba4dde"
+		},
+		{
+			"id": "family.jpg",
+			"sha256": "fec7a3f092c3b4603433f8cac31c7b07b649e0d94961a0bc1ddca4091cbfb090"
+		},
+		{
+			"id": "flower.jpg",
+			"sha256": "46e23f92a53f7f97e5db6338afe349531e9cea6b0fdd141cf056cc3b08d8780e"
+		},
+		{
+			"id": "forest.png",
+			"sha256": "65003d801d656c596fd123ea9bad758f1473a0d0f19ee4015703a719424f8666"
+		},
+		{
+			"id": "lake_sunapee.jpeg",
+			"sha256": "5d86d4f525aae82ab302b099f90fcddcda0dcba5b3553b98a147596941f360b3"
+		},
+		{
+			"id": "lil_bit.png",
+			"sha256": "3bcaf0ed9d0e17c367788c71dc54fe58bbc7031e646ac95887e7f8f35b5989b2"
+		},
+		{
+			"id": "long_walk.jpg",
+			"sha256": "fbddcf3149ed14120206118c6ad63a749d31c2e403bfb1cd0af00534edef4ee8"
+		},
+		{
+			"id": "man.jpg",
+			"sha256": "d2f79017968b9a744efcca0e41425dcacc0fc9aa20f0d9a074d2266fad7f7139"
+		},
+		{
+			"id": "moped.jpg",
+			"sha256": "edb1b16b237fd984cc01286ce371de401206c57e59bcd1c9d12364d61962bc52"
+		},
+		{
+			"id": "mountains.jpg",
+			"sha256": "0fe9b787944497658b428f6238a39563c6f6ce1173cc761027f24ee763a04dc7"
+		},
+		{
+			"id": "mushroom.jpg",
+			"sha256": "489e17a9f2c8f013726d797afce7766376b068d5706cc09ced98d877bc364e5e"
+		},
+		{
+			"id": "road.jpg",
+			"sha256": "bdb7db4f8a2d3d482edf435342abeae4d237d98bd8405b7b498644a321e23d2d"
+		},
+		{
+			"id": "sf-24.jpg",
+			"sha256": "f47d8f25682d391a2b2aa36fd5182a2f57f679281d53b3b9eeab7fce4ca405ee"
+		},
+		{
+			"id": "smile.jpg",
+			"sha256": "457a92d73865237da29d93704e02e06d47aaab87e28f4aabf72b588794e5a9c8"
+		},
+		{
+			"id": "steam.png",
+			"sha256": "8becbe519b3b70b42d32ca24c87db1afa98623617f6f2dfda3b69068e3c43360"
+		},
+		{
+			"id": "toyota_racing.webp",
+			"sha256": "d9576b92912641f80007fc5ce2447f35bd80489e6c7a1c82c35cd5256c043de7"
+		},
+		{
+			"id": "webassembly.png",
+			"sha256": "e361734e587028ebb04147adc1ff1a7185730a869b2294fd469983775c50688f"
+		},
+		{
+			"id": "winter_cabin.jpg",
+			"sha256": "5e367414a458f4a8750c7dc39fc1a195dfff9cfdc95c34a217f65ce0dcac3c46"
+		},
+		{
+			"id": "winter_forest.png",
+			"sha256": "baed1170d90730650af1de2ba8c173587b1a429dc56d617d011a8a9536889a29"
+		},
+		{
+			"id": "woman.jpg",
+			"sha256": "c4032db95464786881537d8a26e6938a2b9afb784152686feac15f8db6884156"
+		}
+	]
+}
