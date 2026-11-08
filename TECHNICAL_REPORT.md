@@ -21,9 +21,9 @@ rather than the platform's, and they exist so that `tiny` keeps meaning somethin
 
 | Measure      |       Bytes |
 | ------------ | ----------: |
-| **raw wasm** | **777,426** |
-| gzip         |     312,073 |
-| brotli       |     257,373 |
+| **raw wasm** | **802,611** |
+| gzip         |     324,233 |
+| brotli       |     267,870 |
 
 The module was 190,309 raw at `-Oz`. Building the same sources at `-O2` is **1.45x to 3.54x faster**
 depending on the stage and every output digest is byte-identical, so the switch cost bytes and
@@ -280,6 +280,72 @@ what the picture costs, and a test asserts both so a bound that looked like a sa
 one. The color conversion is cut to exactly the rows requested rather than to a raster prefix,
 because unlike the other two it has no dependency between rows.
 
+### Counter coverage
+
+Audited with a probe that decodes each fixture full, at 1/2, 1/4 and 1/8, as a centre region and as
+a top band, and encodes a photograph, an RGBA image and a palette image into every encoder. Before
+`TINYIMG_WORK_ENTROPY_BYTES` existed, the work counters covered the decoders unevenly.
+
+| Counter                                     | Incremented by                              | Zero though the work happened                              |
+| ------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------- |
+| `SOURCE_SAMPLES`, `DECODED_SAMPLES`         | every decoder through `tiny_decode_resolve` | AVIF, which does not call it (fixed)                       |
+| `BLOCKS`, `TRANSFORMS`, `TRANSFORM_SAMPLES` | JPEG only                                   | PNG, WebP, GIF, TIFF, BMP, AVIF                            |
+| `MACROBLOCKS`, `FILTERED`                   | WebP VP8 only                               | AVIF superblocks and filters                               |
+| `RESAMPLED`, `PASSES`                       | the planner only                            | a direct decode never resamples                            |
+| `ENCODED`                                   | `tiny_image_encode` for all seven encoders  | every encoder's search, except deflate's (`ENCODE_PROBES`) |
+| `SCANS_SKIPPED`                             | progressive JPEG at 1/8                     | none                                                       |
+
+`ENTROPY_BYTES` is the one counter that every compressed decoder now increments. Measured on the
+fixtures, as a share of the file: baseline JPEG 95.8% to 99.7%, progressive JPEG 94.8%, PNG 99.8%
+to 100%, lossy WebP 99.2%, lossless WebP 99.9%, GIF 94.8%, LZW TIFF 99.5%, Deflate TIFF 99.4%,
+PackBits TIFF 99.8%, RLE8 BMP 95.9%, AVIF 90.8% to 91.4% on the small derived files and 98.6% to
+99.6% on the photographs. Uncompressed TIFF and BMP report zero.
+
+What a request that does less actually saves: a progressive JPEG at 1/8 reads 2,061 of 13,495 bytes
+(`road.jpg`: 123,062 of 669,797), a PNG top band stops inflating (`winter_forest.png`: 1,883 of
+190,914), and a lossy WebP top band stops after its macroblock rows (`toyota_racing.webp`: 2,129 of
+50,476). A baseline JPEG, a lossless WebP, GIF, TIFF, BMP and AVIF read the whole stream for every
+region and scale, so their entropy bytes do not move.
+
+`ENCODE_PROBES` counts the hash chain candidates the deflate match finder compared. It was added on
+evidence: 22 fixtures cropped to 480 by 320 (153,600 `ENCODED` samples each) and encoded to PNG at
+quality 82 on the shipped module took 4.27 ms to 73.51 ms, a 17.2x spread at fixed `ENCODED`, and
+the probe count correlates with time at Pearson r 0.921. Milliseconds per probe spread 2.2x over
+the 21 non-trivial images (6.9 to 15.2 ns; the 512 by 512 logo reads 22.7 ns because fixed costs
+dominate its 4 ms). The other encoders spread 1.8x (AVIF), 3.0x (lossy WebP), 3.1x (JPEG), 7.7x
+(GIF) and 13.7x (lossless WebP) on the same inputs; none of those has a counter of its search yet,
+so none was added.
+
+### Admission and the work clock
+
+`tiny_plan_admit` admits a request when `(plan upper bound + encoder upper bound) x scale_milli / 1000`
+is within the budget, rounded up. STRICT rejects an over-budget request unchanged. DEGRADE runs the
+existing ladder with the plan's budget set to what the encoder leaves, divided by the scale, and a new
+budget basis (`TINYIMG_BASIS_UPPER`) that compares `cost_upper` where the default compares `cost`; the
+`cost >= best` skip rule moves to the same basis. With the point basis the ladder is unchanged, which
+`tests/c/plan/admit.c` asserts at six budgets. The encoder is priced by `tiny_encode_cost_for` from the
+quality, lossless flag, compression, effort and the plan's output channels.
+
+The work clock is a function of the counters and of the formats of the last decode and encode: the
+decode's sample term (new counter `DECODE_MICROS`, charged once in `tiny_decode_resolve`, or before the
+tile loop for AVIF), `ENTROPY_BYTES` at the format's byte rate, `RESAMPLED` at the box rate when it
+differs from `DECODED_SAMPLES`, each neighborhood pass, and `ENCODED` priced as the encoder. It counts
+from the last `tiny_work_set_limit`. Decoders and encoders poll it at the grain they already count at,
+and an operation past the limit returns `TINYIMG_ERR_BUDGET`. PNG used to add its entropy bytes once at
+the end; it now adds them every 64 KiB, with the same total. Because `ENCODED` is added before an encoder
+runs, an encoder abort fires at its first poll and not part way through.
+
+Tests: a limit of one microsecond stops all 14 decode fixtures and all 8 encoder modes with the heap at
+its warm baseline (`tiny_heap_stats`), a limit of 0xFFFFFFFF leaves every output digest unchanged, and a
+limit set halfway between the sample term and the total stops JPEG, PNG, lossless WebP and lossy WebP
+after some, and before all, of their entropy bytes. Forcing `tiny_work_over_limit` to return 0 fails 44
+assertions in `core/work`.
+
+The overhead table (limit off, before and after, and with a very high limit) and the 4.7 Mpx
+`digicam.jpg` demonstration are not in this report: the timing rig refuses to run above load 3.0 and
+the machine stayed above 5 while this was written. The scripts are `overhead.ts` and `demo.ts` in the
+A3 results directory.
+
 ### Operations
 
 Timed as a decode and a plan run with no encoder in the way.
@@ -407,6 +473,482 @@ machine. It refuses to run at a load average above a quarter of the core count: 
 doubled every clock and left every estimate identical, which reads as the model under-predicting by
 half across the board, and the estimates being byte-identical is the only thing that gave it away.
 
+#### The cost model has two decode terms and a calibrated bound
+
+The open question from the `-O2` recalibration was whether source samples and compressed bytes both
+belong in the decode estimate. They do for four formats and do not for three. Decode is now
+`alpha[format][progressive][den] * S + beta[format][progressive] * B`, fitted by non-negative least
+squares on relative error. S is the samples the decoder traverses (the region, the rows through the
+region's bottom edge, or the whole frame, chosen per format) and B is the file's bytes times the
+share the decoder reads, taken from the `ENTROPY_BYTES` counter. A progressive source always
+traverses the whole frame. `scripts/measure/fit-cost.ts` timed 1,484 decode, 3,665 encode, 652
+effort-decode and 15,895 tier cells on one module (wasm sha256 `9c1fd5f9`, darwin-arm64 M2 Pro);
+`scripts/cost-model.ts` fits them into `src/cost-model.h`. The first 4,900 cells ran at a control
+cell within 3.7% over 19 re-times. The later sweep of 72 derived GIF and TIFF entries and the
+tier and effort-decode cells ran at load averages of 2.5 to 14.8 from other work on the machine; its
+control cell (a fixed JPEG decode, re-timed every 8 entries) spread 1.063x over 10 re-times on the
+derived entries and 1.140x over 19 on the original ones, and no re-time passed the 1.15x gate that
+makes the sweep wait. Entries split by `sha256[8:10]` parity into `fit` and `conf`; every structural
+choice came from leave-one-entry-out error on `fit`, and `conf` was used only to report and to set
+the bound.
+
+Decode error on the `conf` half, predicted over measured minus one (median, 5th and 95th percentile):
+
+| format | old median | old p05 / p95 | new median | new p05 / p95 | bound coverage |
+| ------ | ---------: | ------------- | ---------: | ------------- | -------------: |
+| PNG    |       -18% | -37% / +224%  |        +5% | -17% / +26%   |          0.982 |
+| JPEG   |       -16% | -76% / +169%  |        -4% | -18% / +102%  |          0.962 |
+| BMP    |        +8% | +4% / +329%   |        -1% | -3% / +3%     |          1.000 |
+| GIF    |        +3% | -22% / +60%   |        +3% | -22% / +60%   |          0.958 |
+| TIFF   |         0% | -56% / +590%  |       -54% | -73% / +46%   |          0.968 |
+| WebP   |       +29% | -42% / +239%  |        -5% | -39% / +49%   |          0.943 |
+| AVIF   |       -88% | -90% / -86%   |        -9% | -18% / +1%    |          0.929 |
+
+The byte term cut the median absolute error on `conf` from 45% to 7% for PNG, 37% to 9% for JPEG
+and 39% to 17% for WebP. It changed nothing for BMP and TIFF (no entropy stream in the files
+measured), GIF (two fit entries, and the byte term overfit them) or AVIF (decode time tracks
+samples, 193,000 to 196,000 us per million at every denominator and region). The old AVIF rate was
+7.4x too low because it came from a stream this repository's own encoder wrote; the corpus files
+come from `avifenc`.
+
+The first refit made GIF worse (28% under) because only 2 of its 8 calibration entries fall in
+`fit`. 72 derived entries (36 GIF with 256, 64 and 16 colors, dithering and interlace; 36 TIFF with
+six codings, three strip layouts and three color layouts, made from 12 calibration sources of at
+least 1600 px by `scripts/corpus-derive.ts`) replaced that. On them the v1.1.1 GIF constants win
+leave-one-source-out (0.2032 against 0.2278 for the best refit), so GIF is back on them at a
+multiplier of 1.311. TIFF has a byte term of 3,986 us per million bytes (leave-one-source-out
+0.600 against 1.089 for the v1.1.1 constants) and a multiplier of 4.320. That multiplier is wide
+because the compression coding spans 5x at the same pixel count and the plan cannot see it: none and
+PackBits cost 4.6k to 6.5k us per million pixels, LZW 24k to 33k, Deflate 12k to 39k. The bound
+carries that spread; a model that read the coding tag would narrow it, and the cells to fit it are in
+`cells.json` under the derived variant names.
+
+The bound is `T_upper = T_hat * exp(max(q, 0))` per format and phase, with q the
+`ceil((n+1)(1-0.05))/n` rank of log(measured / estimated) over the `conf` cells. It is a prediction
+bound under exchangeability of cells, and cells of one image are not independent, so the effective
+sample is the number of images, not cells. It is relative to the machine the cells were timed on.
+A Worker runs the module 1.90x slower at the median and 2.4x to 4.7x on cheap cells, so the
+caller supplies that factor. The resample, color and neighborhood rates keep their constants and
+carry no multiplier, because no cell times them.
+
+What the cells refuted or left open:
+
+- Encode rates moved. PNG and TIFF were 53% and 49% high at the median, BMP 33% high, and AVIF had
+  no price. The compression tiers measured 0.33 (none), 0.61 (fast) and 1.88 (best) against the
+  default, where the table said 0.667, 0.833 and 4.3.
+- Alpha moves the encode price by a factor per format, measured on the same pixels as RGB, as RGBA
+  with every alpha at 255, and as RGBA with a 64 to 255 ramp. The ramp costs 3.32x for lossy WebP
+  (opaque RGBA 1.01x, because P0d added the ALPH chunk), 1.35x for PNG, 1.43x for TIFF, 1.02x for
+  JPEG, 1.00x for AVIF, 0.79x for GIF and 0.59x for BMP. The planner cannot see opacity, so each
+  format takes whichever of opaque, ramp or their geometric mean has the least error on the fit
+  half's real alpha cells; WebP takes the geometric mean (1.83x) and TIFF the opaque factor.
+- PNG encode time per pixel spans 16.6x. The probe counter explains it (correlation 0.94 in log
+  space) but only after the encode; the best static feature, source bytes per pixel, correlates at
+  0.37, so PNG encode stays priced by one rate and the bound absorbs the spread.
+- The hand-written effort table was wrong and is now generated. FAST over FANCY decode measured
+  0.902 for JPEG at a denominator of 1 and 1.00 at 2, 4 and 8, against 0.87 at all four; lossy WebP
+  measured 1.00 (inside the half range of one cell), 0.763, 0.724 and 0.767 against 0.65, 0.57,
+  0.51 and 0.49; AVIF 0.389, 0.382, 0.380 and 0.378. PNG, BMP, GIF and TIFF are 1.00. A fraction
+  within the median half range of its own cells' round-by-round ratios of 1 is set to exactly 1,
+  because promising a saving the decoder does not give is the unsafe error. Encode FAST measured
+  0.599 for PNG and 0.843 for lossy WebP and 1.00 for everything else. The WebP and AVIF fractions
+  rest on 3 and 2 fit entries. The decode bound now includes FAST cells.
+- The price had assumed default quality. The generated table gives, at qualities 50, 75, 85, 90
+  and 95 over the default (JPEG 85, WebP and AVIF 75): JPEG 0.727, 0.868, 1.000, 1.576 and 1.899;
+  WebP 0.935, 1.000, 1.101, 1.190 and 1.358; AVIF 0.852, 1.000, 1.092, 1.175 and 1.312. A request
+  takes the nearest point, ties to the dearer. Lossless WebP costs 3.77x, 6.61x and 10.07x the lossy
+  encode under 0.1 MP, under 1 MP and above it. The largest class rests on 12 images at 1600 px,
+  the pairs recorded at a load average of 3.0 or under; the other 44 ran above it and were not used.
+- Not priced: composition of the levers (each is measured alone), the TIFF coding, lossless WebP
+  decode, lossless AVIF, qualities below 50, lossless WebP above 2.5 MP and a real alpha mask.
+- Encode bound coverage is under 0.95 in these groups, where the bound is a single multiplier per
+  format: WebP alpha 0.820 (488 cells, 88 misses against 24 expected), TIFF compression 0.891 (183
+  cells, 20 misses against 9), and 0.92 to 0.95 for PNG compression, JPEG effort, BMP alpha, GIF
+  alpha and a few more. The first two are outside what binomial noise at a 0.95 target allows, and
+  the odds are generous to the rest because cells of one image are not independent.
+
+#### A plan's peak heap is bounded before it runs, and the ladder is a path in a lattice
+
+`tiny_plan_peak_bytes` reads the executor's allocation structure and returns an upper bound on
+`tiny_heap_stats().peak` for a plan and a resolution: the format's decoder working set at the
+resolved window, scale and effort, then the fused pass's tap tables beside the decoded image and the
+output, then each operation after a neighborhood operation. The peak is the largest stage, because
+the decoder's arena is released before the pass starts. It counts payload bytes as the allocator's
+`peak` does, so it leaves out block headers and fragmentation. Arena allocations are charged their
+chunk slack.
+
+Measured on a fresh 64 MiB heap per cell, over every file in `tests/fixtures` and
+`tests/fixtures/derived` (6,128 cells: eight scenarios, effort 0 and 1, budgets 0, 1, cost/2 and
+cost/4). Bound over measured peak:
+
+| Format | Cells |   Min |   p50 |    p90 |    Max |
+| ------ | ----: | ----: | ----: | -----: | -----: |
+| PNG    | 1,408 | 1.007 | 1.325 |  2.069 |  3.292 |
+| JPEG   | 1,904 | 1.003 | 1.080 |  1.724 |  2.720 |
+| BMP    |   128 | 1.040 | 1.070 |  1.942 |  2.237 |
+| GIF    |   448 | 1.027 | 1.220 |  1.942 |  2.241 |
+| TIFF   |   704 | 1.099 | 1.896 |  2.621 |  4.634 |
+| WebP   |   896 | 1.037 | 1.812 | 35.148 | 47.197 |
+| AVIF   |   640 | 1.027 | 1.670 |  2.526 |  2.541 |
+
+No cell came out under. The large ratios on small images are the 64 KiB arena chunk charged beside
+a few kilobytes of data. Three classes are loose because the planner reads only the header:
+
+- **Lossless WebP and lossless alpha** (`base-lossless.webp` 35.1x to 47.2x, `base-alpha.webp`
+  26.4x to 42.0x). The number of Huffman groups is the largest term and lives in a coded entropy
+  image. The bound takes the most the stream could hold, one group per entropy pixel and per 20 bits
+  of stream. A tight figure needs the decoder to report the group count.
+- **TIFF** is charged the whole image as one strip and the dearer decompressor.
+- **AVIF** assumes 128 pixel superblocks and a CDEF copy of every plane; the subsampling is read
+  from `av1C`.
+
+The full-decode ceilings from "The guard was set above the ceiling" were rerun on synthetic 4:3
+sources through a plan with no operations, which holds the decoded image beside an equal output:
+
+| Source               | Run result | Peak (bytes) | Bound (bytes) |
+| -------------------- | ---------- | -----------: | ------------: |
+| JPEG 4:2:0 11.00 Mpx | ran        |   66,260,832 |    66,439,696 |
+| PNG RGB 10.83 Mpx    | ran        |   65,242,272 |    65,418,224 |
+| PNG RGB 11.16 Mpx    | ERR_MEMORY |   50,484,704 |    67,406,064 |
+| PNG RGBA 8.37 Mpx    | ERR_MEMORY |   50,618,192 |    67,326,744 |
+
+The two refused runs have a bound above the 67,108,864 byte heap, so the bound predicts the failure.
+The byte cap now binds before the old JPEG ceilings, which is why the JPEG row stops at 11.00 Mpx.
+
+`tiny_plan_enumerate` lists every distinct resolution over effort (the plan's own and FAST), the
+nearest filter and zero to three extra scale steps, using `resolve_at` and `cost_of` unchanged.
+Effort stays in the identity of a resolution, so a lossless source lists the FAST twin of each
+entry. Lattice sizes over 774 fixture and scenario pairs: 4 candidates in 36, 8 in 56, 12 in 41 and
+16 in 641. Per format the mean is 15.6 (PNG), 12.2 (JPEG), 16.0 (BMP, TIFF), 15.6 (GIF), 15.8 (WebP)
+and 15.6 (AVIF). `tests/c/plan/candidates.c` asserts that `tiny_plan_resolve` at budgets 0, 1,
+cost-1, cost/2 and cost/4 equals an enumerated candidate in effort, filters, scale, cost and
+degraded flags, so the ladder is a path through the lattice.
+
+#### What each degrade lever costs in quality, and what each output format costs in bytes
+
+The lattice says what a candidate costs in time and memory. This subsection records what it gives up.
+`tiny_distortion_lever` and `tiny_distortion_encode` (`include/tinyimg/distortion.h`) return a class and
+the figures below, from a table compiled in from `bench/baselines/distortion/`. Four classes are kept
+apart: EXACT (byte-identical to the reference on every image tested), BOUNDED (an analytic bound; no row
+carries one, because none was found that can be proved in two sentences), EMPIRICAL (a measured PSNR
+distribution with its sample count) and UNCHARACTERIZED (anything else, including a group under 8
+samples). Nothing is interpolated.
+
+The reference is candidate 0 of `tiny_plan_enumerate`: the plan's own effort and filter at the decode
+scale the planner picks undegraded, at the same output extent. Distortion is the PSNR in dB of a
+candidate's 8-bit output against it, over every sample of every channel, with identical outputs
+recorded as 99 dB. Lever deltas are against candidate 0: `effort` and `filter` are 1 when they differ,
+`scale steps` counts halvings of the decode denominator past candidate 0's. `tiny_plan_run_candidate`
+runs a lattice point directly; `tests/c/plan/distortion.c` asserts that candidate 0 equals
+`tiny_plan_run` on all 27 fixtures and that, at budgets 1 and cost/2, the candidate `tiny_plan_resolve`
+picks equals `tiny_plan_run` of a budgeted plan, byte for byte.
+
+Measured by `scripts/measure/distortion.ts` through `scripts/measure/distortion-probe.c`, built against
+the native static library. Output bytes do not depend on the host build: on `sf-24.jpg`,
+`toyota_racing.webp` and `winter_forest.png`, each at three width and budget settings, the FNV-1a hash of
+the pixels from `bin/tinyimg.wasm` equals the native one in 9 of 9 cases
+(`bun scripts/measure/distortion.ts bytes-check`). The fit reads the cal entries of `scripts/corpus-manifest.json` that the decoder accepts plus the
+fixtures that are not `test` entries, at widths 200, 400 and 800: 107 images for each table, and the
+encode rows use the 99 of those with no alpha channel. Four fixtures (`drupflare.png`,
+`lake_sunapee.jpeg`, `lil_bit.png`, `long_walk.jpg`) are `test` entries and are excluded from the fit; the
+cells for them are in `lever-cells.fixtures.jsonl` and are not read. The pinned fixture list and sha256 of
+each file are in `inputs.fixtures.json`.
+
+**Lever table.** Source format, then the three deltas.
+
+| Source | Effort | Filter | Scale steps | Class     | p05 dB | Median dB | n   | Max abs |
+| ------ | ------ | ------ | ----------- | --------- | ------ | --------- | --- | ------- |
+| avif   | 0      | 0      | 0           | EXACT     | 99.00  | 99.00     | 18  | 0       |
+| avif   | 0      | 1      | 0           | EMPIRICAL | 24.69  | 31.08     | 18  | 169     |
+| avif   | 0      | 1      | 1           | EMPIRICAL | 21.16  | 30.14     | 29  | 194     |
+| avif   | 0      | 1      | 2           | EMPIRICAL | 18.12  | 25.96     | 27  | 241     |
+| avif   | 0      | 1      | 3           | EMPIRICAL | 15.55  | 22.95     | 15  | 255     |
+| avif   | 1      | 0      | 0           | EMPIRICAL | 47.93  | 55.01     | 13  | 11      |
+| avif   | 1      | 1      | 0           | EMPIRICAL | 24.71  | 32.72     | 23  | 170     |
+| avif   | 1      | 1      | 1           | EMPIRICAL | 21.20  | 29.22     | 34  | 193     |
+| avif   | 1      | 1      | 2           | EMPIRICAL | 18.07  | 25.81     | 32  | 241     |
+| avif   | 1      | 1      | 3           | EMPIRICAL | 15.60  | 22.70     | 20  | 255     |
+| bmp    | 0      | 0      | 0           | EXACT     | 99.00  | 99.00     | 18  | 0       |
+| bmp    | 0      | 1      | 0           | EMPIRICAL | 26.38  | 31.81     | 18  | 128     |
+| bmp    | 0      | 1      | 1           | EMPIRICAL | 26.09  | 29.65     | 30  | 176     |
+| bmp    | 0      | 1      | 2           | EMPIRICAL | 23.61  | 25.72     | 30  | 211     |
+| bmp    | 0      | 1      | 3           | EMPIRICAL | 21.67  | 23.27     | 18  | 224     |
+| bmp    | 1      | 0      | 0           | EXACT     | 99.00  | 99.00     | 12  | 0       |
+| bmp    | 1      | 1      | 0           | EMPIRICAL | 26.65  | 32.84     | 24  | 128     |
+| bmp    | 1      | 1      | 1           | EMPIRICAL | 25.96  | 29.23     | 36  | 176     |
+| bmp    | 1      | 1      | 2           | EMPIRICAL | 23.25  | 25.72     | 36  | 211     |
+| bmp    | 1      | 1      | 3           | EMPIRICAL | 20.85  | 23.17     | 24  | 216     |
+| gif    | 0      | 0      | 0           | EXACT     | 99.00  | 99.00     | 30  | 0       |
+| gif    | 0      | 1      | 0           | EMPIRICAL | 22.46  | 36.58     | 30  | 255     |
+| gif    | 0      | 1      | 1           | EMPIRICAL | 18.38  | 26.19     | 48  | 255     |
+| gif    | 0      | 1      | 2           | EMPIRICAL | 15.43  | 24.77     | 36  | 255     |
+| gif    | 0      | 1      | 3           | EMPIRICAL | 13.60  | 18.52     | 20  | 255     |
+| gif    | 1      | 0      | 0           | EXACT     | 99.00  | 99.00     | 24  | 0       |
+| gif    | 1      | 1      | 0           | EMPIRICAL | 22.61  | 36.69     | 36  | 255     |
+| gif    | 1      | 1      | 1           | EMPIRICAL | 18.38  | 25.17     | 54  | 255     |
+| gif    | 1      | 1      | 2           | EMPIRICAL | 15.47  | 22.34     | 42  | 255     |
+| gif    | 1      | 1      | 3           | EMPIRICAL | 13.69  | 15.54     | 26  | 255     |
+| jpeg   | 0      | 0      | 0           | EXACT     | 99.00  | 99.00     | 162 | 0       |
+| jpeg   | 0      | 0      | 1           | EMPIRICAL | 20.86  | 27.45     | 8   | 197     |
+| jpeg   | 0      | 0      | 2           | EMPIRICAL | 18.61  | 21.21     | 8   | 212     |
+| jpeg   | 0      | 0      | 3           | EMPIRICAL | 15.32  | 16.10     | 8   | 251     |
+| jpeg   | 0      | 1      | 0           | EMPIRICAL | 26.05  | 33.12     | 162 | 184     |
+| jpeg   | 0      | 1      | 1           | EMPIRICAL | 23.21  | 29.63     | 212 | 255     |
+| jpeg   | 0      | 1      | 2           | EMPIRICAL | 18.31  | 25.89     | 118 | 253     |
+| jpeg   | 0      | 1      | 3           | EMPIRICAL | 14.35  | 21.86     | 38  | 255     |
+| jpeg   | 1      | 0      | 0           | EMPIRICAL | 44.26  | 99.00     | 154 | 56      |
+| jpeg   | 1      | 1      | 0           | EMPIRICAL | 26.01  | 33.43     | 170 | 184     |
+| jpeg   | 1      | 1      | 1           | EMPIRICAL | 22.56  | 29.28     | 220 | 255     |
+| jpeg   | 1      | 1      | 2           | EMPIRICAL | 18.26  | 25.15     | 126 | 253     |
+| jpeg   | 1      | 1      | 3           | EMPIRICAL | 14.54  | 21.37     | 46  | 255     |
+| png    | 0      | 0      | 0           | EXACT     | 99.00  | 99.00     | 66  | 0       |
+| png    | 0      | 0      | 1           | EMPIRICAL | 25.83  | 29.13     | 17  | 255     |
+| png    | 0      | 0      | 2           | EMPIRICAL | 21.50  | 24.92     | 17  | 255     |
+| png    | 0      | 0      | 3           | EMPIRICAL | 18.02  | 22.76     | 17  | 255     |
+| png    | 0      | 1      | 0           | EMPIRICAL | 19.30  | 30.86     | 66  | 255     |
+| png    | 0      | 1      | 1           | EMPIRICAL | 20.38  | 28.47     | 109 | 255     |
+| png    | 0      | 1      | 2           | EMPIRICAL | 18.42  | 24.94     | 99  | 255     |
+| png    | 0      | 1      | 3           | EMPIRICAL | 17.12  | 22.73     | 55  | 255     |
+| png    | 1      | 0      | 0           | EXACT     | 99.00  | 99.00     | 49  | 0       |
+| png    | 1      | 1      | 0           | EMPIRICAL | 20.97  | 31.54     | 83  | 255     |
+| png    | 1      | 1      | 1           | EMPIRICAL | 20.78  | 28.43     | 126 | 255     |
+| png    | 1      | 1      | 2           | EMPIRICAL | 18.36  | 24.78     | 116 | 255     |
+| png    | 1      | 1      | 3           | EMPIRICAL | 16.86  | 22.52     | 72  | 255     |
+| tiff   | 0      | 1      | 1           | EMPIRICAL | 19.67  | 33.07     | 10  | 243     |
+| tiff   | 0      | 1      | 2           | EMPIRICAL | 17.94  | 24.45     | 8   | 239     |
+| tiff   | 1      | 1      | 0           | EMPIRICAL | 25.62  | 35.02     | 8   | 154     |
+| tiff   | 1      | 1      | 1           | EMPIRICAL | 19.68  | 26.35     | 12  | 243     |
+| tiff   | 1      | 1      | 2           | EMPIRICAL | 17.94  | 18.51     | 10  | 239     |
+| tiff   | 1      | 1      | 3           | EMPIRICAL | 15.57  | 16.13     | 8   | 252     |
+| webp   | 0      | 0      | 0           | EXACT     | 99.00  | 99.00     | 30  | 0       |
+| webp   | 0      | 1      | 0           | EMPIRICAL | 28.71  | 34.55     | 30  | 174     |
+| webp   | 0      | 1      | 1           | EMPIRICAL | 23.95  | 29.68     | 48  | 248     |
+| webp   | 0      | 1      | 2           | EMPIRICAL | 21.03  | 25.49     | 34  | 243     |
+| webp   | 0      | 1      | 3           | EMPIRICAL | 20.29  | 22.68     | 18  | 243     |
+| webp   | 1      | 0      | 0           | EMPIRICAL | 44.60  | 50.31     | 26  | 58      |
+| webp   | 1      | 1      | 0           | EMPIRICAL | 28.63  | 34.60     | 34  | 175     |
+| webp   | 1      | 1      | 1           | EMPIRICAL | 23.92  | 29.79     | 52  | 248     |
+| webp   | 1      | 1      | 2           | EMPIRICAL | 21.07  | 25.50     | 38  | 240     |
+| webp   | 1      | 1      | 3           | EMPIRICAL | 20.53  | 22.41     | 22  | 244     |
+
+Which levers came out EXACT: the reference against itself for every source format, and effort alone
+(effort 1, filter 0, no extra step) for the lossless sources PNG, BMP and GIF. Effort alone is EMPIRICAL
+for the lossy decoders: JPEG p05 44.26 dB with a median of 99 (the FAST tier only differs where the
+decode is scaled), WebP 44.60 and 50.31, AVIF 47.93 and 55.01. Those match the pairs already in this
+report (WebP deblock skip at 46.8 dB, AV1 post-filter skip at 54.2 dB). Every row with a changed filter
+or an extra scale step is EMPIRICAL, with a median between 15 and 37 dB. No lever is BOUNDED.
+
+The median is non-increasing in scale steps within every chain that has more than one row
+(`medianNeverRisesWithDeeperReduction` in `tests/c/plan/distortion.c`). It does not hold per image: in
+the first, fixtures-only run, PNG at the plan's effort with a changed filter went from 23.35 dB at no
+extra step to 23.97 at one, and in the fixture cells 42 of 762 pairs at the same effort and filter delta
+were closer to the reference one step deeper. All 42 have a changed filter, which is nearest. A nearest
+filter on a coarser, box-averaged decode is smoother than one on the full decode, so it can land nearer
+the smooth reference. `tests/node/distortion.spec.ts` asserts the ordering per image only for pairs with
+filter delta 0.
+
+**Encode table.** Candidate 0 at 400 px wide, encoded by tinyimg at eight qualities, decoded with `djpeg`,
+`dwebp`, `avifdec` or `magick`, and compared with the raw pixels. Bytes per pixel are the median and the
+95th percentile over images.
+
+| Format | Quality | Class     | Bytes per pixel | p95 bytes per pixel | p05 dB | Median dB | n   |
+| ------ | ------- | --------- | --------------- | ------------------- | ------ | --------- | --- |
+| avif   | 50      | EMPIRICAL | 0.0912          | 0.2102              | 29.42  | 31.99     | 99  |
+| avif   | 60      | EMPIRICAL | 0.1273          | 0.2710              | 31.06  | 34.27     | 99  |
+| avif   | 70      | EMPIRICAL | 0.1677          | 0.3224              | 32.04  | 36.08     | 99  |
+| avif   | 75      | EMPIRICAL | 0.1904          | 0.3506              | 32.47  | 37.02     | 99  |
+| avif   | 80      | EMPIRICAL | 0.2220          | 0.3933              | 32.85  | 37.92     | 99  |
+| avif   | 85      | EMPIRICAL | 0.2621          | 0.4570              | 33.26  | 39.15     | 99  |
+| avif   | 90      | EMPIRICAL | 0.3267          | 0.5491              | 33.59  | 40.41     | 99  |
+| avif   | 95      | EMPIRICAL | 0.4384          | 0.6989              | 33.64  | 41.64     | 99  |
+| gif    | 50      | EMPIRICAL | 0.6897          | 0.9048              | 32.46  | 37.25     | 99  |
+| gif    | 60      | EMPIRICAL | 0.6897          | 0.9048              | 32.46  | 37.25     | 99  |
+| gif    | 70      | EMPIRICAL | 0.6897          | 0.9048              | 32.46  | 37.25     | 99  |
+| gif    | 75      | EMPIRICAL | 0.6897          | 0.9048              | 32.46  | 37.25     | 99  |
+| gif    | 80      | EMPIRICAL | 0.6897          | 0.9048              | 32.46  | 37.25     | 99  |
+| gif    | 85      | EMPIRICAL | 0.6897          | 0.9048              | 32.46  | 37.25     | 99  |
+| gif    | 90      | EMPIRICAL | 0.6897          | 0.9048              | 32.46  | 37.25     | 99  |
+| gif    | 95      | EMPIRICAL | 0.6897          | 0.9048              | 32.46  | 37.25     | 99  |
+| jpeg   | 50      | EMPIRICAL | 0.1091          | 0.1997              | 27.47  | 31.18     | 99  |
+| jpeg   | 60      | EMPIRICAL | 0.1233          | 0.2258              | 28.00  | 31.79     | 99  |
+| jpeg   | 70      | EMPIRICAL | 0.1459          | 0.2628              | 28.94  | 32.72     | 99  |
+| jpeg   | 75      | EMPIRICAL | 0.1596          | 0.2855              | 29.48  | 33.26     | 99  |
+| jpeg   | 80      | EMPIRICAL | 0.1839          | 0.3180              | 30.28  | 34.20     | 99  |
+| jpeg   | 85      | EMPIRICAL | 0.2169          | 0.3604              | 31.25  | 35.22     | 99  |
+| jpeg   | 90      | EMPIRICAL | 0.3435          | 0.5464              | 35.56  | 38.67     | 99  |
+| jpeg   | 95      | EMPIRICAL | 0.5002          | 0.7838              | 39.14  | 42.26     | 99  |
+| png    | 50      | EXACT     | 1.6251          | 2.0533              | 99.00  | 99.00     | 99  |
+| png    | 60      | EXACT     | 1.6251          | 2.0533              | 99.00  | 99.00     | 99  |
+| png    | 70      | EXACT     | 1.6251          | 2.0533              | 99.00  | 99.00     | 99  |
+| png    | 75      | EXACT     | 1.6251          | 2.0533              | 99.00  | 99.00     | 99  |
+| png    | 80      | EXACT     | 1.6251          | 2.0533              | 99.00  | 99.00     | 99  |
+| png    | 85      | EXACT     | 1.6251          | 2.0533              | 99.00  | 99.00     | 99  |
+| png    | 90      | EXACT     | 1.6007          | 2.0366              | 99.00  | 99.00     | 99  |
+| png    | 95      | EXACT     | 1.6007          | 2.0366              | 99.00  | 99.00     | 99  |
+| webp   | 50      | EMPIRICAL | 0.1037          | 0.2095              | 29.80  | 32.72     | 99  |
+| webp   | 60      | EMPIRICAL | 0.1144          | 0.2281              | 30.30  | 33.34     | 99  |
+| webp   | 70      | EMPIRICAL | 0.1312          | 0.2527              | 30.85  | 34.09     | 99  |
+| webp   | 75      | EMPIRICAL | 0.1427          | 0.2727              | 31.24  | 34.63     | 99  |
+| webp   | 80      | EMPIRICAL | 0.1744          | 0.3272              | 31.94  | 35.89     | 99  |
+| webp   | 85      | EMPIRICAL | 0.2128          | 0.3942              | 32.48  | 37.00     | 99  |
+| webp   | 90      | EMPIRICAL | 0.2769          | 0.5206              | 33.04  | 38.47     | 99  |
+| webp   | 95      | EMPIRICAL | 0.4027          | 0.7689              | 33.58  | 40.18     | 99  |
+
+PNG is lossless, so every row is EXACT; its bytes change only at quality 90 and above, where the deflate
+level changes. GIF bytes and dB do not depend on quality, because the palette does not. Encode times
+were not recorded: the timing lock needs a load average under 3 on this 12-core machine and it was
+above 3 at every check, so `time_us` is null in every cell.
+
+**Held-out coverage.** `bun scripts/measure/distortion.ts --check-test` scores each row's p05 against the
+`test` split as the manifest stood during the run, skipping entries the decoder rejects, and reports the fraction of cells at or above it. The target is 95 percent.
+
+| Table  | Format                 | Cells at or above p05 |
+| ------ | ---------------------- | --------------------- |
+| lever  | all                    | 89.3% (1524 of 1706)  |
+| lever  | png                    | 98.9% (558 of 564)    |
+| lever  | avif                   | 94.6% (349 of 369)    |
+| lever  | jpeg                   | 88.8% (341 of 384)    |
+| lever  | gif                    | 87.9% (94 of 107)     |
+| lever  | webp                   | 64.5% (182 of 282)    |
+| encode | all, opaque references | 94.8% (1707 of 1800)  |
+| encode | png                    | 100.0% (360 of 360)   |
+| encode | avif                   | 95.6% (344 of 360)    |
+| encode | webp                   | 95.3% (343 of 360)    |
+| encode | gif                    | 93.3% (336 of 360)    |
+| encode | jpeg                   | 90.0% (324 of 360)    |
+
+The lever p05 does not meet the target overall, and WebP at 64.5% is the worst. The p05 is a lower bound only in the sense that it is the fifth percentile of the fit data.
+
+**Findings.**
+
+- The lossy WebP and AVIF encoders write no alpha. On the 11 images with an alpha channel at quality 75,
+  the decoded WebP and AVIF have a median of 11.8 dB against the raw pixels (minimum 6.8), against about
+  34 and 37 dB for opaque images. `dwebp -pam` on `drupflare.png`'s WebP reports a mean alpha of 1.0
+  where the source has 0.25. Alpha references are therefore left out of the encode rows, and the held-out
+  check reports them on separate lines (WebP, AVIF and GIF at 0 percent of cells at or above p05).
+- A raw-sample PSNR over RGBA counts RGB under alpha 0, which a resample changes freely and nobody sees.
+  `forest.png` at 400 px scores 10.6 dB for the nearest filter by that metric and 31.9 dB with color
+  premultiplied by alpha. The cells carry both (`db`, `db_pm`); the table uses the raw definition.
+- The decoder rejects three cal images, which are excluded: `avif-commons-jpeg-2955836.avif` (YUV 4:2:2,
+  `TINYIMG_ERR_UNSUPPORTED_VARIANT`), `commons-tiff-157663857.tif` (the same error) and
+  `commons-webp-153900841.webp` (error -4).
+- Lever rows exist only where at least 8 (image, width) cells landed. TIFF has six rows and no EXACT
+  reference row for that reason.
+
+#### One search over the lattice, the output format and the quality tier
+
+`tiny_plan_select` (`include/tinyimg/select.h`) replaces the ladder's single path with a search. It tries
+every lattice point of `tiny_plan_enumerate` (at most 16) at every output variant (at most 18: JPEG at 50,
+75, 85, 90 and 95, lossy WebP at 50, 75, 90 and 95, lossless WebP, AVIF at 50, 75, 90 and 95, and one each
+for PNG, GIF, BMP and TIFF), so at most 288 candidates. A candidate is removed by the first check it fails,
+in this order: the format mask, alpha, an UNCHARACTERIZED quality class, the peak heap cap, the quality
+floor, the time budget. The time bound is priced only for candidates that reach the budget check. The
+search reads no pixel and no clock, and it is a pure function of the plan and the options.
+
+**Time.** Candidate 0 uses `tiny_plan_cost_upper` exactly. `TinyPlanCandidate` carries only a point
+estimate, so another point's bound is its estimate times the decode multiplier, read back from the public
+bound of a plan that decodes a 64 pixel corner. The first version added candidate 0's excess
+(`cost_upper - cost`) to each estimate, assuming no lever raises the decode term. Checked against
+`resolve_at` on 4,428 cal cells (140 images, three widths, every lattice point), it was under the true
+bound in 468 of them, by up to 7.1 percent; the model prices some reduced PNG, WebP and AVIF decodes above
+the full-scale one. The multiplier form was under the true bound in none of the 4,428 cells and over it
+by 1.15 on average and up to 4.1 (TIFF, where the multiplier is 4.3 and the resample dominates). The exact
+fix is a `cost_upper` member on `TinyPlanCandidate`, filled from the resolution in `tiny_plan_enumerate`.
+The encoder's `tiny_encode_cost_upper_for` is added and the sum is scaled by the caller's machine factor.
+
+**Quality.** The predicted dB of a candidate composes the lever's fifth percentile and the encoder's by
+adding noise power, `-10 log10(10^(-l/10) + 10^(-e/10))`, with an EXACT part adding none and the result
+capped at 99. The class is the weaker of the two. Candidate 0 is the reference, so it is EXACT without a
+table lookup. Lossless BMP, TIFF and WebP add no noise and have no encode row, so their class is
+UNCHARACTERIZED and their bytes are unknown; the default refuses them. The composition assumes
+independent errors. Checked on 32 cal images at 400 px, 944 (lever, encoder) pairs with JPEG at 75 and 95
+and WebP at 75, using each image's own measured lever and encode PSNR and the library decoder: the
+measured composed PSNR was above the prediction in every pair (mean +0.31 dB, p05 +0.01, p95 +0.93, 39
+pairs above by more than 1 dB, none below), so the rule under-states quality here. A smoothed image
+quantizes with less error than the sharp one the encode table was measured on. This does not validate the
+percentile composition: the check used per-image values, and the coverage of the composed p05 was not
+measured.
+
+**What is predicted, and how well.** `min_db` is compared with the composed p05. The held-out coverage of
+the parts is carried in every selection: the lever p05 covered 89.3 percent of test cells overall and
+64.5 percent for WebP sources, and the encode p05 covered 94.8 percent. Bytes are the median bytes per
+output pixel of the encode table, measured on candidate 0's pixels, so a coarser decode encodes to fewer.
+Only orderings are relied on. On the cal encode cells (126 opaque images, in-sample: the table was fitted
+on them) the predicted order of two formats at the same tier was right in 4,710 of 5,040 pairs (93.5
+percent; JPEG against WebP 83.5, WebP against AVIF 85.9, JPEG against AVIF 86.1, the rest above 95), across
+any two tiers in 29,087 of 30,366 (95.8 percent; 83.2 percent where the predicted ratio is under 1.25, 99
+percent above 1.25). Spearman correlation of predicted to measured bytes per pixel is 0.896 pooled over
+5,040 cells and 0.975 on average within an image. Measured over predicted at q75 spans p05 0.32 to 0.58 and
+p95 1.27 to 1.84 by format, so the selector cannot know a given image's bytes.
+
+**What it cannot know.** Per-image bytes and content-dependent error. For an alpha source the tables come
+from opaque images and the lever table's raw PSNR counts RGB under alpha 0, so dB is pessimistic and bytes
+omit the alpha plane (`alpha` is reported). The planner sees channel counts and not opacity, so an RGBA
+source is treated as having alpha unless the caller sets `assume_opaque`; a GIF source, which decodes to
+RGBA, therefore cannot go to GIF. The peak bound covers the plan run and not the encoder.
+
+**Joint search against the two baselines.** `tiny_plan_select_ladder` (the source format at its default
+tier, then `tiny_plan_resolve`'s ladder on the bound left after the encoder, as `tiny_plan_admit` does) and
+`tiny_plan_select_independent` (format and tier by bytes ignoring CPU, then the same ladder) return the
+same structure. On the 140 cal images at 200, 400 and 800 px, machine factor 1.9, budgets 10 ms, 30 ms and
+none, floors 0 and 30 dB, peak caps default and 8 MiB, three objectives (15,120 requests), the joint
+search was feasible in 6,204, the ladder in 5,034 and the independent arm in 5,616; no baseline was ever
+feasible where the joint search was not. Holding the ladder's format and tier and searching the lattice
+alone was feasible in 5,217, so 183 of the 1,170 rescued requests come from the lattice and the rest from
+the format and tier. The ladder failed those 1,170 on UNCHARACTERIZED (507, BMP and TIFF sources, which the
+default refuses; zero under ALLOW), budget (270), peak (153), quality (132) and alpha (108, GIF sources).
+With ALLOW the counts are 6,240, 5,544 and 5,616. Where both were feasible the joint search chose a
+different candidate in 4,131 requests, which mostly reflects the objective moving to a lower tier. This
+is the scenario set of one author; the pre-registered comparison is B5's.
+
+#### The selector ablation protocol and its result
+
+Registered on 2026-11-08 before any run on the final module (`bin/tinyimg.wasm` at 1.2.0, sha256
+prefix `534f7a45`), implemented in `scripts/measure/selector-ablation.ts` with its native twin
+`scripts/measure/select-probe.c`.
+
+Cells are the `test` split of the corpus, one cell per (image, output width), alpha sources excluded
+for every output format. Arms are the joint search (`tiny_plan_select`), the ladder
+(`tiny_plan_select_ladder`) and the independent arm (`tiny_plan_select_independent`). Constraints are
+a budget of 10, 20 or 50 ms at `platformScale` 1 crossed with a quality floor of none or 35 dB, over
+the source's own format plus JPEG and WebP, minimizing bytes, refusing uncharacterized candidates.
+Each arm's choice is executed through `bytesFor` and timed with the same warm-ups and median as the
+admission run. A request is served when the choice is feasible, the measured time is within the
+budget and the measured PSNR against the plan's undegraded output, decoded by an external tool, is at
+or above the floor. The primary outcome is the served rate of the joint search minus that of each
+other arm, with a paired bootstrap 95% interval over cells (10,000 resamples), and the count of cells
+the joint search serves that the ladder does not. A cell timed at a load average above 3.0 drops its
+whole (cell, constraint) triple so the arms stay paired. The comparison is not gated.
+
+Result, one timed run on the final module (sha256 prefix `534f7a45`, 190 test cells, load 2.07 at
+the start and 2.66 at the end). The native probe and `Image.select` made the same joint choice in
+all 1,140 (cell, constraint) pairs. Of 1,137 pairs that stayed paired, 3 were dropped for load, and
+2 alpha cells were left out. The joint search served 430 (37.82%), the ladder 195 (17.15%) and the
+independent arm 384 (33.77%).
+
+Joint minus ladder is +20.67 points, 95% interval [+17.78, +23.70], and the joint search serves 236
+pairs the ladder does not against 1 the other way. Joint minus independent is +4.05 points, interval
+[+3.00, +5.11], 47 pairs against 1. Clustering by image instead of by cell gives [+16.75, +24.79] and
+[+3.07, +5.10]. Where both arms were served, joint output is 0.316 of the ladder's bytes in total
+(median 0.389) and 0.941 of the independent arm's (median 1.000).
+
+Where the gain sits: with a 35 dB floor the ladder served 0 of 190 pairs at 10 ms and at 20 ms and 11
+at 50 ms, because it keeps the source's format at its default quality and can only shrink the decode.
+The independent arm tied the joint search exactly under the floor at every budget (20, 63 and 108
+pairs). The joint search separates from it only without a floor, for example 66.84% against 56.15% at
+50 ms. The ladder is a weak baseline for any request that a format or quality change could rescue,
+so the 20-point figure mostly measures that, and the 4-point figure against the independent arm is
+the fairer one.
+
+Caveats. The control cell read 7.66 ms at the start and 5.39 ms at the end (spread 1.42, last over
+first 0.70), against 1.03 in the admission run, so the first stretch of the run was slower than the
+rest. The arms were timed paired within a cell, which limits the effect on the differences and does
+not remove it. Served uses the same darwin clock as the admission run, so the A4 result applies here
+too: an admitted request overran its budget 9.07% of the time. The comparison was not gated. The
+lattice search is not closed as a mechanism, since it beat both arms; the open part of the objective
+is the cost-bound error that the admission run found, mainly for AVIF sources (joint serves 30.56% of
+AVIF pairs, the lowest rate after WebP).
+
 ### The encoders, and where a WebP request actually spends
 
 Everything above is decode. For a request that writes WebP, decode is the smaller half. The same
@@ -453,6 +995,19 @@ explaining rather than averaging: the per-subblock choice minimizes prediction e
 diagonal mode can win on error and then cost more bits to code. On `sf-24.jpg` dropping the diagonals
 made the file smaller. The flat-color illustrations pay the most, which is where hard diagonal edges
 live and where those modes are actually for.
+
+### Alpha through the encoders
+
+Audit of alpha survival, measured with external decoders (`dwebp -pam`, `avifdec`, `magick`) on a ramp (partial alpha), a one-bit mask, `drupflare.png` and an opaque RGBA image, before and after the change. Alpha error is the maximum absolute difference of the alpha plane against the PNG arm of the same transform.
+
+| encoder                       | before                                               | after                                                           |
+| ----------------------------- | ---------------------------------------------------- | --------------------------------------------------------------- |
+| PNG, TIFF, BMP, lossless WebP | exact                                                | exact                                                           |
+| lossy WebP                    | dropped (255), `degraded` empty                      | exact (0), `VP8X` + `ALPH` + `VP8 `                             |
+| JPEG, AVIF                    | dropped (255), `degraded` empty                      | dropped, `degraded` has `'alpha'`                               |
+| GIF                           | thresholded (127 on partial alpha), nothing reported | same bytes, `'alpha'` on partial alpha, none for a one-bit mask |
+
+The lossy WebP encoder wrote a bare `VP8 ` chunk for RGBA input, so every Drupal, WordPress or Joomla `imagewebp` call on a transparent PNG produced an opaque file. The alpha plane is now the green channel of the existing VP8L image stream with its 5-byte header removed, filter none, no preprocessing; `dwebp` and `webpmux` read it and `webpinfo` reports `Alpha: 1`. An image whose alpha is all 255 gets the old bytes (digest unchanged). Byte cost at 256 px wide, q75: `drupflare.png` +3,236 (4,718 to 7,954), `forest.png` +4,234 (8,736 to 12,970), `winter_forest.png` +3,530 (14,160 to 17,690). `cwebp -alpha_q 100 -alpha_method 1 -alpha_filter none` writes ALPH chunks of 2,874, 4,168 and 3,346 bytes for the same planes against ours at 3,218, 4,216 and 3,512. On a synthetic ramp it writes 40 bytes against ours at 324, because a plane has at most 256 values and the VP8L encoder then takes its palette-only branch, which has no predictor. The module grows by 3,783 bytes.
 
 ### What the decode side can give up, and what it cannot
 
@@ -808,8 +1363,9 @@ The cascades are the OpenCV XML repacked to a flat binary by `scripts/cascade.ts
 
 ## AVIF
 
-Both directions ship. Decode is complete AV1 intra and matches `dav1d` exactly; encode is fixed
-partitions with no rate-distortion search.
+Both directions ship. Decode is complete AV1 intra. The decoded planes match `dav1d` bit for bit on
+`fox.avif`, and the RGB output is within 2 levels of `avifdec` on every fixture (76.8% of `fox.avif`'s
+samples are exact); encode is fixed partitions with no rate-distortion search.
 
 ### What the decode agrees with
 
@@ -899,6 +1455,32 @@ superblock inside the tile, so a tile read without them desynchronises.
 
 **Palette and intra block copy**, at the frame rather than at a block, so a caller learns before any
 pixel is decoded.
+
+Six more features used to decode to a picture that was wrong. Each is refused with
+`TINYIMG_ERR_UNSUPPORTED_VARIANT` now, and `probe` still describes the file:
+
+- **Film grain** with `apply_grain` set. The grain is synthesized after decode and nothing here
+  synthesizes it.
+- **Superres**, where the frame is coded at a smaller width and upscaled. The decoder returned the
+  coded width, 43x48 for a file `avifdec` shows at 64x48.
+- **`grid` and `iovl` primary items.** The item is a list of cells or layers, not an AV1 stream.
+- **PQ and HLG in `colr nclx`**, transfer 16 and 18. The samples are code values for a luminance
+  curve and were handed back as sRGB.
+- **A `clap` clean aperture that crops.** `avifdec` crops before `irot` and `imir` (a 64x48 file with
+  a 40x30 aperture decodes to 40x30 there), and this decoder returned the 64x48 picture. Applying it
+  is not cheap: the planner picks the decode region and scale in the extents `probe` reports, so a
+  crop would need those translated by an origin that does not scale to whole pixels at a reduction
+  and would change what `probe` reports. It is refused; an aperture the size of the frame with a zero
+  offset crops nothing and decodes.
+- **An alpha item that cannot be delivered**: not decodable, missing, unreachable or a different
+  size from the colour. It returned the colour with every pixel opaque. An `auxC` alpha property with
+  no `auxl` reference to the primary item is no alpha: `probe` reports three channels and no alpha,
+  where it reported four with every alpha 255.
+
+`irot` and `imir` are not refused. `tiny_avif_orientation` maps them to the EXIF number they equal,
+so `autoOrient` applies them: `irot` then `imir`, which `avifdec` also does, with the table checked
+against `avifdec` for all twelve combinations. An AVIF carries no EXIF here, so there is nothing for
+the container transform to override.
 
 ### What the sizing estimates got right and wrong
 
@@ -1056,6 +1638,41 @@ Recorded so nobody re-proposes them from a guess.
   459x258, -0.02 dB) does not reproduce on `road.jpg`, where the same denominator step costs
   2.37 dB. The speedup is real and the budget ladder's scale rung already reaches it under a
   budget; what is refuted is taking it by default.
+- **A progressive JPEG's DC-only decode at an eighth scale as a new lever.** It already ships:
+  `TINYIMG_WORK_SCANS_SKIPPED` fires on all 25 progressive JPEGs in the corpus, skipping the luma AC
+  scans (median 0.751 of the file's bytes). The plan said no early-out existed; that was wrong
+  (`bench/baselines/free-counts/summary.md`). The mechanism is closed. Open: chroma AC on the 16
+  files with 2x2 luma (median 0.121 of file bytes), which changes pixels and so belongs to the FAST
+  tier; 16 files cannot decide it. A 160 px request reaches an eighth scale for 12 of the 25 only.
+- **A static fifth percentile per lever as a safe quality bound.** Scored on held-out cells it
+  covered 89.3% against a 95% target (PNG 98.9, AVIF 94.6, JPEG 88.8, GIF 87.9, WebP 64.5), so a
+  `min_db` compared with it is a likely floor and not a guarantee. Closed: reading the table
+  percentile as a bound. Open: a split-conformal quantile per lever like the cost model's, which
+  needs held-out residuals per group and has not been fitted. The selection reports the measured
+  coverage so a caller can see it.
+- **`decide()` alone as the admission estimate.** It excludes the encoder, and the clock includes
+  it. Over 878 held-out cells (`bench/baselines/v1.1.1/total-summary.md`) decide alone read a
+  median 2.0x under and 38.6% in band; with `tiny_encode_cost` added the median was 1.3x under and
+  59.8% in band. Closed: comparing a decode-only figure with a request's time. Open: an admission
+  rule that prices both, which `Image.admit` does on the calibrated bound; its held-out result is
+  the next entry.
+- **The two-term calibrated upper bound as a limit that holds a budget.** One timed run on the final
+  module (`bench/baselines/v1.2/admission-summary.md`, 423 held-out requests, budgets of 5, 10, 20, 50
+  and 100 ms, 2,115 pairs, load 2.93 at the start and 2.07 at the end, control spread 1.031) failed the
+  gate written before it: the bound admitted 739 pairs and 67 ran over, 9.07% against the 5% allowed. The
+  other criterion held, with 6.73x fewer overruns than the v1.1.1 decode-plus-encoder estimate (451 of
+  1,174, 38.42%). AVIF sources account for 26 of the 67 overruns (26 of 32 admitted pairs); without them
+  the rate is about 5.8%. The bound also refused 7.31% of the pairs that fit, 33.9% for WebP sources.
+  Closed: reading the bound as a limit; a request admitted on it can still run over, and `Image.admit`
+  says so. Open: admission that holds a stated overrun rate. The visible lead is the AVIF decode term,
+  priced from 28 held-out cells with a bound coverage of 0.929; 2,596 suspect calibration cells and 44
+  size-group pairs were never re-timed in a quiet window, so a better fit is untested. The gate was not
+  loosened and the model was not refit after the run.
+- **A GIF decode multiplier fitted on the two GIFs that fell in the fit half.** The first two-term
+  refit made the GIF median error 28% under, because 2 of its 8 calibration images were in `fit`.
+  72 derived entries replaced them, and on those the v1.1.1 constants won leave-one-source-out
+  (0.2032 against 0.2278 for the best refit), so GIF returned to them. Closed: fitting a per-format
+  term on a handful of images. Open: a GIF byte term, which needs more than eight independent GIFs.
 
 ## Measurement mistakes that cost real time
 
@@ -1135,6 +1752,19 @@ exploit, which is the shape a wider kernel suits.
     before and 12.78x after. The constants were never the problem. Source samples and compressed
     bytes each predict well on one half of the scale ladder and badly on the other, so the model wants
     both terms and fitting one of them harder cannot help.
+
+    The 12.8x was one cell, measured once, before the per-format scale pricing. It came from six
+    fixtures at two widths (12 cells) on 2026-09-10, and no committed script reproduces it. The same
+    cell (`forest.png` at 200 px) now estimates 34.0 ms against about 56 to 62 ms measured on the
+    frozen v1.1.1 module, 1.6x to 1.8x. The scale pricing is the likely cause of the change; the
+    earlier source was not rebuilt to prove it. Over 878 held-out cells
+    (`bench/baselines/v1.1.1/total-summary.md`, alpha sources excluded) the figures that stand are,
+    for `decide().estimateMs` alone, a median 2.0x under with 38.6% of cells inside 0.6x to 2.0x and
+    a worst 10.97x under, and for the estimate plus the encoder, which is what `budgetMs` is held to,
+    a median 1.3x under, 59.8% in band, a worst 9.04x under (JPEG source) and 7.44x over (PNG). By
+    source format and in band, AVIF is 3.7%, JPEG 55.1%, WebP 77.4%, GIF 94.4% and PNG 95.6%. The
+    first arm leaves the encoder out and the clock includes it, so only the second is comparable to
+    a measured request.
 
 11. **Believing a saving before measuring it at the extent the request asks for.** The progressive
     scan skip is exact at a scale denominator of eight and worth 4.4x there. On the fixture that

@@ -172,9 +172,15 @@ half the time. Across twelve JPEGs, milliseconds per megapixel spread 7.1x while
 megabyte spread 1.95x at this scale. The practical rule for a 200 px thumbnail is roughly **480 KB of
 compressed source**, whatever its dimensions.
 
-The estimate `decide()` returns still prices against source samples and is wrong by up to 12.8x for
-that reason, so treat `budgetMs` as a coarse guard rather than a promise. Past the ceiling the
-artifact has to be computed once and cached; see [Caching](#caching).
+`decide().estimateMs` covers decode and resample and leaves the encoder out. On 878 held-out cells
+timed against the v1.1.1 model (one machine, sources with alpha excluded) it ran a median 2.0x under
+the clock, 38.6% of cells landed within 0.6x to 2.0x, and the worst was 10.97x under. Adding the
+encoder, which is what `budgetMs` compares against, moved the median to 1.3x under and 59.8% in
+band, with the worst at 9.04x under (a JPEG source) and 7.44x over (a PNG). AVIF sources were the
+worst group, 3.7% in band. The model in this release prices the compressed bytes as well as the
+samples and carries a calibrated upper bound, described under [Admission](#admission). Treat
+`budgetMs` as a coarse guard with no guarantee behind it. Past the ceiling the artifact has to be computed
+once and cached; see [Caching](#caching).
 
 A progressive JPEG is the exception worth knowing about. At an eighth scale the transform reads the
 DC term alone, so the scans that carry only high-frequency detail are stepped over rather than
@@ -190,13 +196,16 @@ the per-stage profile and the comparison against `@jsquash`.
 
 ### Gaps
 
-- **AVIF encode has no partition search.** Decode is complete and matches `dav1d` exactly. The
+- **AVIF encode has no partition search.** Decode reads AV1 intra. The
   encoder uses fixed 8x8 blocks and picks the luma mode from four candidates by absolute
   difference, so its files run 1.1x to 1.3x libaom's size at matched quality. A partition search is
   where most of AV1's compression lives.
 - **No 10 or 12 bit AVIF.** The reconstruction is 8 bits a sample end to end, so an HDR AVIF is
   refused rather than truncated. 4:2:2 is refused too, for a reason in the format: the
   specification's own subsampled-size table has no answer for a tall block on such a plane.
+- **Some AVIF files are refused rather than decoded wrong.** Film grain, superres, `grid` and
+  `iovl` images, a cropping `clap` aperture, PQ and HLG transfer, and an alpha plane the decoder
+  cannot read each return an unsupported-variant error.
 - **No animation.** Both decode a first frame; neither re-times or composes one.
 - **You own the caching.** Images caches derivatives at the edge as a product feature. tinyimg gives
   you the key and leaves the cache to you; see [Caching](#caching).
@@ -304,11 +313,11 @@ The options apply in a fixed order, exported as `TRANSFORM_ORDER`: crop, resize 
 the color adjustments, blur, sharpen, trim. An option object has no order of its own, so two callers
 writing the same keys get the same image.
 
-A JPEG with an EXIF orientation is turned upright before anything else runs, so `width`, `height`,
+A JPEG with an EXIF orientation, or an AVIF with `irot` and `imir` properties, is turned upright before anything else runs, so `width`, `height`,
 `crop` and `fit` all read the image as displayed. A phone photo stored landscape and tagged 90
 degrees comes out portrait, and a request for 400 wide is a portrait 400 wide. `probe` reports the
 tag as `orientation`, and the chainable API applies it with `Image.autoOrient()`, which has to be
-the first operation. Only JPEG reports it; every other format reports 1.
+the first operation. Only JPEG and AVIF report it; every other format reports 1.
 
 ### Fit Modes
 
@@ -357,6 +366,11 @@ it, call `dispose()` in a `finally`. Encoding does not consume the plan.
 
 `pixels()` hands back the raw samples for a caller who wants them rather than a container.
 
+`edit(fn)` runs after the plan, like `trim` and `rotateFree`, and hands `fn` the materialized image as
+RGBA to change in place. It is for per-pixel arithmetic the library does not carry, such as another
+library's exact blend or a fixed convolution kernel. The extent and channel count cannot change, and
+the view is valid only inside the call.
+
 ## The Planner
 
 Nothing runs until the output is asked for. Operations append to a fixed-capacity list, and the plan
@@ -396,12 +410,18 @@ On that chain the planner is worth 3.63x against running the same operations one
 | ------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | PNG    | 8 and 16 bit, gray/palette/truecolor with and without alpha, Adam7              | hash-chain LZ77, static and dynamic Huffman, the five filters     |
 | JPEG   | baseline and progressive, 4:4:4 / 4:2:2 / 4:2:0, CMYK and YCCK, restart markers | quality-scaled tables, optimized Huffman, progressive scan script |
-| WebP   | VP8 lossy and VP8L lossless                                                     | both modes                                                        |
+| WebP   | VP8 lossy and VP8L lossless                                                     | both modes, alpha kept through an `ALPH` chunk when lossy         |
 | GIF    | LZW, local and global palettes, interlace, transparency                         | median-cut palette with Floyd-Steinberg dithering                 |
 | TIFF   | strips, uncompressed / PackBits / LZW / Deflate, both byte orders               | uncompressed and PackBits                                         |
 | BMP    | uncompressed and RLE8                                                           | uncompressed                                                      |
 | AVIF   | AV1 intra: every transform, all 13 intra modes, deblock and CDEF                | fixed 8x8 partitions, no rate-distortion search                   |
 | HEIF   | container only; `probe` answers and decode reports a specific error             | no                                                                |
+
+A lossy WebP with transparency is written as a `VP8X` header, an `ALPH` chunk holding the alpha plane
+as a lossless stream, and the lossy frame, so alpha is exact at any `quality`; an image whose alpha
+is all 255 gets the plain frame. The JPEG and AVIF encoders write no alpha, and GIF keeps one bit of
+it. When a `transform` output has transparency its format cannot carry, `degraded` contains
+`'alpha'`.
 
 JPEG carries true DCT-domain scaled decode at 1/2, 1/4 and 1/8, and region decode that Huffman-scans
 past blocks outside the box without transforming them. PNG, GIF, TIFF and BMP row-skip and
@@ -732,9 +752,9 @@ const result = await transform(tinyimg, source, {
 result.format; // 'webp' if it fits inside 7 ms, otherwise 'jpeg'
 ```
 
-A format you name is never substituted, however far over budget it is. The estimate is accurate to
-about 20% on the machine its rates were measured on, so give a budget below the limit rather than at
-it, and use [`measure`](#work-counters) when you need what a request cost.
+A format you name is never substituted, however far over budget it is. On the machine its rates were
+measured on, the estimate's median decode error on images held out of the fit is within 10% for every
+format except TIFF (54% under), the encoder is priced separately, and single requests spread wider, so give a budget below the limit rather than at it, and use [`measure`](#work-counters) when you need what a request cost.
 
 **A budget the container change cannot meet degrades the plan, and the result says what it gave up.**
 Container first, because a cheaper encoder costs bytes and nothing else; then the planner's own
@@ -766,6 +786,108 @@ skipped, so what comes back is never softer for more CPU than the undegraded pla
 The output extent never changes. A budget decides how the pixels are made, not how many, and nothing
 is degraded when the estimate already fits. `degraded` is empty on a pass-through, which needs no
 lever at all.
+
+### Admission
+
+Naming `admission` beside `budgetMs` turns the budget into a decision on the calibrated upper bound
+instead of the point estimate. `'strict'` throws `TinyImgBudgetError`, carrying the numbers, when the
+bound plus the encoder is over budget, and gives nothing up. `'degrade'` takes the ladder above,
+judged on the bound, and runs the cheapest request that results. `'passthrough'` degrades the same
+way and returns the source bytes unchanged, with `'passthrough'` in `degraded`, when no rung fits;
+that needs the output format to be the source's own, or none asked for.
+
+```ts
+const result = await transform(tinyimg, source, {
+  width: 200,
+  budgetMs: 10,
+  admission: 'passthrough',
+  platformScale: 1.9
+});
+```
+
+An admitted request also stops itself. The module sums the work its decoders and encoders have
+counted into a work clock, a function of the counters and not of a timer, because a Worker's timers
+do not advance during CPU work. When the clock passes the budget, the operation returns
+`TINYIMG_ERR_BUDGET`, which `transform` throws as `TinyImgBudgetError`, or answers with the source
+under `'passthrough'`. `Image.admit(budgetMs, options)` returns the decision without running
+anything.
+
+The bound is a calibrated prediction under exchangeability, not a guarantee. It is relative to the
+machine the cost model was timed on, so `platformScale` carries your own factor; a Worker ran the same
+module 1.9x slower at the median and 2.4x to 4.7x slower on cheap requests, and the library applies
+none. Leaving `admission` unset keeps `budgetMs` exactly as described above.
+
+How it held on 423 requests the model never saw, at five budgets from 5 to 100 ms (2,115 request and
+budget pairs, timed on the Apple M2 Pro the model was calibrated on): the bound admitted 739 pairs
+and 67 of them, 9.07%, ran over budget. The v1.1.1 estimate admitted 1,174 and 451 of them, 38.42%,
+ran over, so the bound admits with 6.73x fewer overruns. It misses the 5% overrun rate set for it
+before the run, so use it as a filter and not as a limit. AVIF sources are the weak spot: 26 of the
+32 pairs admitted for them ran over. The other formats together ran over on about 6%. The bound also
+refuses requests that fit, 7.31% of the pairs that did (WebP sources 33.9%). The test left out
+sources with alpha, and lossy WebP with alpha and TIFF encode are priced less tightly (held-out
+coverage 0.82 and 0.89). The tables are in `bench/baselines/v1.2/admission-summary.md`.
+
+### Selection
+
+`Image.select(options)` searches the decode levers (scale, filter, effort), the output format and its
+quality together, drops each combination that breaks a limit, and returns the best of the rest. It
+reads no pixels and no clock. `Image.bytesFor(selection)` runs the choice and returns the encoded bytes.
+
+```ts
+using image = await Image.open(tinyimg, source);
+image.resize(400, 300);
+
+const selection = image.select({ budgetMs: 20, platformScale: 1.9, minDb: 35 });
+
+if (selection.feasible) {
+  const bytes = await image.bytesFor(selection);
+  // serve bytes as selection.choice.format
+} else {
+  // selection.reason names the check the nearest miss failed
+}
+```
+
+| Option            | Default                         | Meaning                                                           |
+| ----------------- | ------------------------------- | ----------------------------------------------------------------- |
+| `budgetMs`        | no limit                        | CPU the request may spend, judged on the calibrated upper bound   |
+| `platformScale`   | `1`                             | How much slower your machine is than the calibrated one           |
+| `peakBytes`       | the module's heap ceiling       | Largest heap bound a candidate may have                           |
+| `minDb`           | no floor                        | Predicted PSNR against the undegraded output, in dB               |
+| `formats`         | the source's own, JPEG and WebP | Output containers to consider                                     |
+| `objective`       | `'bytes'`                       | `'bytes'`, `'time'` or `'quality'`, among the candidates that fit |
+| `uncharacterized` | `'refuse'`                      | `'allow'` keeps a candidate whose quality is unknown              |
+| `assumeOpaque`    | `false`                         | Treat an RGBA source as opaque, so JPEG, AVIF and GIF qualify     |
+
+A `Selection` carries `feasible`, `reason`, `choice` (format, quality, whether it is lossless, the
+lattice position `bytesFor` runs, and the predicted upper-bound cost, peak heap, dB and bytes), the
+output `width` and `height`, whether the source counted as having `alpha`, the measured `coverage` of
+each table, and every candidate in `considered` with the check that removed it. An infeasible
+selection is a normal answer.
+
+On the held-out test images at 10, 20 and 50 ms, with and without a 35 dB floor, the joint search
+served 37.8% of 1,137 requests, the planner's own ladder 17.2% and format-and-quality chosen
+independently 33.8%. Against independent choice the gain is 4 points, interval 3.0 to 5.1, and all of
+it comes from requests without a quality floor. The tables are in
+`bench/baselines/v1.2/selector-summary.md`.
+
+The predictions come from tables measured on other images, so each one has a stated reach:
+
+- **`db` is a table percentile.** It composes the fifth percentile of the decode lever with the fifth
+  percentile of the encoder. On images held out of the fit the lever table's percentile held for
+  89.3% of cells (WebP sources 64.5%) and the encode table's for 94.8%, against a 95% target. Read it
+  as a likely floor, not a guarantee; `coverage` reports the figure for your source and format.
+- **`bytes` is a median over 99 opaque images.** On the images the table was fitted on, it ordered
+  two formats at the same quality tier correctly in 93.5% of pairs. It cannot say how large this
+  image will be: measured bytes over predicted ran from 0.32 to 0.58 at the fifth percentile and
+  1.27 to 1.84 at the 95th, by format, at quality 75.
+- **Alpha is priced pessimistically.** The tables come from opaque images, so `db` is low and `bytes`
+  leaves out the alpha plane. An RGBA source cannot go to JPEG, AVIF or GIF unless `assumeOpaque` is
+  set, and the planner cannot see whether the pixels are opaque.
+- **Lossless TIFF, BMP and WebP outputs have no quality class.** Their error is unmeasured, so
+  `'refuse'` drops them, and asking for `formats: ['tiff']` or `['bmp']` returns an infeasible
+  selection with reason `'uncharacterized'`. A TIFF or BMP source can still go to JPEG or WebP.
+  `uncharacterized: 'allow'` keeps the unclassified candidates with an unknown `db`, which cannot
+  satisfy a `minDb`.
 
 ## Caching
 
@@ -799,6 +921,9 @@ const { work } = await tinyimg.measure(() => transform(tinyimg, source, { width:
 work.samplesPerTransform; // 1 at an eighth scale, 4 at a quarter, 64 at full
 work.decodedSamples / work.sourceSamples; // what the reduction was worth
 work.filtered; // macroblocks a region did not skip
+work.entropyBytes; // compressed bytes the decoder read, which a region or progressive 1/8 lowers
+work.encodeProbes; // match candidates a PNG encode compared, the cost `encoded` cannot see
+work.alphaDropped; // samples whose alpha a JPEG, AVIF or GIF encode wrote without it
 ```
 
 `samplesPerTransform` is the one to read for a scaled decode: a decode transforming whole blocks and
