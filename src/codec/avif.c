@@ -3,9 +3,14 @@
 #include "av1.h"
 
 #include "tinyimg/memory.h"
+#include "tinyimg/work.h"
 
 /** The URN an auxiliary item uses to say it carries alpha. */
 #define AVIF_ALPHA_URN "urn:mpeg:mpegB:cicp:systems:auxiliary:alpha"
+
+/** The `transfer_characteristics` values of SMPTE ST 2084 and ARIB STD-B67. */
+#define AVIF_TRANSFER_PQ 16u
+#define AVIF_TRANSFER_HLG 18u
 
 /** Items a file may declare before the parse gives up describing them all. */
 #define AVIF_MAX_ITEMS 32
@@ -83,6 +88,20 @@ typedef struct {
     uint8_t channels;
     uint8_t depth;
     uint8_t has_alpha;
+
+    /**
+     * The primary item's `irot` angle in counter-clockwise quarter turns, and
+     * its `imir` axis as one more than the box's own bit so that zero means no
+     * `imir`.
+     */
+    uint8_t irot;
+    uint8_t imir;
+
+    /** Where the primary item's `clap` payload starts, zero when absent. */
+    size_t clap;
+
+    /** The `transfer_characteristics` of a `colr nclx`, zero when absent. */
+    uint16_t transfer;
 
     /** From `av1C`, so the decoder need not re-read the sequence header. */
     uint8_t monochrome;
@@ -316,6 +335,21 @@ static void read_associations(AvifHeader* header) {
                 }
                 else if (is_box(type, "av1C")) {
                     read_av1_config(header, payload, size);
+                }
+                else if (is_box(type, "irot") && size >= 1) {
+                    header->irot = data[payload] & 3u;
+                }
+                else if (is_box(type, "clap") && size >= 32) {
+                    header->clap = payload;
+                }
+                else if (is_box(type, "imir") && size >= 1) {
+                    header->imir = (uint8_t) ((data[payload] & 1u) + 1u);
+                }
+                else if (
+                    is_box(type, "colr") && size >= 11 &&
+                    is_box(data + payload, "nclx")
+                ) {
+                    header->transfer = (uint16_t) read_be16(data + payload + 6);
                 }
 
                 break;
@@ -722,9 +756,36 @@ static int avif_parse(const uint8_t* buffer, size_t size, AvifHeader* header) {
     if (header->width == 0 || header->height == 0) return TINYIMG_ERR_CORRUPT;
 
     if (header->channels == 0) header->channels = 3;
+    // an `auxC` alpha property only means something on the item an `auxl`
+    // reference ties to the picture; with no reference there is no alpha
+    if (!header->alpha) header->has_alpha = 0;
+
     if (header->has_alpha && header->channels < 4) header->channels = 4;
 
     return TINYIMG_OK;
+}
+
+/**
+ * Tests whether the primary item's clean aperture crops nothing.
+ *
+ * The box is eight 32 bit fields, a width, a height and two offsets as
+ * numerator and denominator pairs. A crop of the whole frame with no offset is
+ * the one aperture that leaves the decoded picture correct.
+ */
+static int clap_keeps_whole_frame(const AvifHeader* header) {
+    if (!header->clap) return 1;
+
+    const uint8_t* p = header->data + header->clap;
+
+    for (uint32_t i = 0; i < 4u; i++) {
+        if (read_be32(p + i * 8u + 4u) == 0u) return 0;
+    }
+
+    return (uint64_t) read_be32(p) ==
+               (uint64_t) read_be32(p + 4) * header->width &&
+           (uint64_t) read_be32(p + 8) ==
+               (uint64_t) read_be32(p + 12) * header->height &&
+           read_be32(p + 16) == 0u && read_be32(p + 24) == 0u;
 }
 
 #pragma endregion
@@ -806,6 +867,33 @@ static int avif_decode(
     AvifItem* primary = find_item(&header, header.primary);
     if (!primary) return TINYIMG_ERR_CORRUPT;
 
+    /*
+     * Each of these decodes to a picture today, and every one is the wrong
+     * picture, so each is refused with the variant error.
+     *
+     * A derived item (`grid`, `iovl`) holds a list of other items to place, not
+     * an AV1 stream. PQ and HLG name a luminance curve the samples are coded
+     * in, and this library would hand back the code values as sRGB.
+     */
+    if (primary->type == AVIF_FOURCC('g', 'r', 'i', 'd') ||
+        primary->type == AVIF_FOURCC('i', 'o', 'v', 'l')) {
+        return TINYIMG_ERR_UNSUPPORTED_VARIANT;
+    }
+
+    /*
+     * A clean aperture crops the picture before `irot` and `imir`, and
+     * `avifdec` applies it. The planner prices the decode region and scale in
+     * the coded extents the probe reports, so a crop here would need those
+     * translated by an origin that does not scale to whole pixels.
+     */
+    if (!clap_keeps_whole_frame(&header))
+        return TINYIMG_ERR_UNSUPPORTED_VARIANT;
+
+    if (header.transfer == AVIF_TRANSFER_PQ ||
+        header.transfer == AVIF_TRANSFER_HLG) {
+        return TINYIMG_ERR_UNSUPPORTED_VARIANT;
+    }
+
     const uint8_t* bytes = 0;
     size_t bytes_size = 0;
     uint8_t* owned = 0;
@@ -832,6 +920,7 @@ static int avif_decode(
     if (!resolved.channels) resolved.channels = header.channels;
     if (!resolved.scale_den) resolved.scale_den = 1u;
 
+    tiny_work_begin_decode(TINYIMG_FORMAT_AVIF, 0);
     result = tiny_av1_decode(image, bytes, bytes_size, &resolved);
     tiny_free(owned);
 
@@ -839,14 +928,28 @@ static int avif_decode(
 
     if (!header.alpha || image->channels != 4u) return TINYIMG_OK;
 
+    /*
+     * A picture whose alpha cannot be delivered is an error, not an opaque
+     * picture: the container said there is transparency and the caller asked
+     * for it, so returning every pixel opaque is a wrong answer that looks
+     * right.
+     */
     AvifItem* alpha = find_item(&header, header.alpha);
-    if (!alpha) return TINYIMG_OK;
+
+    if (!alpha) {
+        tiny_image_destroy(image);
+        return TINYIMG_ERR_CORRUPT;
+    }
 
     const uint8_t* alpha_bytes = 0;
     size_t alpha_size = 0;
 
     result = item_bytes(&header, alpha, &alpha_bytes, &alpha_size, &owned);
-    if (result != TINYIMG_OK) return TINYIMG_OK;
+
+    if (result != TINYIMG_OK) {
+        tiny_image_destroy(image);
+        return result;
+    }
 
     TinyImage plane;
     tiny_memset(&plane, 0, sizeof(plane));
@@ -861,20 +964,22 @@ static int avif_decode(
     tiny_free(owned);
 
     /*
-     * A file whose alpha will not decode keeps its colour and loses its
-     * transparency, rather than failing.
-     *
      * The alpha is a separate bitstream with its own sequence header, so it can
-     * be a variant this decoder refuses while the colour item is not. Returning
-     * an opaque image is the degradation the rest of this library takes when a
-     * secondary feature is unavailable.
+     * be a variant this decoder refuses while the colour item is not.
      */
-    if (alpha_result != TINYIMG_OK) return TINYIMG_OK;
+    if (alpha_result != TINYIMG_OK) {
+        tiny_image_destroy(image);
+        return alpha_result;
+    }
 
-    if (plane.width == image->width && plane.height == image->height) {
-        for (size_t i = 0; i < (size_t) image->width * image->height; i++) {
-            image->data[i * 4u + 3u] = plane.data[i];
-        }
+    if (plane.width != image->width || plane.height != image->height) {
+        tiny_free(plane.data);
+        tiny_image_destroy(image);
+        return TINYIMG_ERR_CORRUPT;
+    }
+
+    for (size_t i = 0; i < (size_t) image->width * image->height; i++) {
+        image->data[i * 4u + 3u] = plane.data[i];
     }
 
     tiny_free(plane.data);
@@ -951,6 +1056,9 @@ static int avif_encode(
     if (image->width == 0u || image->height == 0u) return TINYIMG_ERR_RANGE;
 
     uint32_t quality = opts && opts->quality ? opts->quality : 75u;
+
+    tiny_work_begin_encode(TINYIMG_FORMAT_AVIF, opts, image->channels);
+    tiny_work_count_alpha(image, 0);
 
     size_t capacity = (size_t) image->width * image->height * 3u + (1u << 16);
     uint8_t* item = (uint8_t*) tiny_alloc(capacity);
@@ -1115,6 +1223,26 @@ static int avif_probe(const uint8_t* buffer, size_t size, TinyImageInfo* info) {
     info->progressive = 0;
 
     return TINYIMG_OK;
+}
+
+/*
+ * The EXIF orientation each `irot` angle and `imir` axis combination equals,
+ * indexed by angle and then by the axis plus one. Filled in by comparing twelve
+ * `avifenc` files against `avifdec`, which applies `irot` first and `imir`
+ * second.
+ */
+static const uint8_t orientations[4][3] = {
+    {0, 4, 2}, {8, 5, 7}, {3, 2, 4}, {6, 7, 5}
+};
+
+TINYIMG_EXPORT("tiny_avif_orientation")
+uint32_t tiny_avif_orientation(const uint8_t* buffer, size_t size) {
+    if (!buffer) return 0;
+
+    AvifHeader header;
+    if (avif_parse(buffer, size, &header) != TINYIMG_OK) return 0;
+
+    return orientations[header.irot][header.imir];
 }
 
 const TinyCodec tiny_codec_avif = {

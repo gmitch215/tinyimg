@@ -1,3 +1,4 @@
+#include "tinyimg/codec/avif.h"
 #include "../test.h"
 #include "tinyimg/codec/codec.h"
 #include "tinyimg/memory.h"
@@ -554,6 +555,508 @@ static int refusesWhatItCannotDecode(void) {
     return r;
 }
 
+/** Decodes a fixture to three channels, or leaves `image->data` NULL. */
+static int decodeFixture(const char* name, TinyImage* image) {
+    size_t size = 0;
+    unsigned char* bytes = readFixture(name, &size);
+
+    tiny_memset(image, 0, sizeof(*image));
+    if (!bytes) return TINYIMG_ERR_NOT_FOUND;
+
+    TinyDecodeOpts opts;
+    tiny_memset(&opts, 0, sizeof(opts));
+    opts.scale_den = 1u;
+    opts.channels = 3u;
+
+    int result = tiny_image_decode(image, bytes, size, &opts);
+
+    free(bytes);
+    return result;
+}
+
+/**
+ * Where the stored sample an EXIF orientation shows at a displayed position
+ * lives, as the specification lays the eight out. Written here rather than
+ * taken from the library, so the mapping under test is not checked by itself.
+ */
+static void storedAt(
+    uint32_t orientation, uint32_t x, uint32_t y, uint32_t width,
+    uint32_t height, uint32_t* column, uint32_t* row
+) {
+    switch (orientation) {
+        case 2: *column = width - 1u - x, *row = y; break;
+        case 3: *column = width - 1u - x, *row = height - 1u - y; break;
+        case 4: *column = x, *row = height - 1u - y; break;
+        case 5: *column = y, *row = x; break;
+        case 6: *column = y, *row = height - 1u - x; break;
+        case 7: *column = width - 1u - y, *row = height - 1u - x; break;
+        case 8: *column = width - 1u - y, *row = x; break;
+        default: *column = x, *row = y; break;
+    }
+}
+
+/**
+ * @brief `irot` and `imir` reach the planner as the orientation they equal.
+ *
+ * `avifdec` applies both, so the twelve files (every angle with no mirror and
+ * each axis) are one 64x48 source under twelve transforms, with the reference
+ * decode of each. The table below was filled in by comparing those references
+ * against the eight orientations, not by reasoning about which way each turns:
+ * `irot` 1 is a quarter turn counter-clockwise, which is EXIF's 8, and `imir`
+ * is applied after `irot`, so `irot` 1 with `imir` 0 is 5 where `irot` 0 with
+ * `imir` 0 is 4.
+ *
+ * Three things have to hold for each file: the reported orientation matches the
+ * table, the coded pixels are those of the unrotated file (the decoder moves
+ * nothing, which is what lets `autoOrient` own the turn), and turning them by
+ * the reported orientation reproduces `avifdec`. The last measured a worst
+ * sample of 1 and 68.38 dB for all twelve files, the same figure each time
+ * because the coded picture is the same.
+ */
+static int appliesIrotAndImir(void) {
+    static const uint32_t orientation[4][3] = {
+        {0u, 4u, 2u}, {8u, 5u, 7u}, {3u, 2u, 4u}, {6u, 7u, 5u}
+    };
+    static const char* const axis[3] = {"n", "0", "1"};
+
+    int r = 0;
+    TinyImage plain;
+
+    r |= assertEquals(
+        decodeFixture("derived/avif-orient-0-n.avif", &plain), TINYIMG_OK
+    );
+    if (!plain.data) return r + 1;
+
+    for (uint32_t turn = 0; turn < 4u; turn++) {
+        for (uint32_t mirror = 0; mirror < 3u; mirror++) {
+            char name[96];
+            snprintf(
+                name, sizeof(name), "derived/avif-orient-%u-%s.avif",
+                (unsigned) turn, axis[mirror]
+            );
+
+            size_t size = 0;
+            unsigned char* bytes = readFixture(name, &size);
+
+            r |= assertNotNull(bytes);
+            if (!bytes) continue;
+
+            uint32_t want = orientation[turn][mirror];
+
+            r |= assertEquals(
+                (long) tiny_avif_orientation(bytes, size), (long) want
+            );
+            free(bytes);
+
+            TinyImage image;
+            r |= assertEquals(decodeFixture(name, &image), TINYIMG_OK);
+            if (!image.data) continue;
+
+            r |= assertTrue(
+                image.width == plain.width && image.height == plain.height &&
+                memcmp(
+                    image.data, plain.data,
+                    (size_t) plain.width * plain.height * plain.channels
+                ) == 0
+            );
+
+            char reference_name[112];
+            snprintf(
+                reference_name, sizeof(reference_name),
+                "derived/ref/avif-orient-%u-%s.avif.png", (unsigned) turn,
+                axis[mirror]
+            );
+
+            size_t reference_size = 0;
+            unsigned char* reference_bytes =
+                readFixture(reference_name, &reference_size);
+
+            r |= assertNotNull(reference_bytes);
+
+            TinyImage reference;
+            tiny_memset(&reference, 0, sizeof(reference));
+
+            if (reference_bytes) {
+                r |= assertEquals(
+                    tiny_image_load(
+                        &reference, reference_bytes, reference_size
+                    ),
+                    TINYIMG_OK
+                );
+                free(reference_bytes);
+            }
+
+            if (reference.data) {
+                uint32_t shown = want ? want : 1u;
+                uint32_t width = shown >= 5u ? image.height : image.width;
+                uint32_t height = shown >= 5u ? image.width : image.height;
+                uint32_t worst = 0;
+                double sum = 0.0;
+
+                r |= assertEquals((long) reference.width, (long) width);
+                r |= assertEquals((long) reference.height, (long) height);
+
+                if (reference.width == width && reference.height == height) {
+                    for (uint32_t y = 0; y < height; y++) {
+                        for (uint32_t x = 0; x < width; x++) {
+                            uint32_t column;
+                            uint32_t row;
+
+                            storedAt(
+                                shown, x, y, image.width, image.height, &column,
+                                &row
+                            );
+
+                            for (uint32_t c = 0; c < 3u; c++) {
+                                int32_t mine =
+                                    image.data
+                                        [((size_t) row * image.width + column) *
+                                             image.channels +
+                                         c];
+                                int32_t theirs = reference.data
+                                                     [((size_t) y * width + x) *
+                                                          reference.channels +
+                                                      c];
+                                int32_t difference = mine - theirs;
+
+                                if (difference < 0) difference = -difference;
+                                if ((uint32_t) difference > worst) {
+                                    worst = (uint32_t) difference;
+                                }
+
+                                sum += (double) difference * difference;
+                            }
+                        }
+                    }
+
+                    double mse = sum / ((double) width * height * 3.0);
+                    double psnr =
+                        mse == 0.0 ? 99.0 : 10.0 * log10(255.0 * 255.0 / mse);
+
+                    r |= assertLessThan((double) worst, 1.5);
+                    r |= assertGreaterThan(psnr, 68.0);
+                }
+
+                tiny_free(reference.data);
+            }
+
+            tiny_free(image.data);
+        }
+    }
+
+    tiny_free(plain.data);
+
+    // a file with no transform property reports none, and so does one that
+    // is not an AVIF at all
+    size_t size = 0;
+    unsigned char* bytes = readFixture("derived/base.avif", &size);
+
+    if (bytes) {
+        r |= assertEquals((long) tiny_avif_orientation(bytes, size), 0L);
+        free(bytes);
+    }
+
+    r |= assertEquals((long) tiny_avif_orientation(0, 0), 0L);
+    r |= assertEquals(
+        (long) tiny_avif_orientation((const uint8_t*) "not an avif at all", 18),
+        0L
+    );
+
+    // the pre-existing rotated fixture, the one probe was documented as
+    // walking past
+    bytes = readFixture("derived/base-rotated.avif", &size);
+
+    if (bytes) {
+        r |= assertEquals((long) tiny_avif_orientation(bytes, size), 8L);
+        free(bytes);
+    }
+
+    return r;
+}
+
+/**
+ * @brief A file whose picture this decoder would get wrong is an error.
+ *
+ * Each of these used to decode to a plausible picture. The container still
+ * describes every one of them, which is what `probe` is for, so only the decode
+ * refuses, and it refuses with the variant error the 10-bit and 4:2:2 refusals
+ * already use. `avifenc` writes the first five; the superres one is `aomenc`
+ * output in a container written by `scripts/fixtures.ts`, because `avifenc`
+ * has no switch for it.
+ *
+ * - Film grain: `apply_grain` is set, and the grain is synthesized after
+ *   decode, which this build does not do.
+ * - Superres: the frame is coded narrower and upscaled, and there is no
+ *   upscaler.
+ * - Grid: the primary item is a list of cells to place, and its bytes are not
+ *   an AV1 stream.
+ * - PQ and HLG: the samples are code values for a display luminance curve, and
+ *   an sRGB picture of them is dark and flat or washed out.
+ * - Alpha: the colour decodes and the alpha item does not, here because it
+ *   carries film grain. The caller asked for the alpha by not asking for three
+ *   channels, so a picture without it is wrong.
+ */
+static int refusesWhatItWouldShowWrong(void) {
+    static const char* const files[] = {
+        "derived/avif-grain.avif", "derived/avif-superres.avif",
+        "derived/avif-grid.avif",  "derived/avif-pq.avif",
+        "derived/avif-hlg.avif",   "derived/avif-alpha-grain.avif",
+        "derived/avif-clap.avif",  "derived/avif-clap-odd.avif"
+    };
+
+    int r = 0;
+
+    for (uint32_t i = 0; i < sizeof(files) / sizeof(files[0]); i++) {
+        size_t size = 0;
+        unsigned char* bytes = readFixture(files[i], &size);
+
+        r |= assertNotNull(bytes);
+        if (!bytes) continue;
+
+        TinyImageInfo info;
+        TinyImage image;
+        tiny_memset(&image, 0, sizeof(image));
+
+        r |= assertEquals(tiny_image_probe(bytes, size, &info), TINYIMG_OK);
+        r |= assertEquals((long) info.format, (long) TINYIMG_FORMAT_AVIF);
+        r |= assertEquals(
+            tiny_image_decode(&image, bytes, size, 0),
+            TINYIMG_ERR_UNSUPPORTED_VARIANT
+        );
+        r |= assertNull(image.data);
+
+        free(bytes);
+    }
+
+    // asking for three channels never decodes the alpha item, so the same
+    // file is a correct picture of its colour
+    TinyImage colour;
+
+    r |= assertEquals(
+        decodeFixture("derived/avif-alpha-grain.avif", &colour), TINYIMG_OK
+    );
+    tiny_free(colour.data);
+
+    // a clean aperture the size of the frame crops nothing, so it is not a
+    // wrong picture; `avifdec` shows 64x48 for it
+    TinyImage whole;
+
+    r |= assertEquals(
+        decodeFixture("derived/avif-clap-full.avif", &whole), TINYIMG_OK
+    );
+    r |= assertEquals((long) whole.width, 64L);
+    r |= assertEquals((long) whole.height, 48L);
+    tiny_free(whole.data);
+
+    return r;
+}
+
+/** Where `needle` first occurs in `bytes`, or 0 when it does not. */
+static size_t findBytes(
+    const unsigned char* bytes, size_t size, const void* needle, size_t n
+) {
+    for (size_t at = 4; at + n <= size; at++) {
+        if (memcmp(bytes + at, needle, n) == 0) return at;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Alpha is the item an `auxl` reference ties to the picture.
+ *
+ * Synthetic: `base-alpha.avif` with its `auxl` reference box renamed, so an
+ * `auxC` alpha property is still in the file and nothing says which item it
+ * describes. Decoding it used to return four channels, every alpha 255.
+ */
+static int hasNoAlphaWithoutAuxl(void) {
+    int r = 0;
+
+    size_t size = 0;
+    unsigned char* bytes = readFixture("derived/base-alpha.avif", &size);
+
+    r |= assertNotNull(bytes);
+    if (!bytes) return r + 1;
+
+    TinyImageInfo info;
+
+    r |= assertEquals(tiny_image_probe(bytes, size, &info), TINYIMG_OK);
+    r |= assertEquals((long) info.has_alpha, 1L);
+
+    size_t at = findBytes(bytes, size, "auxl", 4u);
+
+    r |= assertTrue(at != 0);
+
+    if (at) {
+        memcpy(bytes + at, "xxxx", 4u);
+
+        TinyImage image;
+        tiny_memset(&image, 0, sizeof(image));
+
+        r |= assertEquals(tiny_image_probe(bytes, size, &info), TINYIMG_OK);
+        r |= assertEquals((long) info.has_alpha, 0L);
+        r |= assertEquals((long) info.channels, 3L);
+        r |=
+            assertEquals(tiny_image_decode(&image, bytes, size, 0), TINYIMG_OK);
+        r |= assertEquals((long) image.channels, 3L);
+        tiny_free(image.data);
+    }
+
+    free(bytes);
+    return r;
+}
+
+/**
+ * @brief An `auxl` that names an item the file does not have is corrupt.
+ *
+ * Synthetic: the reference's source id in `base-alpha.avif` is rewritten to 99.
+ * The box is `auxl`, then the source id, a count of one and the picture's id,
+ * each a 16 bit field in a version 0 reference box.
+ */
+static int failsWhenTheAlphaItemIsMissing(void) {
+    int r = 0;
+
+    size_t size = 0;
+    unsigned char* bytes = readFixture("derived/base-alpha.avif", &size);
+
+    r |= assertNotNull(bytes);
+    if (!bytes) return r + 1;
+
+    size_t at = findBytes(bytes, size, "auxl", 4u);
+
+    r |= assertTrue(at != 0);
+
+    if (at) {
+        bytes[at + 4] = 0x00;
+        bytes[at + 5] = 99;
+
+        TinyImage image;
+        tiny_memset(&image, 0, sizeof(image));
+
+        r |= assertEquals(
+            tiny_image_decode(&image, bytes, size, 0), TINYIMG_ERR_CORRUPT
+        );
+        r |= assertNull(image.data);
+    }
+
+    free(bytes);
+    return r;
+}
+
+/**
+ * @brief An alpha plane of another size than the picture is corrupt.
+ *
+ * Synthetic: `av1-tiny.avif`'s 4x4 stream is appended to `base-alpha.avif` and
+ * the alpha item's extent is rewritten to point at it, so the alpha decodes
+ * cleanly as a 4x4 plane against a 320x180 picture.
+ */
+static int failsWhenTheAlphaSizeDiffers(void) {
+    int r = 0;
+
+    size_t size = 0;
+    size_t tiny_size = 0;
+    unsigned char* base = readFixture("derived/base-alpha.avif", &size);
+    unsigned char* tiny = readFixture("derived/av1-tiny.avif", &tiny_size);
+
+    r |= assertNotNull(base);
+    r |= assertNotNull(tiny);
+
+    if (base && tiny) {
+        static const unsigned char extent[8] = {0x00, 0x00, 0x01, 0xAE,
+                                                0x00, 0x00, 0x00, 0x7E};
+        size_t found = findBytes(base, size, extent, sizeof(extent));
+        size_t mdat = findBytes(tiny, tiny_size, "mdat", 4u);
+
+        r |= assertTrue(found != 0);
+        r |= assertTrue(mdat != 0);
+
+        if (found && mdat) {
+            size_t stream = mdat + 4u;
+            size_t length = tiny_size - stream;
+            unsigned char* joined = (unsigned char*) malloc(size + length);
+
+            r |= assertNotNull(joined);
+
+            if (joined) {
+                memcpy(joined, base, size);
+                memcpy(joined + size, tiny + stream, length);
+
+                joined[found + 0] = (unsigned char) (size >> 24);
+                joined[found + 1] = (unsigned char) (size >> 16);
+                joined[found + 2] = (unsigned char) (size >> 8);
+                joined[found + 3] = (unsigned char) size;
+                joined[found + 4] = (unsigned char) (length >> 24);
+                joined[found + 5] = (unsigned char) (length >> 16);
+                joined[found + 6] = (unsigned char) (length >> 8);
+                joined[found + 7] = (unsigned char) length;
+
+                TinyImage image;
+                tiny_memset(&image, 0, sizeof(image));
+
+                r |= assertEquals(
+                    tiny_image_decode(&image, joined, size + length, 0),
+                    TINYIMG_ERR_CORRUPT
+                );
+                r |= assertNull(image.data);
+
+                free(joined);
+            }
+        }
+    }
+
+    free(base);
+    free(tiny);
+    return r;
+}
+
+/**
+ * @brief An alpha item the container cannot deliver is an error.
+ *
+ * `base-alpha.avif` stores the alpha item first, 126 bytes at offset 430. Its
+ * `iloc` length is rewritten to run past the file, which used to return the
+ * colour with every pixel opaque and now reports the corruption.
+ */
+static int failsWhenTheAlphaIsUnreachable(void) {
+    int r = 0;
+
+    size_t size = 0;
+    unsigned char* bytes = readFixture("derived/base-alpha.avif", &size);
+
+    r |= assertNotNull(bytes);
+    if (!bytes) return r + 1;
+
+    static const unsigned char extent[8] = {0x00, 0x00, 0x01, 0xAE,
+                                            0x00, 0x00, 0x00, 0x7E};
+    size_t found = 0;
+
+    for (size_t at = 0; at + 8 < size && !found; at++) {
+        if (memcmp(bytes + at, extent, sizeof(extent)) == 0) found = at;
+    }
+
+    r |= assertTrue(found != 0);
+
+    if (found) {
+        TinyImage image;
+        tiny_memset(&image, 0, sizeof(image));
+
+        r |=
+            assertEquals(tiny_image_decode(&image, bytes, size, 0), TINYIMG_OK);
+        r |= assertEquals((long) image.channels, 4L);
+        tiny_free(image.data);
+
+        bytes[found + 5] = 0xFF;
+        tiny_memset(&image, 0, sizeof(image));
+
+        r |= assertEquals(
+            tiny_image_decode(&image, bytes, size, 0), TINYIMG_ERR_CORRUPT
+        );
+        r |= assertNull(image.data);
+    }
+
+    free(bytes);
+    return r;
+}
+
 /**
  * @brief The encoder, checked against the decoder that shares its arithmetic.
  *
@@ -950,6 +1453,12 @@ int main(void) {
     r |= theEffortTierSkipsTheFilters();
     r |= honorsTheRegionAndScale();
     r |= refusesWhatItCannotDecode();
+    r |= refusesWhatItWouldShowWrong();
+    r |= failsWhenTheAlphaIsUnreachable();
+    r |= hasNoAlphaWithoutAuxl();
+    r |= failsWhenTheAlphaItemIsMissing();
+    r |= failsWhenTheAlphaSizeDiffers();
+    r |= appliesIrotAndImir();
     r |= encodesWhatItCanDecode();
 
     // #endregion

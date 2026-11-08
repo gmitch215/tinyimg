@@ -749,6 +749,12 @@ int tiny_av1_read_frame(
 
         frame->width =
             (frame->upscaled_width * AV1_SUPERRES_NUM + denom / 2u) / denom;
+
+        // no upscaling process exists, so the coded width would be returned as
+        // if it were the picture
+        if (frame->width != frame->upscaled_width) {
+            return TINYIMG_ERR_UNSUPPORTED_VARIANT;
+        }
     }
 
     frame->mi_cols = 2u * ((frame->width + 7u) >> 3u);
@@ -825,10 +831,10 @@ int tiny_av1_read_frame(
     // frame, and global motion has nothing to send either
     frame->reduced_tx_set = (uint8_t) f(&bits, 1);
 
-    if (sequence->film_grain_params_present) {
-        // apply_grain, and the parameters behind it, which this build does not
-        // synthesize. Reading the flag is enough to know the frame wanted it
-        (void) f(&bits, 1);
+    // a reduced header implies show_frame, so apply_grain is always coded; the
+    // grain is synthesized after decode and this build has no synthesis
+    if (sequence->film_grain_params_present && f(&bits, 1)) {
+        return TINYIMG_ERR_UNSUPPORTED_VARIANT;
     }
 
     if (bits.overrun) return TINYIMG_ERR_CORRUPT;

@@ -12,7 +12,7 @@
  * anything if their references are reproducible from a committed command. Its output is committed, so
  * CI needs none of the image tooling; re-run it when a fixture is replaced or a format is added.
  *
- * Needs `magick`, `cwebp`, `webpmux`, `avifenc` and `exiftool` on PATH.
+ * Needs `magick`, `cwebp`, `webpmux`, `avifenc`, `aomenc` and `exiftool` on PATH.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -531,8 +531,7 @@ function codecMatrix() {
 	rmSync(shorter);
 	rmSync(`${shorter}.webp`);
 
-	// avif, read by probe only. the second carries an irot the probe reports and
-	// deliberately does not apply
+	// avif. the third carries an irot that the decoder leaves to autoOrient
 	run('avifenc', ['-q', '60', '--speed', '8', base, derivedPath('base.avif')]);
 	run('avifenc', ['-q', '60', '--speed', '8', alpha, derivedPath('base-alpha.avif')]);
 	run('avifenc', [
@@ -674,6 +673,242 @@ function avifReferences(): void {
 
 		rmSync(intermediate);
 	}
+}
+
+/** Cells per row of an `irot` angle, as `avifenc --irot` numbers them: counter-clockwise quarter turns. */
+const AVIF_IROT = [0, 1, 2, 3];
+
+/** The `imir` axes `avifenc --imir` takes, plus `n` for a file with no `imir` property. */
+const AVIF_IMIR = ['n', '0', '1'];
+
+/** One box of the ISO base media container. */
+function isoBox(type: string, ...parts: Buffer[]): Buffer {
+	const body = Buffer.concat(parts);
+	const head = Buffer.alloc(8);
+
+	head.writeUInt32BE(8 + body.length, 0);
+	head.write(type, 4, 'latin1');
+
+	return Buffer.concat([head, body]);
+}
+
+function be16(value: number): Buffer {
+	const out = Buffer.alloc(2);
+
+	out.writeUInt16BE(value);
+	return out;
+}
+
+function be32(value: number): Buffer {
+	const out = Buffer.alloc(4);
+
+	out.writeUInt32BE(value);
+	return out;
+}
+
+/**
+ * Wraps the OBUs `aomenc --obu` writes into a minimal AVIF container.
+ *
+ * `avifenc` cannot be told to use superres, and `aomenc` can, so this is the one fixture that
+ * takes its bitstream from one and its container from here. The item is the sequence header and
+ * the frame OBU with the temporal delimiter dropped, and `av1C` carries the sequence header, which
+ * is what the AVIF specification asks of both. Written for a 4:4:4, 8-bit, shown still image,
+ * which is the only shape the caller produces.
+ */
+function wrapAv1AsAvif(stream: Buffer, width: number, height: number): Buffer {
+	const kept: Buffer[] = [];
+	let sequence: Buffer | undefined;
+	let payload = 0;
+	let at = 0;
+
+	while (at < stream.length) {
+		const first = stream[at]!;
+		const type = (first >> 3) & 15;
+		let cursor = at + 1 + ((first >> 2) & 1);
+		let length = 0;
+
+		for (let shift = 0; ; shift += 7) {
+			const byte = stream[cursor++]!;
+
+			length |= (byte & 0x7f) << shift;
+			if ((byte & 0x80) === 0) break;
+		}
+
+		const obu = stream.subarray(at, cursor + length);
+
+		if (type === 1) {
+			sequence = obu;
+			payload = cursor - at;
+		}
+
+		if (type === 1 || type === 6) kept.push(obu);
+
+		at = cursor + length;
+	}
+
+	if (!sequence) throw new Error('no sequence header in the aomenc output');
+
+	const item = Buffer.concat(kept);
+	const profile = (sequence[payload]! >> 5) & 7;
+	const level = ((sequence[payload]! & 7) << 2) | (sequence[payload + 1]! >> 6);
+
+	// marker and version, profile and level, then tier, depth, monochrome and subsampling flags
+	const av1c = Buffer.concat([Buffer.from([0x81, (profile << 5) | level, 0x00, 0x00]), sequence]);
+
+	const ftyp = isoBox(
+		'ftyp',
+		Buffer.from('avif', 'latin1'),
+		be32(0),
+		Buffer.from('avifmif1miaf', 'latin1')
+	);
+
+	const meta = (offset: number) =>
+		isoBox(
+			'meta',
+			be32(0),
+			isoBox(
+				'hdlr',
+				be32(0),
+				be32(0),
+				Buffer.from('pict', 'latin1'),
+				Buffer.alloc(12),
+				Buffer.from([0])
+			),
+			isoBox('pitm', be32(0), be16(1)),
+			isoBox(
+				'iinf',
+				be32(0),
+				be16(1),
+				isoBox(
+					'infe',
+					be32(2 << 24),
+					be16(1),
+					be16(0),
+					Buffer.from('av01', 'latin1'),
+					Buffer.from([0])
+				)
+			),
+			isoBox(
+				'iloc',
+				be32(0),
+				Buffer.from([0x44, 0x00]),
+				be16(1),
+				be16(1),
+				be16(0),
+				be16(1),
+				be32(offset),
+				be32(item.length)
+			),
+			isoBox(
+				'iprp',
+				isoBox(
+					'ipco',
+					isoBox('ispe', be32(0), be32(width), be32(height)),
+					isoBox('pixi', be32(0), Buffer.from([3, 8, 8, 8])),
+					isoBox('av1C', av1c)
+				),
+				isoBox('ipma', be32(0), be32(1), be16(1), Buffer.from([3, 0x01, 0x02, 0x83]))
+			)
+		);
+
+	const offset = ftyp.length + meta(0).length + 8;
+
+	return Buffer.concat([ftyp, meta(offset), isoBox('mdat', item)]);
+}
+
+/**
+ * The AVIF files whose features this decoder refuses or hands to the planner, and the references
+ * that say what a conforming decoder shows for them.
+ *
+ * `avifenc` writes `irot` and `imir` and `avifdec` applies them, so twelve encodes of one 64x48
+ * crop, one per angle and axis, with a reference decode of each, are what the orientation mapping
+ * is checked against. 4:4:4 keeps the reference exact: libavif rotates in the YUV domain, and a
+ * subsampled plane turned there rounds differently from one turned after conversion.
+ *
+ * The rest are each one feature `avifenc` can write and the decoder cannot show: film grain, a
+ * grid, PQ and HLG transfer, a clean aperture, and an alpha item the decoder refuses. Superres is the exception,
+ * which `avifenc` has no switch for, so its bitstream comes from `aomenc`.
+ */
+export function avifDefects(): void {
+	const base = derivedPath('base.png');
+	const alpha = derivedPath('base-alpha.png');
+	const crop = derivedPath('avif-d0-crop.png');
+	const cropAlpha = derivedPath('avif-d0-crop-alpha.png');
+	const cropGrid = derivedPath('avif-d0-crop-grid.png');
+
+	magick([base, '-crop', '64x48+100+60', '+repage', crop]);
+	magick([alpha, '-crop', '64x48+100+60', '+repage', cropAlpha]);
+	magick([base, '-crop', '128x96+100+40', '+repage', cropGrid]);
+
+	const encode = (name: string, source: string, ...extra: string[]) =>
+		run('avifenc', ['-q', '60', '-s', '8', '-y', '444', ...extra, source, derivedPath(name)]);
+
+	for (const irot of AVIF_IROT) {
+		for (const imir of AVIF_IMIR) {
+			const flags: string[] = [];
+
+			if (irot !== 0) flags.push('--irot', String(irot));
+			if (imir !== 'n') flags.push('--imir', imir);
+
+			const stem = `avif-orient-${irot}-${imir}`;
+
+			encode(`${stem}.avif`, crop, ...flags);
+			avifReference(derivedPath(`${stem}.avif`));
+		}
+	}
+
+	encode('avif-grain.avif', crop, '-a', 'film-grain-test=1');
+	encode('avif-grid.avif', cropGrid, '--grid', '2x2');
+	encode('avif-pq.avif', crop, '-d', '8', '--cicp', '9/16/9');
+	encode('avif-hlg.avif', crop, '-d', '8', '--cicp', '9/18/9');
+	encode('avif-alpha-grain.avif', cropAlpha, '-a', 'alpha:film-grain-test=1');
+	encode('avif-clap.avif', crop, '--clap', '40,1,30,1,0,1,0,1');
+	encode('avif-clap-odd.avif', crop, '--clap', '63,1,47,1,1,2,1,2');
+	encode('avif-clap-full.avif', crop, '--clap', '64,1,48,1,0,1,0,1');
+
+	const y4m = derivedPath('avif-d0-crop.y4m');
+	const obu = derivedPath('avif-d0-superres.obu');
+
+	run('avifdec', [derivedPath('avif-orient-0-n.avif'), y4m]);
+	run('aomenc', [
+		'--limit=1',
+		'--kf-max-dist=0',
+		'--lag-in-frames=0',
+		'--superres-mode=1',
+		'--superres-denominator=12',
+		'--superres-kf-denominator=12',
+		// palette and loop restoration are refused first, and libaom turns restoration on with superres
+		'--enable-palette=0',
+		'--enable-restoration=0',
+		'--obu',
+		'--cpu-used=8',
+		'--end-usage=q',
+		'--cq-level=30',
+		'-o',
+		obu,
+		y4m
+	]);
+
+	writeFileSync(derivedPath('avif-superres.avif'), wrapAv1AsAvif(readFileSync(obu), 64, 48));
+
+	for (const path of [crop, cropAlpha, cropGrid, y4m, obu]) rmSync(path);
+}
+
+/** Writes `ref/<stem>.avif.png` beside the others, as {@link avifReferences} does. */
+function avifReference(file: string): void {
+	const stem = file.replace(/^.*\//, '').replace(/\.avif$/, '');
+	const intermediate = derivedPath('ref', `${stem}.avif.tmp.png`);
+
+	run('avifdec', ['--png-compress', '0', file, intermediate]);
+	magick([
+		intermediate,
+		'-colorspace',
+		'sRGB',
+		'-strip',
+		`PNG24:${derivedPath('ref', `${stem}.avif.png`)}`
+	]);
+
+	rmSync(intermediate);
 }
 
 /** Per-source references: one scaled, one full-resolution crop. */
@@ -1351,6 +1586,7 @@ function generate() {
 	codecMatrix();
 	perFixtureReferences();
 	avifReferences();
+	avifDefects();
 	edgeCases();
 	colorProfiles();
 	filterReferences();
@@ -1360,7 +1596,7 @@ function generate() {
 }
 
 function derived() {
-	requireTools('magick', 'cwebp', 'webpmux', 'avifenc', 'avifdec', 'exiftool');
+	requireTools('magick', 'cwebp', 'webpmux', 'avifenc', 'avifdec', 'aomenc', 'exiftool');
 	console.log('generating tests/fixtures/derived');
 
 	generate();
@@ -1379,7 +1615,7 @@ function derived() {
  * its own job and not on the gate.
  */
 function check() {
-	requireTools('magick', 'cwebp', 'webpmux', 'avifenc', 'avifdec', 'exiftool');
+	requireTools('magick', 'cwebp', 'webpmux', 'avifenc', 'avifdec', 'aomenc', 'exiftool');
 
 	// the versions are the first thing to look at when this reports differences: the committed set
 	// is only reproducible with the tools that wrote it, which is why this is a local check and not

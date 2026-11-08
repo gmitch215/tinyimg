@@ -2,6 +2,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import bytes from '../../bin/tinyimg.wasm?bin';
+import {
+	TinyImgDataError,
+	TinyImgFormatError,
+	TinyImgModule,
+	transform
+} from '../../src/ts/index.js';
 import { Err, Format, TinyAbi } from '../support/abi.js';
 
 const fixtures = join(import.meta.dirname, '../fixtures');
@@ -171,5 +177,113 @@ describe('the avif container reader inside the wasm module', () => {
 
 		expect(abi.probe(bare).result).toBe(Err.corrupt);
 		expect(abi.probe(fixture('derived/base.avif').subarray(0, 16)).result).toBe(Err.corrupt);
+	});
+});
+
+/**
+ * What an AVIF this decoder would show wrongly does through the shipped wrapper, and how a rotated
+ * one reaches the planner. The C lane holds the reference comparison; these check that the codes
+ * and the orientation survive the module boundary.
+ */
+describe('the avif refusals and orientation through the wrapper', () => {
+	let tinyimg: TinyImgModule;
+
+	beforeAll(async () => {
+		tinyimg = await TinyImgModule.loadBytes(bytes);
+	});
+
+	it.each([
+		'avif-grain',
+		'avif-superres',
+		'avif-grid',
+		'avif-pq',
+		'avif-hlg',
+		'avif-alpha-grain',
+		'avif-clap',
+		'avif-clap-odd'
+	])('refuses %s with the variant error and still probes it', async (name) => {
+		const source = fixture(`derived/${name}.avif`);
+
+		expect((await tinyimg.probe(source)).format).toBe('avif');
+
+		const error = await transform(tinyimg, source, { format: 'png' }).catch((e: unknown) => e);
+
+		expect(error).toBeInstanceOf(TinyImgFormatError);
+		expect((error as TinyImgFormatError).code).toBe(Err.unsupportedVariant);
+	});
+
+	it('decodes a clean aperture the size of the frame', async () => {
+		const image = await tinyimg.decode(fixture('derived/avif-clap-full.avif'));
+
+		expect([image.width, image.height]).toEqual([64, 48]);
+	});
+
+	it('reports no alpha when no auxl reference ties the plane to the picture', async () => {
+		const source = fixture('derived/base-alpha.avif').slice();
+		const at = Buffer.from(source).indexOf('auxl');
+
+		expect((await tinyimg.probe(source)).hasAlpha).toBe(true);
+		expect(at).toBeGreaterThan(0);
+
+		source.set(Buffer.from('xxxx'), at);
+
+		expect((await tinyimg.probe(source)).hasAlpha).toBe(false);
+	});
+
+	it('fails with the corrupt error when the alpha item is not in the file', async () => {
+		const source = fixture('derived/base-alpha.avif').slice();
+		const at = Buffer.from(source).indexOf('auxl');
+
+		source[at + 4] = 0;
+		source[at + 5] = 99;
+
+		const error = await transform(tinyimg, source, { format: 'png' }).catch((e: unknown) => e);
+
+		expect(error).toBeInstanceOf(TinyImgDataError);
+		expect((error as TinyImgDataError).code).toBe(Err.corrupt);
+	});
+
+	it('reports the orientation a rotated or mirrored file equals', async () => {
+		const expected = [
+			[1, 4, 2],
+			[8, 5, 7],
+			[3, 2, 4],
+			[6, 7, 5]
+		];
+		const axes = ['n', '0', '1'];
+
+		for (let irot = 0; irot < 4; irot++) {
+			for (let imir = 0; imir < 3; imir++) {
+				const info = await tinyimg.probe(
+					fixture(`derived/avif-orient-${irot}-${axes[imir]}.avif`)
+				);
+
+				expect(info.orientation, `irot ${irot} imir ${axes[imir]}`).toBe(
+					expected[irot]![imir]
+				);
+			}
+		}
+
+		expect((await tinyimg.probe(fixture('derived/base.avif'))).orientation).toBe(1);
+	});
+
+	it('turns a quarter-turned file upright, so the output swaps width and height', async () => {
+		const upright = await tinyimg.decode(fixture('derived/avif-orient-0-n.avif'));
+
+		for (const name of ['avif-orient-1-n', 'avif-orient-3-n', 'avif-orient-1-0']) {
+			const out = await transform(tinyimg, fixture(`derived/${name}.avif`), {
+				format: 'png'
+			});
+			const shown = await tinyimg.decode(out.bytes());
+
+			expect([shown.width, shown.height], name).toEqual([upright.height, upright.width]);
+		}
+
+		const half = await transform(tinyimg, fixture('derived/avif-orient-2-n.avif'), {
+			format: 'png'
+		});
+		const shown = await tinyimg.decode(half.bytes());
+
+		expect([shown.width, shown.height]).toEqual([upright.width, upright.height]);
 	});
 });

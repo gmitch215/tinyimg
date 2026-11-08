@@ -477,7 +477,7 @@ static int resolvesTileBytes(void) {
 }
 
 /**
- * The first block of `fox.avif`, which is the only fixture with chroma.
+ * The first block of `fox.avif`, the 4:2:0 fixture.
  *
  * It reaches three paths the flat frames cannot: the chroma mode, the
  * chroma-from-luma alphas behind it, and the transform depth symbol, since this
