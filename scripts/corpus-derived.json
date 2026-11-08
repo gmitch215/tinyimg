@@ -1,0 +1,2632 @@
+{
+	"entries": [
+		{
+			"id": "derived-gif-commons-jpeg-217417-w256",
+			"derivedFrom": "commons-jpeg-217417",
+			"variant": "colors256-dither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "c2a66612e72bfd08002d316a0e4c57ad953550fe31d4cf851f141a227f113b8a",
+			"bytes": 38104,
+			"width": 256,
+			"height": 171,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-217417-w800",
+			"derivedFrom": "commons-jpeg-217417",
+			"variant": "colors64-nodither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"None",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "fd621f89f8bd7c8274f721f08b247a5e5178b37f29495d3a3c559e103b19a00a",
+			"bytes": 180405,
+			"width": 800,
+			"height": 533,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-217417-w1600",
+			"derivedFrom": "commons-jpeg-217417",
+			"variant": "colors16-dither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "7b1b1110fcae9d3ae954dc8767cc149d738c4f002531ba66c4e887a166ce56e6",
+			"bytes": 483110,
+			"width": 1600,
+			"height": 1067,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-png-100294338-w256",
+			"derivedFrom": "commons-png-100294338",
+			"variant": "colors64-dither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "8a30aa67cc0f5e88d72baf070a949d0d013910fee221f1ffcb46f110a00611b9",
+			"bytes": 6270,
+			"width": 256,
+			"height": 121,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-png-100294338-w800",
+			"derivedFrom": "commons-png-100294338",
+			"variant": "colors16-nodither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"None",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "27af1e0c5db1b507454c53480a44b941c4a2a6237380b027ae0e3dc6ad6307e2",
+			"bytes": 21717,
+			"width": 800,
+			"height": 377,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-png-100294338-w1600",
+			"derivedFrom": "commons-png-100294338",
+			"variant": "colors256-nodither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"None",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "d8a2dde33ff2836fec5be3fc75474aa6e7d1105b41fefc73dbbbe31a43210f4b",
+			"bytes": 141396,
+			"width": 1600,
+			"height": 753,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-541384-w256",
+			"derivedFrom": "commons-jpeg-541384",
+			"variant": "colors16-dither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "70033d68b80bfde9332f2de1475da8b17c14102d04d36cc33be4b3913f6f7c31",
+			"bytes": 15616,
+			"width": 256,
+			"height": 192,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-541384-w800",
+			"derivedFrom": "commons-jpeg-541384",
+			"variant": "colors256-dither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "66f2b03de963b0993e3370b5ef318cbfa533463601e0a6123f9a4e89d6ad5fae",
+			"bytes": 367115,
+			"width": 800,
+			"height": 600,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-541384-w1600",
+			"derivedFrom": "commons-jpeg-541384",
+			"variant": "colors64-nodither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"None",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "7998585a05d5d216d54f1c4e31c0abdb9afa19ca2e48dcdbf42e0f52a290456f",
+			"bytes": 693657,
+			"width": 1600,
+			"height": 1200,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-184831343-w256",
+			"derivedFrom": "commons-jpeg-184831343",
+			"variant": "colors256-nodither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"None",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "2d0f870e0ae80c6b21c333d3e230541e2abccdc434292fdf4266d186fb7af2f7",
+			"bytes": 34908,
+			"width": 256,
+			"height": 182,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-184831343-w800",
+			"derivedFrom": "commons-jpeg-184831343",
+			"variant": "colors64-dither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "4641b3caa527b60664c21ab60c10e02e03c87a33d9bcdf039d6846b76e1e44a0",
+			"bytes": 203504,
+			"width": 800,
+			"height": 570,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-184831343-w1600",
+			"derivedFrom": "commons-jpeg-184831343",
+			"variant": "colors16-nodither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"None",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "6bf26032c553b060caaa8a955914750be9af19eebfbe5848338bb541db3f4cd0",
+			"bytes": 207073,
+			"width": 1600,
+			"height": 1139,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-26244423-w256",
+			"derivedFrom": "commons-jpeg-26244423",
+			"variant": "colors64-nodither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"None",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "c26f8c709d085eea010da0555aa3d2eefb076d1668ce20e60361d9beb8df52b8",
+			"bytes": 34988,
+			"width": 256,
+			"height": 170,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-26244423-w800",
+			"derivedFrom": "commons-jpeg-26244423",
+			"variant": "colors16-dither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "ad7931f3cfa54c1bc107d918f4f09ca523392619e4da7d3391d7da0256e96e3c",
+			"bytes": 154842,
+			"width": 800,
+			"height": 531,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-26244423-w1600",
+			"derivedFrom": "commons-jpeg-26244423",
+			"variant": "colors256-dither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "befa28f78e517f3ba5c4d6a1015f91b644b41bfcf398bb5a0b812991e656dc93",
+			"bytes": 1255115,
+			"width": 1600,
+			"height": 1063,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-125920892-w256",
+			"derivedFrom": "commons-jpeg-125920892",
+			"variant": "colors16-nodither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"None",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "7e16436c9290cecee512af9e2b7667d0438924de1c4c70f5ec3dc354f5e03ea3",
+			"bytes": 19322,
+			"width": 256,
+			"height": 256,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-125920892-w800",
+			"derivedFrom": "commons-jpeg-125920892",
+			"variant": "colors256-nodither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"None",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "ff4ded4c02d68bd5b375d69983d18933d4340822a05b9de936a23d10f24fb8c9",
+			"bytes": 456678,
+			"width": 800,
+			"height": 800,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-125920892-w1600",
+			"derivedFrom": "commons-jpeg-125920892",
+			"variant": "colors64-dither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "8adfa2001a312cf0d199a817236ec42593b2ed9239e21468d33aac0597abaa70",
+			"bytes": 847558,
+			"width": 1600,
+			"height": 1600,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-155245236-w256",
+			"derivedFrom": "commons-jpeg-155245236",
+			"variant": "colors256-dither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "b8da3fa97ffad48e34ca29da4959df381bfb92f0ad821afd759abe678e8d584c",
+			"bytes": 32341,
+			"width": 256,
+			"height": 166,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-155245236-w800",
+			"derivedFrom": "commons-jpeg-155245236",
+			"variant": "colors64-nodither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"None",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "45edae97bdae3175e00ee32be8c99418f7d7e82a5342c84b95fd8197f2c976ee",
+			"bytes": 139095,
+			"width": 800,
+			"height": 517,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-155245236-w1600",
+			"derivedFrom": "commons-jpeg-155245236",
+			"variant": "colors16-dither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "7daade17a75cc5d4b2c545b0c2baafd45bac304ed0add70c5ac61f0dc94625ea",
+			"bytes": 287445,
+			"width": 1600,
+			"height": 1035,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-12366669-w256",
+			"derivedFrom": "commons-jpeg-12366669",
+			"variant": "colors64-dither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "fb7009ba9b54aca78372d1149e8bcab8142d22d1935e8281250b174ad79fbbca",
+			"bytes": 15398,
+			"width": 256,
+			"height": 225,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-12366669-w800",
+			"derivedFrom": "commons-jpeg-12366669",
+			"variant": "colors16-nodither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"None",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "be5b6edb86c0d363cde6e0c501c8aa13fde22bfd50eee4319d6a5d48c065ba5f",
+			"bytes": 54153,
+			"width": 800,
+			"height": 702,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-12366669-w1600",
+			"derivedFrom": "commons-jpeg-12366669",
+			"variant": "colors256-nodither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"None",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "aca4ea5a3845bb7765b4b6273f250c092b0d8f11b3a8449218420239c6edaeb2",
+			"bytes": 623502,
+			"width": 1600,
+			"height": 1405,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-gif-commons-jpeg-177334319-w256",
+			"derivedFrom": "commons-jpeg-177334319",
+			"variant": "colors16-dither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "4ecfa42678d007c9ebdbc6990f05cdfd917c1512a730a449245af01a431e36ed",
+			"bytes": 14512,
+			"width": 256,
+			"height": 173,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-177334319-w800",
+			"derivedFrom": "commons-jpeg-177334319",
+			"variant": "colors256-dither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "0f9783f7244c1191f1b531858d72d68827588eba114a30c2ef420e7d30bcd21c",
+			"bytes": 229618,
+			"width": 800,
+			"height": 541,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-177334319-w1600",
+			"derivedFrom": "commons-jpeg-177334319",
+			"variant": "colors64-nodither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"None",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "2667ea6061c5b765c3006636bc3af4481b2dc564fe826c96d73b7d7a51904a03",
+			"bytes": 420072,
+			"width": 1600,
+			"height": 1082,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-136539405-w256",
+			"derivedFrom": "commons-jpeg-136539405",
+			"variant": "colors256-nodither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"None",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "9a5ceaade99b4464a931b085ed12ce7ee0d7b0f1b80e88523367e73cbf505ffb",
+			"bytes": 42318,
+			"width": 256,
+			"height": 192,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-136539405-w800",
+			"derivedFrom": "commons-jpeg-136539405",
+			"variant": "colors64-dither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "7fac28ccb03a1ade6d1c244c3fbaa293c207e5011931fbaae58f3dfe9da91cc2",
+			"bytes": 235544,
+			"width": 800,
+			"height": 600,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-136539405-w1600",
+			"derivedFrom": "commons-jpeg-136539405",
+			"variant": "colors16-nodither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"None",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "5a66144c671fcaf610ca74bb5734d7143164bf728c5f13e6e7d340710783cf48",
+			"bytes": 387674,
+			"width": 1600,
+			"height": 1200,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-37877284-w256",
+			"derivedFrom": "commons-jpeg-37877284",
+			"variant": "colors64-nodither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"None",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "bd480512161c2b3317181deca0fae2d88ec7931d545969c05fe9a0c967e6a767",
+			"bytes": 18457,
+			"width": 256,
+			"height": 144,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-37877284-w800",
+			"derivedFrom": "commons-jpeg-37877284",
+			"variant": "colors16-dither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "3c3b5844886db8b6d51510bbb9741b14ffa253ff033596d38cb199533044187c",
+			"bytes": 99357,
+			"width": 800,
+			"height": 450,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-37877284-w1600",
+			"derivedFrom": "commons-jpeg-37877284",
+			"variant": "colors256-dither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "49f94c4899e3c6a13e796a3f86340e70d6d926e50efd0e30ab22c6a069b54634",
+			"bytes": 952169,
+			"width": 1600,
+			"height": 900,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-117701838-w256",
+			"derivedFrom": "commons-jpeg-117701838",
+			"variant": "colors16-nodither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-dither",
+					"None",
+					"-colors",
+					"16",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "5c5f3ddc831a1a5748b8bf2b30201930113123cb3a44e65057691a67cb4d14b7",
+			"bytes": 8760,
+			"width": 256,
+			"height": 192,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-117701838-w800",
+			"derivedFrom": "commons-jpeg-117701838",
+			"variant": "colors256-nodither-sequential",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-dither",
+					"None",
+					"-colors",
+					"256",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--no-interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "889607fff282155fd369ccecddfade69a746cf271c506b19cc729aefa877bd5f",
+			"bytes": 252352,
+			"width": 800,
+			"height": 600,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-gif-commons-jpeg-117701838-w1600",
+			"derivedFrom": "commons-jpeg-117701838",
+			"variant": "colors64-dither-interlaced",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-dither",
+					"FloydSteinberg",
+					"-colors",
+					"64",
+					"GIF:{tmp}"
+				],
+				["gifsicle", "--interlace", "{tmp}", "-o", "{out}"]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "9d55c606cde02980bbbf85f093dd76780081269a93064dc4e87dc1841b39c1ab",
+			"bytes": 686295,
+			"width": 1600,
+			"height": 1200,
+			"format": "gif",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-217417-w256",
+			"derivedFrom": "commons-jpeg-217417",
+			"variant": "none-default-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-compress",
+					"None",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "dc974d24772399b079a2c35829b3ed405091342d8a77ba66ff4d34d228d2b844",
+			"bytes": 132176,
+			"width": 256,
+			"height": 171,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-217417-w800",
+			"derivedFrom": "commons-jpeg-217417",
+			"variant": "deflate-predictor-one-row-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-alpha",
+					"set",
+					"-compress",
+					"Zip",
+					"-define",
+					"tiff:predictor=2",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "4ec8887006c3cfb3bd40fd55902f2e6fbfe998d6b75fd5732569b7ced3df10f0",
+			"bytes": 922778,
+			"width": 800,
+			"height": 533,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-217417-w1600",
+			"derivedFrom": "commons-jpeg-217417",
+			"variant": "deflate-whole-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"Zip",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "95a98d71f6be9df8a018bde4739aaebec99d32d65bd654266bcb11ae2028a52a",
+			"bytes": 1092390,
+			"width": 1600,
+			"height": 1067,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-png-100294338-w256",
+			"derivedFrom": "commons-png-100294338",
+			"variant": "packbits-one-row-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"RLE",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "52dab64b8e4b37babb869c77d57f949726ebbd0f3344dff18885be2d5922db76",
+			"bytes": 14143,
+			"width": 256,
+			"height": 121,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-png-100294338-w800",
+			"derivedFrom": "commons-png-100294338",
+			"variant": "none-whole-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-compress",
+					"None",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "81c26033878a80afd9a97c70e6625b3fc97b4ae7cf074f346ed7fad42de5b49a",
+			"bytes": 905669,
+			"width": 800,
+			"height": 377,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-png-100294338-w1600",
+			"derivedFrom": "commons-png-100294338",
+			"variant": "deflate-predictor-default-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-alpha",
+					"set",
+					"-compress",
+					"Zip",
+					"-define",
+					"tiff:predictor=2",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "478ed44c184a95e4954061e16289137eed19b49f475f37816930fe1d6798fee3",
+			"bytes": 235837,
+			"width": 1600,
+			"height": 753,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-541384-w256",
+			"derivedFrom": "commons-jpeg-541384",
+			"variant": "lzw-whole-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-alpha",
+					"set",
+					"-compress",
+					"LZW",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "f3066201c68785b4673cf6c64bb205ab986d07b30d25ef9e705883dc1e39da5b",
+			"bytes": 126272,
+			"width": 256,
+			"height": 192,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-541384-w800",
+			"derivedFrom": "commons-jpeg-541384",
+			"variant": "packbits-default-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"RLE",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "a12419fb977afc7865f79f39e0d0ec04badd2d285f9dd203561d86cf854af06a",
+			"bytes": 466108,
+			"width": 800,
+			"height": 600,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-541384-w1600",
+			"derivedFrom": "commons-jpeg-541384",
+			"variant": "none-one-row-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-compress",
+					"None",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "1d7fa9be84cf3a113d5844acf7addfd85abceb4c0af76cd0ea7c56772a6b1a7a",
+			"bytes": 5767556,
+			"width": 1600,
+			"height": 1200,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-184831343-w256",
+			"derivedFrom": "commons-jpeg-184831343",
+			"variant": "lzw-predictor-default-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-compress",
+					"LZW",
+					"-define",
+					"tiff:predictor=2",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "e02fe8177644c296c6ed4a911fb4106439b7ca6fae018ce3455bb7c2a84dc938",
+			"bytes": 122766,
+			"width": 256,
+			"height": 182,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-184831343-w800",
+			"derivedFrom": "commons-jpeg-184831343",
+			"variant": "lzw-one-row-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-alpha",
+					"set",
+					"-compress",
+					"LZW",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "19eff8c351141e2da67e1d78ff74c7a92cc7aa6e4e8b8cd0e8cc9b6df828ac00",
+			"bytes": 1082258,
+			"width": 800,
+			"height": 570,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-184831343-w1600",
+			"derivedFrom": "commons-jpeg-184831343",
+			"variant": "packbits-whole-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"RLE",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "0814228110ae8f27be24f74705dfe4c674bfbb8869a782c17c053b70a533ec3f",
+			"bytes": 1506388,
+			"width": 1600,
+			"height": 1139,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-26244423-w256",
+			"derivedFrom": "commons-jpeg-26244423",
+			"variant": "deflate-one-row-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"Zip",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "5a0bd5b52bb57d0ef435fd1c0d88a213179f75d509724e56f744bce0ebc55fbb",
+			"bytes": 57960,
+			"width": 256,
+			"height": 170,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-26244423-w800",
+			"derivedFrom": "commons-jpeg-26244423",
+			"variant": "lzw-predictor-whole-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-compress",
+					"LZW",
+					"-define",
+					"tiff:predictor=2",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "9a978c372c66bd59663bbc3ca43dfb71d04f47795ce3b0dc074d235af024c40e",
+			"bytes": 852148,
+			"width": 800,
+			"height": 531,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-26244423-w1600",
+			"derivedFrom": "commons-jpeg-26244423",
+			"variant": "lzw-default-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-alpha",
+					"set",
+					"-compress",
+					"LZW",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "cf2a26b61c076a90b8f080a3dd2938d0b43778e29b5c471605d2ccbd29b26543",
+			"bytes": 3362984,
+			"width": 1600,
+			"height": 1063,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-125920892-w256",
+			"derivedFrom": "commons-jpeg-125920892",
+			"variant": "deflate-predictor-whole-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-alpha",
+					"set",
+					"-compress",
+					"Zip",
+					"-define",
+					"tiff:predictor=2",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "9f1bd545b4512c305e74bc41e07cbccbecde110d0f70c132cf71cc97c740c290",
+			"bytes": 129728,
+			"width": 256,
+			"height": 256,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-125920892-w800",
+			"derivedFrom": "commons-jpeg-125920892",
+			"variant": "deflate-default-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"Zip",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "c35eedad4552988956e1d7b3ea9e5c0983fff35994dcb1892f448872fa5ec218",
+			"bytes": 361836,
+			"width": 800,
+			"height": 800,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-125920892-w1600",
+			"derivedFrom": "commons-jpeg-125920892",
+			"variant": "lzw-predictor-one-row-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-compress",
+					"LZW",
+					"-define",
+					"tiff:predictor=2",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "3365fb85c88961f6a72bdcd06f6a87b7e2b8ad01625f8decc823dce31b86d440",
+			"bytes": 3781046,
+			"width": 1600,
+			"height": 1600,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-155245236-w256",
+			"derivedFrom": "commons-jpeg-155245236",
+			"variant": "none-default-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-compress",
+					"None",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "4ca14b22f5a96ff6fe909c7d425a931f6a824e4131ffa8d0515f5661b821859e",
+			"bytes": 129677,
+			"width": 256,
+			"height": 166,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-155245236-w800",
+			"derivedFrom": "commons-jpeg-155245236",
+			"variant": "deflate-predictor-one-row-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-alpha",
+					"set",
+					"-compress",
+					"Zip",
+					"-define",
+					"tiff:predictor=2",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "972dc92df3972973cf10a2faa7c3716d6cb9aa410e2b0042e93097c2b34eba65",
+			"bytes": 910443,
+			"width": 800,
+			"height": 517,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-155245236-w1600",
+			"derivedFrom": "commons-jpeg-155245236",
+			"variant": "deflate-whole-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"Zip",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "ad39110b4ab9d559f0052a25ed512ab3bb88f1e14cc3e85a7ac2c1de5f7fa9dd",
+			"bytes": 862799,
+			"width": 1600,
+			"height": 1035,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-12366669-w256",
+			"derivedFrom": "commons-jpeg-12366669",
+			"variant": "packbits-one-row-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"RLE",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "a73d32cccc3427ea95676c2a7487cd11a1a84fa5b2f8fcd5b41eff1b8ccdd783",
+			"bytes": 23135,
+			"width": 256,
+			"height": 225,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-12366669-w800",
+			"derivedFrom": "commons-jpeg-12366669",
+			"variant": "none-whole-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-compress",
+					"None",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "5e24fcb17d770dd9fa862402af861089af7c5d2a110cb274c20fb0227fc2b5cb",
+			"bytes": 1686543,
+			"width": 800,
+			"height": 702,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-12366669-w1600",
+			"derivedFrom": "commons-jpeg-12366669",
+			"variant": "deflate-predictor-default-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-alpha",
+					"set",
+					"-compress",
+					"Zip",
+					"-define",
+					"tiff:predictor=2",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "4bb55fc8fed087a3f790682adc5526ca0a47aae6a43fde87f23a68d00e3bc488",
+			"bytes": 1318681,
+			"width": 1600,
+			"height": 1405,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": true
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-177334319-w256",
+			"derivedFrom": "commons-jpeg-177334319",
+			"variant": "lzw-whole-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-alpha",
+					"set",
+					"-compress",
+					"LZW",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "ab511ea3054c4549576e759bae46ca9b4300c316f307e3f6d75217a98532714c",
+			"bytes": 81169,
+			"width": 256,
+			"height": 173,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-177334319-w800",
+			"derivedFrom": "commons-jpeg-177334319",
+			"variant": "packbits-default-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"RLE",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "a4711cb76f63b4297d992f4c44683a2c2515f7135a8d7207a7db0c66dc68b583",
+			"bytes": 428133,
+			"width": 800,
+			"height": 541,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-177334319-w1600",
+			"derivedFrom": "commons-jpeg-177334319",
+			"variant": "none-one-row-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-compress",
+					"None",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "4246cbee83c292686994ebae7e89f1f021ae1a5e5ab861c1a05ba08feb1caa42",
+			"bytes": 5208759,
+			"width": 1600,
+			"height": 1082,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-136539405-w256",
+			"derivedFrom": "commons-jpeg-136539405",
+			"variant": "lzw-predictor-default-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-compress",
+					"LZW",
+					"-define",
+					"tiff:predictor=2",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "99ea51919e51bfaddab2ed544b16fc47629a9e74effd79b2d2fb17951b87b3e5",
+			"bytes": 117476,
+			"width": 256,
+			"height": 192,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-136539405-w800",
+			"derivedFrom": "commons-jpeg-136539405",
+			"variant": "lzw-one-row-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-alpha",
+					"set",
+					"-compress",
+					"LZW",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "6ecb2ad7dbbbbd447f837f43dbc000d559049d4e07fc74f540bff8247ca3a38a",
+			"bytes": 1198614,
+			"width": 800,
+			"height": 600,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-136539405-w1600",
+			"derivedFrom": "commons-jpeg-136539405",
+			"variant": "packbits-whole-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"RLE",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "c26c7d83031d0c5110113b7f8a8029953b295889a32992cfa558463e04375ddc",
+			"bytes": 1845200,
+			"width": 1600,
+			"height": 1200,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-37877284-w256",
+			"derivedFrom": "commons-jpeg-37877284",
+			"variant": "deflate-one-row-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"Zip",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "2f45dca562564bdf5d6ae72a90997dd1eade6ff01c63ea84e6b6a220401382fa",
+			"bytes": 28120,
+			"width": 256,
+			"height": 144,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-37877284-w800",
+			"derivedFrom": "commons-jpeg-37877284",
+			"variant": "lzw-predictor-whole-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-compress",
+					"LZW",
+					"-define",
+					"tiff:predictor=2",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "a7a618db2a404a36c4266cd3f6b613abec8d73163c9232afd299fc043b5e2314",
+			"bytes": 569950,
+			"width": 800,
+			"height": 450,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-37877284-w1600",
+			"derivedFrom": "commons-jpeg-37877284",
+			"variant": "lzw-default-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-alpha",
+					"set",
+					"-compress",
+					"LZW",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "a56435016d196d40e55bc366b123e914185e75d0d317784f548555a73a6e0c58",
+			"bytes": 2472150,
+			"width": 1600,
+			"height": 900,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-117701838-w256",
+			"derivedFrom": "commons-jpeg-117701838",
+			"variant": "deflate-predictor-whole-rgba-opaque",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"256x",
+					"-alpha",
+					"set",
+					"-compress",
+					"Zip",
+					"-define",
+					"tiff:predictor=2",
+					"-define",
+					"tiff:rows-per-strip=100000",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "87b7a09998cc26f3557d8eeb9bce26d9efcd7002cac6bfc2d80d93e2aac4718b",
+			"bytes": 89855,
+			"width": 256,
+			"height": 192,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-117701838-w800",
+			"derivedFrom": "commons-jpeg-117701838",
+			"variant": "deflate-default-gray",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"800x",
+					"-colorspace",
+					"Gray",
+					"-type",
+					"Grayscale",
+					"-compress",
+					"Zip",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "d1fec3c9be556e60d0850cf34acf73ab2f23970fa47b2d79307252f9f3642de9",
+			"bytes": 247161,
+			"width": 800,
+			"height": 600,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		},
+		{
+			"id": "derived-tiff-commons-jpeg-117701838-w1600",
+			"derivedFrom": "commons-jpeg-117701838",
+			"variant": "lzw-predictor-one-row-rgb",
+			"commands": [
+				[
+					"magick",
+					"{in}",
+					"-background",
+					"white",
+					"-alpha",
+					"remove",
+					"-alpha",
+					"off",
+					"-resize",
+					"1600x",
+					"-compress",
+					"LZW",
+					"-define",
+					"tiff:predictor=2",
+					"-define",
+					"tiff:rows-per-strip=1",
+					"TIFF:{out}"
+				]
+			],
+			"tools": {
+				"magick": "Version: ImageMagick 7.1.2-18 Q16-HDRI aarch64 23822 https://imagemagick.org",
+				"gifsicle": "LCDF Gifsicle 1.96"
+			},
+			"sha256": "ddace11e1da7951dd91eaac052c4fcb8da0fbb76ede550eb353f646cd9c4e614",
+			"bytes": 2908341,
+			"width": 1600,
+			"height": 1200,
+			"format": "tiff",
+			"split": "cal",
+			"fitSource": false
+		}
+	]
+}

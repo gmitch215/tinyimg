@@ -16,6 +16,7 @@ docs/Doxyfile.in
 docs/index.html
 tests/fixtures/
 bench/results/
+bench/baselines/
 
 # hand-aligned config prettier should not restyle
 .clang-format
