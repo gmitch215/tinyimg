@@ -50,6 +50,14 @@
       "sourceWidth": 3000,
       "sourceHeight": 2003
     },
+    "drupflare.png": {
+      "x": 170,
+      "y": 170,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 512,
+      "sourceHeight": 512
+    },
     "face_art.jpg": {
       "x": 453,
       "y": 640,
@@ -81,6 +89,30 @@
       "height": 128,
       "sourceWidth": 2000,
       "sourceHeight": 831
+    },
+    "lake_sunapee.jpeg": {
+      "x": 682,
+      "y": 512,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 2048,
+      "sourceHeight": 1536
+    },
+    "lil_bit.png": {
+      "x": 515,
+      "y": 666,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1545,
+      "sourceHeight": 1999
+    },
+    "long_walk.jpg": {
+      "x": 393,
+      "y": 639,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1179,
+      "sourceHeight": 1919
     },
     "man.jpg": {
       "x": 640,
@@ -136,6 +168,14 @@
       "width": 128,
       "height": 128,
       "sourceWidth": 1470,
+      "sourceHeight": 1920
+    },
+    "steam.png": {
+      "x": 360,
+      "y": 640,
+      "width": 128,
+      "height": 128,
+      "sourceWidth": 1080,
       "sourceHeight": 1920
     },
     "toyota_racing.webp": {
