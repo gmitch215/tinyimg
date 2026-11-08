@@ -596,9 +596,9 @@ static int rejectsMissingArguments(void) {
 int main(void) {
     int failures = 0;
 
-    tiny_init();
     heap = (unsigned char*) malloc(HEAP_BYTES);
     if (!heap) return 1;
+    tiny_heap_init(heap, HEAP_BYTES);
 
     failures += rejectsMissingArguments();
     failures += addsNothingForAnInMemorySource();
