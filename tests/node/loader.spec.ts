@@ -8,8 +8,8 @@ describe('TinyImgModule.load', () => {
 	it('loads the module this build produced', () => {
 		const tinyimg = TinyImgModule.load(compiled);
 		expect(tinyimg.abi).toBe(SUPPORTED_ABI);
-		expect(tinyimg.versionText).toBe('1.1.1');
-		expect(tinyimg.version).toEqual([1, 1, 1]);
+		expect(tinyimg.versionText).toBe('1.2.0');
+		expect(tinyimg.version).toEqual([1, 2, 0]);
 	});
 
 	it('exposes the module memory', () => {
