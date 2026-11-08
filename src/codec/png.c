@@ -2,6 +2,7 @@
 
 #include "tinyimg/codec/deflate.h"
 #include "tinyimg/memory.h"
+#include "tinyimg/work.h"
 
 #define PNG_SIGNATURE_SIZE 8u
 #define PNG_IHDR_SIZE 13u
@@ -513,6 +514,21 @@ static uint8_t* gather_idat(
     return joined;
 }
 
+/**
+ * Counts the compressed bytes read since the last call and checks the work
+ * limit. Runs on the first row and then once per 64 KiB of input, so a small
+ * image polls once and a large one polls often enough to stop part way.
+ */
+static int poll_stream(const TinyInflate* state, size_t* counted, int first) {
+    size_t at = state->bits.pos;
+    if (!first && at - *counted < 65536u) return TINYIMG_OK;
+
+    tiny_work_add(TINYIMG_WORK_ENTROPY_BYTES, (uint32_t) (at - *counted));
+    *counted = at;
+
+    return tiny_work_over_limit() ? TINYIMG_ERR_BUDGET : TINYIMG_OK;
+}
+
 /** Pulls exactly `size` bytes, since a row is only usable whole. */
 static int read_exact(TinyInflate* state, uint8_t* out, size_t size) {
     size_t have = 0;
@@ -587,7 +603,7 @@ static void clear_accumulator(PngAccumulator* box) {
  * which is also what the sampling loop wants, so nothing is expanded twice.
  */
 static int decode_interlaced(
-    const PngHeader* header, TinyInflate* state, uint8_t* plane
+    const PngHeader* header, TinyInflate* state, uint8_t* plane, size_t* counted
 ) {
     TinyArenaMark mark;
     tiny_arena_mark(&mark);
@@ -621,6 +637,9 @@ static int decode_interlaced(
 
         for (uint32_t row = 0; row < pass_height; row++) {
             uint8_t filter = 0;
+
+            result = poll_stream(state, counted, pass == 0 && row == 0);
+            if (result != TINYIMG_OK) break;
 
             result = read_exact(state, &filter, 1);
             if (result != TINYIMG_OK) break;
@@ -668,6 +687,7 @@ static int png_decode(
     uint32_t out_width;
     uint32_t out_height;
 
+    tiny_work_begin_decode(TINYIMG_FORMAT_PNG, 0);
     result = tiny_decode_resolve(
         opts, header.width, header.height, &resolved, &out_width, &out_height
     );
@@ -708,6 +728,7 @@ static int png_decode(
     }
 
     uint32_t den = resolved.scale_den;
+    size_t counted = 0;
 
     if (result == TINYIMG_OK && header.interlace) {
         uint8_t* plane =
@@ -717,7 +738,7 @@ static int png_decode(
             result = TINYIMG_ERR_MEMORY;
         }
         else {
-            result = decode_interlaced(&header, &state, plane);
+            result = decode_interlaced(&header, &state, plane, &counted);
             whole = 1;
 
             for (uint32_t oy = 0; oy < out_height && result == TINYIMG_OK;
@@ -786,6 +807,9 @@ static int png_decode(
             for (uint32_t y = 0; y < last && result == TINYIMG_OK; y++) {
                 uint8_t filter = 0;
 
+                result = poll_stream(&state, &counted, y == 0);
+                if (result != TINYIMG_OK) break;
+
                 result = read_exact(&state, &filter, 1);
                 if (result != TINYIMG_OK) break;
 
@@ -844,6 +868,12 @@ static int png_decode(
      * always had, which is that the compressed data has to be a well formed
      * stream as far as they read.
      */
+    if (result == TINYIMG_OK) {
+        tiny_work_add(
+            TINYIMG_WORK_ENTROPY_BYTES, (uint32_t) (state.bits.pos - counted)
+        );
+    }
+
     if (result == TINYIMG_OK && whole) result = tiny_inflate_finish(&state);
 
     tiny_arena_release(&mark);
@@ -1066,6 +1096,9 @@ static int png_encode(
     if (!image || !image->data || !writer) return TINYIMG_ERR_NULL;
     if (image->width == 0 || image->height == 0) return TINYIMG_ERR_RANGE;
     if (image->channels == 0 || image->channels > 4) return TINYIMG_ERR_RANGE;
+
+    tiny_work_begin_encode(TINYIMG_FORMAT_PNG, opts, image->channels);
+    if (tiny_work_over_limit()) return TINYIMG_ERR_BUDGET;
 
     static const uint8_t color_for[5] = {
         0, PNG_GRAY, PNG_GRAY_ALPHA, PNG_RGB, PNG_RGBA

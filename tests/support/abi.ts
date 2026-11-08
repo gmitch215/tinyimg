@@ -22,6 +22,8 @@ export interface TinyExports {
 	tiny_arena_reset(): void;
 	tiny_work_reset(): void;
 	tiny_work_read(counter: number): number;
+	tiny_work_set_limit(micros: number): void;
+	tiny_work_clock_us(): number;
 	tiny_image_sizeof(): number;
 	tiny_image_info_sizeof(): number;
 	tiny_writer_sizeof(): number;
@@ -104,6 +106,20 @@ export interface TinyExports {
 	): number;
 	tiny_plan_count(plan: number): number;
 	tiny_plan_resolve(plan: number, resolution: number): number;
+	tiny_plan_set_budget(plan: number, microseconds: number): number;
+	tiny_plan_set_budget_basis(plan: number, basis: number): number;
+	tiny_plan_cost_upper(plan: number): number;
+	tiny_plan_admit(plan: number, opts: number, admission: number): number;
+	tiny_admit_opts_sizeof(): number;
+	tiny_admission_sizeof(): number;
+	tiny_admission_field(admission: number, field: number): number;
+	tiny_encode_cost_upper_at(
+		format: number,
+		width: number,
+		height: number,
+		compression: number
+	): number;
+	tiny_encode_cost_upper_for(format: number, width: number, height: number, opts: number): number;
 	tiny_plan_run(plan: number, out: number): number;
 	tiny_plan_encode(plan: number, format: number, opts: number, writer: number): number;
 
@@ -327,7 +343,11 @@ export const Counter = {
 	resampled: 7,
 	encoded: 8,
 	passes: 9,
-	scansSkipped: 10
+	scansSkipped: 10,
+	entropyBytes: 11,
+	encodeProbes: 12,
+	alphaDropped: 13,
+	decodeMicros: 14
 } as const;
 
 /**

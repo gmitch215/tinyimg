@@ -382,6 +382,53 @@ describe('the webp codec inside the wasm module', () => {
 		expect(psnr).toBeGreaterThan(32);
 	});
 
+	it('keeps the alpha of a lossy encode exact, in an ALPH chunk', () => {
+		const source = fixture('derived/base-alpha.png');
+		const original = abi.decode(source).image!;
+
+		for (const quality of [40, 100]) {
+			const { result, bytes: encoded } = abi.transcode(source, Format.webp, undefined, {
+				quality
+			});
+
+			expect(result).toBe(Err.ok);
+
+			const found = chunks(encoded!);
+
+			expect(found.map((chunk) => chunk.tag)).toEqual(['VP8X', 'ALPH', 'VP8 ']);
+
+			// the alpha flag, then the canvas as width and height minus one in 24 bits each
+			const [x, a, v] = found as [(typeof found)[0], (typeof found)[0], (typeof found)[0]];
+
+			expect(x.length).toBe(10);
+			expect(encoded![x.at]! & 0xff).toBe(0x10);
+			expect(Array.from(encoded!.subarray(x.at + 4, x.at + 10))).toEqual([
+				319 & 255,
+				319 >> 8,
+				0,
+				179,
+				0,
+				0
+			]);
+
+			// compressed as a lossless stream, unfiltered, with no preprocessing
+			expect(encoded![a.at]).toBe(1);
+			expect(a.at + a.length + (a.length & 1)).toBe(v.at - 8);
+			expect(v.at + v.length + (v.length & 1)).toBe(encoded!.byteLength);
+
+			const back = abi.decode(encoded!).image!;
+
+			expect(back.channels).toBe(4);
+
+			let wrong = 0;
+			for (let i = 3; i < back.pixels.length; i += 4) {
+				if (back.pixels[i] !== original.pixels[i]) wrong++;
+			}
+
+			expect(wrong).toBe(0);
+		}
+	});
+
 	it('refuses a frame it cannot use, distinctly from one it cannot read', () => {
 		const good = fixture('derived/base-lossy.webp');
 

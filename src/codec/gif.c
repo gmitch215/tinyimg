@@ -2,6 +2,7 @@
 
 #include "tinyimg/codec/lzw.h"
 #include "tinyimg/memory.h"
+#include "tinyimg/work.h"
 
 #define GIF_HEADER_SIZE 6u
 #define GIF_SCREEN_SIZE 7u
@@ -306,6 +307,7 @@ static int gif_decode(
     uint32_t out_width;
     uint32_t out_height;
 
+    tiny_work_begin_decode(TINYIMG_FORMAT_GIF, 0);
     result = tiny_decode_resolve(
         options, header.width, header.height, &resolved, &out_width, &out_height
     );
@@ -354,9 +356,12 @@ static int gif_decode(
     // significant bit first, which is where it differs from TIFF
     tiny_lzw_init(&reader, buffer, size, header.data_at, 1, 0);
 
-    result = tiny_lzw_expand(
-        &reader, table, header.code_bits, 0, frame, frame_pixels
-    );
+    // the frame expands in one call, so this is the poll before the work
+    result = tiny_work_over_limit()
+                 ? TINYIMG_ERR_BUDGET
+                 : tiny_lzw_expand(
+                       &reader, table, header.code_bits, 0, frame, frame_pixels
+                   );
 
     if (result == TINYIMG_OK) {
         place_frame(&header, frame, screen);
@@ -364,6 +369,11 @@ static int gif_decode(
         uint32_t den = resolved.scale_den;
 
         for (uint32_t oy = 0; oy < out_height; oy++) {
+            if (tiny_work_over_limit()) {
+                result = TINYIMG_ERR_BUDGET;
+                break;
+            }
+
             uint8_t* dest = image->data + (size_t) oy * out_width * channels;
 
             for (uint32_t ox = 0; ox < out_width; ox++) {
@@ -1069,7 +1079,7 @@ static int choose_palette(
  * noise to a flat illustration that round tripped exactly would be a strange
  * thing to do.
  */
-static void map_indices(
+static int map_indices(
     const TinyImage* image, const GifPalette* palette, const GifExact* map,
     GifInverse* inverse, int16_t* errors, uint8_t* indices
 ) {
@@ -1079,6 +1089,8 @@ static void map_indices(
     if (errors) tiny_memset(errors, 0, row_size * 2 * sizeof(int16_t));
 
     for (uint32_t y = 0; y < image->height; y++) {
+        if (tiny_work_over_limit()) return TINYIMG_ERR_BUDGET;
+
         int16_t* current = errors ? errors + (y & 1u) * row_size : 0;
         int16_t* below = errors ? errors + ((y + 1) & 1u) * row_size : 0;
 
@@ -1143,6 +1155,8 @@ static void map_indices(
             }
         }
     }
+
+    return TINYIMG_OK;
 }
 
 static int gif_encode(
@@ -1156,10 +1170,14 @@ static int gif_encode(
         return TINYIMG_ERR_TOO_LARGE;
     }
 
+    tiny_work_begin_encode(TINYIMG_FORMAT_GIF, options, image->channels);
+
     TinyArenaMark mark;
     tiny_arena_mark(&mark);
 
     size_t pixels = (size_t) image->width * image->height;
+
+    tiny_work_count_alpha(image, 1);
 
     GifPalette* palette = tiny_arena_alloc(sizeof(GifPalette), 0);
     GifExact* map = tiny_arena_alloc(sizeof(GifExact), 0);
@@ -1197,7 +1215,12 @@ static int gif_encode(
         tiny_memset(inverse->index, 0xFF, sizeof(inverse->index));
     }
 
-    map_indices(image, palette, map, inverse, errors, indices);
+    result = map_indices(image, palette, map, inverse, errors, indices);
+
+    if (result != TINYIMG_OK) {
+        tiny_arena_release(&mark);
+        return result;
+    }
 
     // the table has to be a power of two entries, so the palette is rounded up
     // and the spare entries left black

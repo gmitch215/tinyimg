@@ -754,9 +754,22 @@ typedef struct {
     uint32_t count;
     uint32_t seen;
 
+    /** Bytes of the stream already added to the work counter. */
+    size_t counted;
+
     /** The distance code to pixel offset table, built once per decode. */
     uint8_t planes[VP8L_PLANE_CODES];
 } WebpLossless;
+
+/** Counts the stream bytes read since the last call and checks the limit. */
+static int poll_lossless(WebpLossless* state) {
+    size_t at = state->bits.pos;
+
+    tiny_work_add(TINYIMG_WORK_ENTROPY_BYTES, (uint32_t) (at - state->counted));
+    state->counted = at;
+
+    return tiny_work_over_limit() ? TINYIMG_ERR_BUDGET : TINYIMG_OK;
+}
 
 /**
  * Builds the table that turns a short distance code into a nearby pixel.
@@ -998,6 +1011,9 @@ static int decode_pixels(
 
     const WebpGroup* group = group_at(entropy, 0, 0);
 
+    int polled = poll_lossless(state);
+    if (polled != TINYIMG_OK) return polled;
+
     while (at < count) {
         if (entropy->image && (x & ((1u << entropy->bits) - 1u)) == 0) {
             group = group_at(entropy, x, y);
@@ -1046,9 +1062,16 @@ static int decode_pixels(
             at += length;
             x += length;
 
+            uint32_t row = y;
+
             while (x >= width) {
                 x -= width;
                 y++;
+            }
+
+            if (y != row) {
+                polled = poll_lossless(state);
+                if (polled != TINYIMG_OK) return polled;
             }
 
             if (at < count && entropy->image) {
@@ -1074,6 +1097,9 @@ static int decode_pixels(
         if (++x >= width) {
             x = 0;
             y++;
+
+            polled = poll_lossless(state);
+            if (polled != TINYIMG_OK) return polled;
         }
     }
 
@@ -1305,6 +1331,10 @@ static int decode_lossless(
     int result =
         decode_image_stream(&state, *width, *height, 1, &pixels, &coded);
     if (result != TINYIMG_OK) return result;
+
+    tiny_work_add(
+        TINYIMG_WORK_ENTROPY_BYTES, (uint32_t) (state.bits.pos - state.counted)
+    );
 
     pixels = apply_transforms(&state, pixels, &coded, *height);
     if (!pixels) return TINYIMG_ERR_MEMORY;
@@ -3212,6 +3242,8 @@ static int decode_lossy(
 
     if (mb_rows > vp8->mb_h) mb_rows = vp8->mb_h;
 
+    size_t counted = 0;
+
     for (uint32_t mb_y = 0; mb_y < mb_rows; mb_y++) {
         Vp8Bool* tokens = &vp8->tokens[mb_y & (vp8->partitions - 1u)];
 
@@ -3291,10 +3323,23 @@ static int decode_lossy(
             tiny_work_add(TINYIMG_WORK_MACROBLOCKS, 1);
         }
 
+        size_t reached = vp8->part0.pos;
+
+        for (uint32_t i = 0; i < vp8->partitions; i++) {
+            reached += vp8->tokens[i].pos;
+        }
+
+        tiny_work_add(
+            TINYIMG_WORK_ENTROPY_BYTES, (uint32_t) (reached - counted)
+        );
+        counted = reached;
+
         // the coefficient partition is the one worth checking. The first
         // partition ends where the last macroblock's modes end, so its tail is
         // always inside the lookahead, and a check there rejects valid frames
         if (tokens->eof) return TINYIMG_ERR_CORRUPT;
+
+        if (tiny_work_over_limit()) return TINYIMG_ERR_BUDGET;
     }
 
     /*
@@ -4053,6 +4098,8 @@ static int encode_image_stream(
      * looks properly. The third writes what the second decided.
      */
     for (uint32_t pass = 0; pass < 2; pass++) {
+        if (tiny_work_over_limit()) return TINYIMG_ERR_BUDGET;
+
         for (uint32_t i = 0; i < VP8L_CODES_PER_GROUP; i++) {
             tiny_memset(all[i]->freq, 0, all[i]->count * sizeof(uint32_t));
         }
@@ -4096,6 +4143,8 @@ static int encode_image_stream(
     for (uint32_t i = 0; i < VP8L_CODES_PER_GROUP; i++) {
         write_huffman_code(out, all[i]->lengths, all[i]->count);
     }
+
+    if (tiny_work_over_limit()) return TINYIMG_ERR_BUDGET;
 
     enc->out = out;
     walk_pixels(enc, pixels);
@@ -4259,7 +4308,15 @@ static uint32_t collect_palette(
     return found;
 }
 
-static int encode_lossless(const TinyImage* image, TinyWriter* writer) {
+/**
+ * Codes an image as the payload of a `VP8L` chunk, five byte header included.
+ *
+ * Shared by the lossless file and the alpha plane of a lossy one, so there is
+ * one derivation of the stream either way.
+ *
+ * @param out Receives a writer the caller frees; untouched on failure.
+ */
+static int lossless_stream(const TinyImage* image, TinyWriter* out) {
     TinyArenaMark mark;
     tiny_arena_mark(&mark);
 
@@ -4458,6 +4515,18 @@ static int encode_lossless(const TinyImage* image, TinyWriter* writer) {
         return result;
     }
 
+    tiny_arena_release(&mark);
+
+    *out = payload;
+    return TINYIMG_OK;
+}
+
+static int encode_lossless(const TinyImage* image, TinyWriter* writer) {
+    TinyWriter payload;
+
+    int result = lossless_stream(image, &payload);
+    if (result != TINYIMG_OK) return result;
+
     size_t chunk = payload.size;
 
     tiny_writer_write(writer, "RIFF", 4);
@@ -4471,7 +4540,6 @@ static int encode_lossless(const TinyImage* image, TinyWriter* writer) {
     if (chunk & 1u) tiny_writer_u8(writer, 0);
 
     tiny_writer_free(&payload);
-    tiny_arena_release(&mark);
 
     return writer->error;
 }
@@ -5409,6 +5477,11 @@ static int encode_lossy(
     uint8_t source_v[VP8_BPS * 9];
 
     for (uint32_t mb_y = 0; mb_y < rec->mb_h; mb_y++) {
+        if (tiny_work_over_limit()) {
+            tiny_arena_release(&mark);
+            return TINYIMG_ERR_BUDGET;
+        }
+
         tiny_memset(rec->left_nz, 0, sizeof(rec->left_nz));
         tiny_memset(rec->left_modes, 0, sizeof(rec->left_modes));
 
@@ -5873,6 +5946,7 @@ static int webp_decode(
     uint32_t out_width;
     uint32_t out_height;
 
+    tiny_work_begin_decode(TINYIMG_FORMAT_WEBP, header.lossless);
     result = tiny_decode_resolve(
         options, header.width, header.height, &resolved, &out_width, &out_height
     );
@@ -6033,6 +6107,145 @@ static int webp_decode(
 
 #pragma endregion
 
+#pragma region alpha encode
+
+/** Whether any alpha sample is below 255, so a frame has to carry the plane. */
+static int has_translucency(const TinyImage* image) {
+    if (image->channels != 2 && image->channels != 4) return 0;
+
+    size_t count = (size_t) image->width * image->height;
+    const uint8_t* alpha = image->data + image->channels - 1;
+
+    for (size_t i = 0; i < count; i++) {
+        if (alpha[i * image->channels] != 255) return 1;
+    }
+
+    return 0;
+}
+
+/**
+ * Codes the alpha plane as the payload of an `ALPH` chunk.
+ *
+ * The plane is the green channel of a lossless image stream whose five byte
+ * header is left out, with no filter and no preprocessing, so alpha is exact at
+ * any quality. A plane the stream cannot make smaller than itself is stored
+ * raw instead.
+ *
+ * @param out Receives a writer the caller frees; untouched on failure.
+ */
+static int alpha_chunk(const TinyImage* image, TinyWriter* out) {
+    TinyArenaMark mark;
+    tiny_arena_mark(&mark);
+
+    size_t count = (size_t) image->width * image->height;
+    uint8_t* plane = tiny_arena_alloc(count, 0);
+
+    if (!plane) {
+        tiny_arena_release(&mark);
+        return TINYIMG_ERR_MEMORY;
+    }
+
+    for (size_t i = 0; i < count; i++) {
+        plane[i] = image->data[(i + 1) * image->channels - 1];
+    }
+
+    TinyImage gray;
+    tiny_memset(&gray, 0, sizeof(gray));
+    gray.width = image->width;
+    gray.height = image->height;
+    gray.channels = 1;
+    gray.data = plane;
+
+    TinyWriter stream;
+    int result = lossless_stream(&gray, &stream);
+
+    if (result != TINYIMG_OK) {
+        tiny_arena_release(&mark);
+        return result;
+    }
+
+    const uint8_t* body = stream.data + 5;
+    size_t length = stream.size - 5;
+    int raw = length >= count;
+
+    result = tiny_writer_init(out, 1u + (raw ? count : length));
+
+    if (result == TINYIMG_OK) {
+        tiny_writer_u8(out, raw ? 0u : 1u);
+        tiny_writer_write(out, raw ? plane : body, raw ? count : length);
+
+        result = out->error;
+        if (result != TINYIMG_OK) tiny_writer_free(out);
+    }
+
+    tiny_writer_free(&stream);
+    tiny_arena_release(&mark);
+
+    return result;
+}
+
+/**
+ * Writes a lossy frame with its alpha plane: `VP8X`, then `ALPH`, then the
+ * `VP8 ` chunk exactly as the plain encoder wrote it.
+ */
+static int encode_lossy_alpha(
+    const TinyImage* image, const TinyEncodeOpts* options, TinyWriter* writer
+) {
+    TinyWriter plain;
+
+    int result = tiny_writer_init(&plain, 0);
+    if (result != TINYIMG_OK) return result;
+
+    result = encode_lossy(image, options, &plain);
+
+    TinyWriter alph;
+
+    if (result == TINYIMG_OK) result = alpha_chunk(image, &alph);
+
+    if (result == TINYIMG_OK) {
+        // past the twelve byte RIFF header, which is the frame chunk with its
+        // own header and padding
+        size_t frame = plain.size - 12u;
+        size_t alpha = alph.size;
+
+        tiny_writer_write(writer, "RIFF", 4);
+        tiny_writer_le32(
+            writer, (uint32_t) (4u + 18u + 8u + alpha + (alpha & 1u) + frame)
+        );
+        tiny_writer_write(writer, "WEBP", 4);
+
+        tiny_writer_write(writer, "VP8X", 4);
+        tiny_writer_le32(writer, 10);
+        tiny_writer_u8(writer, 0x10);
+        tiny_writer_fill(writer, 0, 3);
+
+        for (uint32_t i = 0; i < 3; i++) {
+            tiny_writer_u8(writer, (uint8_t) ((image->width - 1u) >> (8u * i)));
+        }
+
+        for (uint32_t i = 0; i < 3; i++) {
+            tiny_writer_u8(
+                writer, (uint8_t) ((image->height - 1u) >> (8u * i))
+            );
+        }
+
+        tiny_writer_write(writer, "ALPH", 4);
+        tiny_writer_le32(writer, (uint32_t) alpha);
+        tiny_writer_write(writer, alph.data, alpha);
+        if (alpha & 1u) tiny_writer_u8(writer, 0);
+
+        tiny_writer_write(writer, plain.data + 12, frame);
+
+        tiny_writer_free(&alph);
+        result = writer->error;
+    }
+
+    tiny_writer_free(&plain);
+    return result;
+}
+
+#pragma endregion
+
 static int webp_encode(
     const TinyImage* image, const TinyEncodeOpts* options, TinyWriter* writer
 ) {
@@ -6045,7 +6258,13 @@ static int webp_encode(
         return TINYIMG_ERR_TOO_LARGE;
     }
 
+    tiny_work_begin_encode(TINYIMG_FORMAT_WEBP, options, image->channels);
+
     if (options && options->lossless) return encode_lossless(image, writer);
+
+    if (has_translucency(image)) {
+        return encode_lossy_alpha(image, options, writer);
+    }
 
     return encode_lossy(image, options, writer);
 }

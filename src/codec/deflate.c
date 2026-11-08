@@ -1,6 +1,7 @@
 #include "tinyimg/codec/deflate.h"
 
 #include "tinyimg/memory.h"
+#include "tinyimg/work.h"
 
 #pragma region tables
 
@@ -546,6 +547,10 @@ int tiny_inflate_all(
                 result = tiny_writer_write(out, chunk, (size_t) read);
                 if (result != TINYIMG_OK) break;
             }
+
+            tiny_work_add(
+                TINYIMG_WORK_ENTROPY_BYTES, (uint32_t) state.bits.pos
+            );
         }
     }
 
@@ -590,6 +595,7 @@ typedef struct {
 
     uint32_t chain_limit;
     int lazy;
+    uint32_t walked;
 } TinyDeflateState;
 
 static void codes_from_lengths(
@@ -1006,8 +1012,10 @@ static uint32_t find_match(
     uint32_t best = DEFLATE_MIN_MATCH - 1u;
     uint32_t best_distance = 0;
     uint32_t probes = d->chain_limit;
+    uint32_t walked = 0;
 
     while (candidate >= 0 && probes-- > 0) {
+        walked++;
         size_t at = (size_t) candidate;
         size_t distance = pos - at;
 
@@ -1036,6 +1044,8 @@ static uint32_t find_match(
 
         candidate = d->chain[at & (TINY_DEFLATE_WINDOW - 1)];
     }
+
+    d->walked += walked;
 
     if (best < DEFLATE_MIN_MATCH) return 0;
 
@@ -1131,6 +1141,12 @@ int tiny_deflate(
     tiny_bitwriter_init(&d.bits, out);
 
     while (d.pos < size) {
+        // once per block, and once up front for an input smaller than one
+        if (d.count == 0 && tiny_work_over_limit()) {
+            tiny_arena_release(&mark);
+            return TINYIMG_ERR_BUDGET;
+        }
+
         uint32_t distance = 0;
         uint32_t length =
             d.chain_limit > 0 ? find_match(&d, d.pos, &distance) : 0;
@@ -1172,6 +1188,7 @@ int tiny_deflate(
     // always one final block, even for empty input
     flush_block(&d, size, 1);
     tiny_bitwriter_flush_lsb(&d.bits);
+    tiny_work_add(TINYIMG_WORK_ENCODE_PROBES, d.walked);
 
     if (zlib) {
         uint32_t adler = tiny_adler32(1, data, size);

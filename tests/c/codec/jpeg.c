@@ -75,6 +75,38 @@ int main(void) {
 
     // #endregion
 
+    // #region successive approximation shifts negative coefficients
+
+    /*
+     * Both files carry AC first scans at a non-zero point transform with
+     * negative values, which the sanitizer lane flags as a left shift of a
+     * negative number when the decoder shifts instead of multiplying.
+     */
+    static const char* approximated[] = {
+        "derived/base-progressive.jpg", "road.jpg"
+    };
+
+    for (size_t i = 0; i < 2; i++) {
+        TinyImage image;
+
+        r |=
+            assertEquals(decodeFixture(approximated[i], &image, 3), TINYIMG_OK);
+
+        int varies = 0;
+
+        for (size_t p = 3; p < (size_t) image.width * image.height * 3; p++) {
+            if (image.data[p] != image.data[0]) {
+                varies = 1;
+                break;
+            }
+        }
+
+        r |= assertTrue(varies);
+        tiny_image_destroy(&image);
+    }
+
+    // #endregion
+
     // #region skipping a progressive scan the transform cannot read
 
     /*

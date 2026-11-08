@@ -3,6 +3,7 @@
 #include "av1-tables.h"
 #include "tinyimg/memory.h"
 #include "tinyimg/util.h"
+#include "tinyimg/work.h"
 
 /**
  * @file
@@ -1104,6 +1105,14 @@ int tiny_av1_encode(
     tiny_av1_symbol_enc_init(&e->symbol, pending, tile_capacity);
 
     for (uint32_t row = 0; row < e->frame.mi_rows; row += 16u) {
+        if (tiny_work_over_limit()) {
+            tiny_free(tile);
+            tiny_free(pending);
+            encoder_release(e);
+
+            return TINYIMG_ERR_BUDGET;
+        }
+
         // the left level context is per superblock row, which is the one piece
         // of per-row state the encoder has to reset as the decoder does
         tiny_memset(e->residual->left_level, 0, (size_t) left_stride * 3u);

@@ -27,12 +27,12 @@ extern "C" {
 /**
  * @brief Minor version of the library.
  */
-#define TINYIMG_VERSION_MINOR 1
+#define TINYIMG_VERSION_MINOR 2
 
 /**
  * @brief Patch version of the library.
  */
-#define TINYIMG_VERSION_PATCH 1
+#define TINYIMG_VERSION_PATCH 0
 
 /**
  * @brief The version packed into a single integer as
@@ -201,6 +201,11 @@ typedef enum TinyImageError
      * combined with the others in it.
      */
     TINYIMG_ERR_PLAN = -14,
+    /**
+     * @brief The work clock passed the limit set with tiny_work_set_limit, so
+     * the operation stopped and released what it held.
+     */
+    TINYIMG_ERR_BUDGET = -15,
 } TinyImageError;
 
 /**

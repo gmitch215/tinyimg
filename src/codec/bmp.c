@@ -1,6 +1,7 @@
 #include "tinyimg/codec/bmp.h"
 
 #include "tinyimg/memory.h"
+#include "tinyimg/work.h"
 
 #define BMP_FILE_HEADER 14u
 #define BMP_INFO_HEADER 40u
@@ -350,6 +351,12 @@ static uint8_t* rle8_expand(
         }
     }
 
+    if (in > end) in = end;
+    tiny_work_add(
+        TINYIMG_WORK_ENTROPY_BYTES,
+        (uint32_t) (in - (buffer + header->data_offset))
+    );
+
     return plane;
 }
 
@@ -365,6 +372,7 @@ static int bmp_decode(
     uint32_t out_width;
     uint32_t out_height;
 
+    tiny_work_begin_decode(TINYIMG_FORMAT_BMP, 0);
     result = tiny_decode_resolve(
         opts, header.width, header.height, &resolved, &out_width, &out_height
     );
@@ -412,6 +420,13 @@ static int bmp_decode(
     uint32_t den = resolved.scale_den;
 
     for (uint32_t oy = 0; oy < out_height; oy++) {
+        if (tiny_work_over_limit()) {
+            tiny_arena_release(&mark);
+            tiny_free(plane);
+            tiny_image_destroy(image);
+            return TINYIMG_ERR_BUDGET;
+        }
+
         tiny_memset(sums, 0, (size_t) out_width * 4 * sizeof(uint32_t));
         tiny_memset(counts, 0, (size_t) out_width * sizeof(uint32_t));
 
@@ -485,6 +500,8 @@ static int bmp_encode(
     if (!image || !image->data) return TINYIMG_ERR_NULL;
     if (image->width == 0 || image->height == 0) return TINYIMG_ERR_RANGE;
 
+    tiny_work_begin_encode(TINYIMG_FORMAT_BMP, opts, image->channels);
+
     int has_alpha = image->channels == 2 || image->channels == 4;
     int grayscale = image->channels == 1;
 
@@ -541,6 +558,8 @@ static int bmp_encode(
     uint32_t padding = stride - used;
 
     for (uint32_t y = 0; y < image->height; y++) {
+        if (tiny_work_over_limit()) return TINYIMG_ERR_BUDGET;
+
         // rows go out bottom-up, which is what every reader expects
         const uint8_t* row = image->data + (size_t) (image->height - 1u - y) *
                                                image->width * image->channels;

@@ -3,6 +3,7 @@
 #include "av1-tables.h"
 #include "tinyimg/memory.h"
 #include "tinyimg/util.h"
+#include "tinyimg/work.h"
 
 /**
  * @file
@@ -1217,7 +1218,17 @@ int tiny_av1_decode(
     uint32_t tiles = frame.tile_cols * frame.tile_rows;
     int status = TINYIMG_OK;
 
+    tiny_work_charge_decode(
+        frame.width, frame.height, region_x, region_y, region_w, region_h,
+        (uint8_t) scale, opts ? opts->effort : 0u
+    );
+
     for (uint32_t index = 0; index < tiles && status == TINYIMG_OK; index++) {
+        if (tiny_work_over_limit()) {
+            status = TINYIMG_ERR_BUDGET;
+            break;
+        }
+
         uint32_t tile_row = index / frame.tile_cols;
         uint32_t tile_col = index % frame.tile_cols;
 
@@ -1269,6 +1280,13 @@ int tiny_av1_decode(
         walk.residual = residual;
 
         status = tiny_av1_walk_tile(&walk);
+
+        size_t used = (symbol.bit + 7u) / 8u;
+
+        tiny_work_add(
+            TINYIMG_WORK_ENTROPY_BYTES,
+            (uint32_t) (used < bytes_size ? used : bytes_size)
+        );
     }
 
     if (status != TINYIMG_OK) {
@@ -1388,6 +1406,9 @@ int tiny_av1_decode(
 
         return created;
     }
+
+    tiny_work_add(TINYIMG_WORK_SOURCE_SAMPLES, frame.width * frame.height);
+    tiny_work_add(TINYIMG_WORK_DECODED_SAMPLES, image->width * image->height);
 
     image->format = TINYIMG_FORMAT_AVIF;
 

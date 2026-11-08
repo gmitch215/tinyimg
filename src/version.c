@@ -68,6 +68,7 @@ const char* tiny_error_name(int error) {
         case TINYIMG_ERR_NO_CHANNEL: return "channel missing";
         case TINYIMG_ERR_NOT_FOUND: return "not found";
         case TINYIMG_ERR_PLAN: return "invalid plan";
+        case TINYIMG_ERR_BUDGET: return "work budget exceeded";
         default: return "unknown";
     }
 }

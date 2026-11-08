@@ -1,6 +1,7 @@
 #include "tinyimg/codec/lzw.h"
 
 #include "tinyimg/tinyimg.h"
+#include "tinyimg/work.h"
 
 void tiny_lzw_init(
     TinyLzwReader* reader, const uint8_t* data, size_t size, size_t at,
@@ -70,7 +71,7 @@ static uint32_t lzw_bits(TinyLzwReader* reader, uint32_t want) {
     return value;
 }
 
-int tiny_lzw_expand(
+static int lzw_run(
     TinyLzwReader* reader, TinyLzwTable* table, uint32_t code_bits, int early,
     uint8_t* out, size_t capacity
 ) {
@@ -153,4 +154,16 @@ int tiny_lzw_expand(
     }
 
     return TINYIMG_OK;
+}
+
+int tiny_lzw_expand(
+    TinyLzwReader* reader, TinyLzwTable* table, uint32_t code_bits, int early,
+    uint8_t* out, size_t capacity
+) {
+    size_t start = reader->pos;
+    int result = lzw_run(reader, table, code_bits, early, out, capacity);
+
+    tiny_work_add(TINYIMG_WORK_ENTROPY_BYTES, (uint32_t) (reader->pos - start));
+
+    return result;
 }

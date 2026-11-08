@@ -151,6 +151,97 @@ static int cropImage(
     return TINYIMG_OK;
 }
 
+enum
+{
+    kAlphaOpaque,
+    kAlphaRamp,
+    kAlphaMask,
+    kAlphaNoise
+};
+
+/** A color gradient with one of four alpha planes. */
+static int makeAlphaImage(
+    TinyImage* image, uint32_t width, uint32_t height, uint8_t channels,
+    int kind
+) {
+    int result = tiny_image_create(image, width, height, channels);
+    if (result != TINYIMG_OK) return result;
+
+    uint32_t state = 12345u;
+
+    for (uint32_t y = 0; y < height; y++) {
+        for (uint32_t x = 0; x < width; x++) {
+            uint8_t* pixel =
+                image->data + ((size_t) y * width + x) * image->channels;
+            uint8_t alpha = 255;
+
+            if (kind == kAlphaRamp) {
+                alpha = (uint8_t) (x * 255u / (width - 1u));
+            }
+            else if (kind == kAlphaMask) {
+                int dx = (int) x - (int) width / 2;
+                int dy = (int) y - (int) height / 2;
+                alpha = dx * dx + dy * dy < 400 ? 255 : 0;
+            }
+            else if (kind == kAlphaNoise) {
+                state = state * 1664525u + 1013904223u;
+                alpha = (uint8_t) (state >> 24);
+            }
+
+            if (channels == 4) {
+                pixel[0] = (uint8_t) (x * 4u + y);
+                pixel[1] = (uint8_t) (y * 5u);
+                pixel[2] = (uint8_t) ((x * y) >> 2);
+                pixel[3] = alpha;
+            }
+            else if (channels == 3) {
+                pixel[0] = (uint8_t) (x * 4u + y);
+                pixel[1] = (uint8_t) (y * 5u);
+                pixel[2] = (uint8_t) ((x * y) >> 2);
+            }
+            else {
+                pixel[0] = (uint8_t) (x * 4u + y);
+                if (channels == 2) pixel[1] = alpha;
+            }
+        }
+    }
+
+    return TINYIMG_OK;
+}
+
+/** Finds a chunk by tag and returns its payload offset, or 0. */
+static size_t findChunk(
+    const uint8_t* file, size_t size, const char* tag, size_t* length
+) {
+    size_t at = 12;
+
+    while (at + 8 <= size) {
+        size_t n = (size_t) file[at + 4] | ((size_t) file[at + 5] << 8) |
+                   ((size_t) file[at + 6] << 16) |
+                   ((size_t) file[at + 7] << 24);
+
+        if (memcmp(file + at, tag, 4) == 0) {
+            if (length) *length = n;
+            return at + 8;
+        }
+
+        at += 8 + n + (n & 1u);
+    }
+
+    return 0;
+}
+
+static unsigned int le32(const uint8_t* p) {
+    return (unsigned int) p[0] | ((unsigned int) p[1] << 8) |
+           ((unsigned int) p[2] << 16) | ((unsigned int) p[3] << 24);
+}
+
+/**
+ * Digest of the lossy encode of an opaque RGBA image, taken from the encoder
+ * before the alpha chunk existed. An opaque image must keep these bytes.
+ */
+#define OPAQUE_RGBA_CRC 3680007286L
+
 int main(void) {
     int r = 0;
 
@@ -1320,6 +1411,152 @@ int main(void) {
         }
         else {
             r |= assertTrue(0);
+        }
+    }
+
+    // #endregion
+
+    // #region lossy encode with alpha
+
+    /*
+     * An image whose alpha is all 255 gets the plain frame it always got, so
+     * an opaque RGBA source pays nothing and the bytes match both the digest
+     * taken before the alpha chunk existed and the same pixels as RGB.
+     */
+    {
+        TinyEncodeOpts opts = {75, 0, 0, 0, 0};
+        TinyImage rgba;
+        TinyImage rgb;
+        TinyWriter a;
+        TinyWriter b;
+
+        r |= assertEquals(
+            makeAlphaImage(&rgba, 64, 48, 4, kAlphaOpaque), TINYIMG_OK
+        );
+        r |= assertEquals(
+            makeAlphaImage(&rgb, 64, 48, 3, kAlphaOpaque), TINYIMG_OK
+        );
+        r |= assertEquals(tiny_writer_init(&a, 0), TINYIMG_OK);
+        r |= assertEquals(tiny_writer_init(&b, 0), TINYIMG_OK);
+        r |= assertEquals(
+            tiny_image_encode(&rgba, TINYIMG_FORMAT_WEBP, &opts, &a), TINYIMG_OK
+        );
+        r |= assertEquals(
+            tiny_image_encode(&rgb, TINYIMG_FORMAT_WEBP, &opts, &b), TINYIMG_OK
+        );
+
+        r |= assertEquals((long) a.size, (long) b.size);
+        r |=
+            assertBytesMatch(a.data, b.data, a.size < b.size ? a.size : b.size);
+        r |=
+            assertEquals((long) tiny_crc32(0, a.data, a.size), OPAQUE_RGBA_CRC);
+        r |= assertEquals((long) memcmp(a.data + 12, "VP8 ", 4), 0L);
+        r |= assertEquals((long) findChunk(a.data, a.size, "ALPH", 0), 0L);
+
+        tiny_writer_free(&a);
+        tiny_writer_free(&b);
+        tiny_image_destroy(&rgba);
+        tiny_image_destroy(&rgb);
+    }
+
+    /*
+     * Partial alpha, a one bit mask, noise that the lossless stream cannot
+     * shrink, and gray with alpha: each gets VP8X, ALPH and VP8 in that order
+     * with the lengths adding up, and the alpha plane comes back exactly.
+     */
+    {
+        static const struct {
+            int kind;
+            uint8_t channels;
+        } cases[] = {
+            {kAlphaRamp, 4},
+            {kAlphaMask, 4},
+            {kAlphaNoise, 4},
+            {kAlphaRamp, 2},
+        };
+
+        for (size_t c = 0; c < sizeof(cases) / sizeof(cases[0]); c++) {
+            TinyEncodeOpts opts = {75, 0, 0, 0, 0};
+            TinyImage source;
+            TinyImage back;
+            TinyWriter out;
+
+            r |= assertEquals(
+                makeAlphaImage(
+                    &source, 64, 48, cases[c].channels, cases[c].kind
+                ),
+                TINYIMG_OK
+            );
+            r |= assertEquals(tiny_writer_init(&out, 0), TINYIMG_OK);
+            r |= assertEquals(
+                tiny_image_encode(&source, TINYIMG_FORMAT_WEBP, &opts, &out),
+                TINYIMG_OK
+            );
+
+            const uint8_t* file = out.data;
+            size_t vp8x_length = 0;
+            size_t alph_length = 0;
+            size_t vp8_length = 0;
+            size_t vp8x = findChunk(file, out.size, "VP8X", &vp8x_length);
+            size_t alph = findChunk(file, out.size, "ALPH", &alph_length);
+            size_t vp8 = findChunk(file, out.size, "VP8 ", &vp8_length);
+
+            r |= assertEquals((long) vp8x, 20L);
+            r |= assertEquals((long) vp8x_length, 10L);
+            r |= assertTrue(alph > vp8x && vp8 > alph);
+            r |= assertEquals((long) le32(file + 4) + 8L, (long) out.size);
+            r |= assertEquals(
+                (long) (alph + alph_length + (alph_length & 1u) + 8u),
+                (long) vp8
+            );
+            r |= assertEquals(
+                (long) (vp8 + vp8_length + (vp8_length & 1u)), (long) out.size
+            );
+
+            if (vp8x) {
+                r |= assertEquals((long) (file[vp8x] & 0x10u), 0x10L);
+                r |= assertEquals((long) (file[vp8x] & 0xEFu), 0L);
+                r |= assertEquals(
+                    (long) (file[vp8x + 4] | (file[vp8x + 5] << 8)), 63L
+                );
+                r |= assertEquals(
+                    (long) (file[vp8x + 7] | (file[vp8x + 8] << 8)), 47L
+                );
+            }
+
+            // method 0 or 1, no filter, no preprocessing, nothing reserved
+            if (alph) r |= assertTrue(file[alph] <= 1u);
+
+            // the noise cannot be coded smaller than itself
+            if (alph && cases[c].kind == kAlphaNoise) {
+                r |= assertEquals((long) file[alph], 0L);
+                r |= assertEquals((long) alph_length, 1L + 64L * 48L);
+            }
+
+            if (alph && cases[c].kind == kAlphaRamp) {
+                r |= assertEquals((long) file[alph], 1L);
+                r |= assertLessThan((double) alph_length, 64.0 * 48.0);
+            }
+
+            r |= assertEquals(
+                tiny_image_decode(&back, out.data, out.size, 0), TINYIMG_OK
+            );
+            r |= assertEquals((long) back.channels, 4L);
+
+            if (back.data && source.data) {
+                int exact = 1;
+
+                for (size_t i = 0; i < 64u * 48u; i++) {
+                    uint8_t want = source.data[(i + 1) * source.channels - 1];
+                    if (back.data[i * 4u + 3] != want) exact = 0;
+                }
+
+                r |= assertTrue(exact);
+            }
+
+            tiny_writer_free(&out);
+            tiny_image_destroy(&back);
+            tiny_image_destroy(&source);
         }
     }
 

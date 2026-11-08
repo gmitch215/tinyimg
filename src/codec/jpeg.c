@@ -1196,8 +1196,8 @@ static int decode_ac_first(
         k += run;
         if (k > decoder->se) return TINYIMG_ERR_CORRUPT;
 
-        block[zigzag[k]] =
-            (int16_t) (receive_extend(&decoder->bits, size) << decoder->al);
+        block[zigzag[k]] = (int16_t) (receive_extend(&decoder->bits, size) *
+                                      (1 << decoder->al));
         k++;
     }
 
@@ -1423,9 +1423,17 @@ static int scan_is_read(const JpegDecoder* decoder) {
     return decoder->scan[0]->dct != 1u;
 }
 
+// where the scan's data has reached: the marker once one is seen, because the
+// reader pulls the marker's own 0xFF in before anything asks for it
+static inline size_t bits_reached(const JpegBits* bits) {
+    return bits->marker ? bits->marker_at : bits->pos;
+}
+
 static int decode_scan(JpegDecoder* decoder, size_t at, size_t* next) {
     bits_init(&decoder->bits, decoder->data, decoder->size, at);
     reset_predictors(decoder);
+
+    size_t counted = at;
 
     uint32_t mcus_x;
     uint32_t mcus_y;
@@ -1476,6 +1484,19 @@ static int decode_scan(JpegDecoder* decoder, size_t at, size_t* next) {
 
             if (interval) until_restart--;
         }
+
+        size_t reached = bits_reached(&decoder->bits);
+
+        if (reached > counted) {
+            tiny_work_add(
+                TINYIMG_WORK_ENTROPY_BYTES, (uint32_t) (reached - counted)
+            );
+            counted = reached;
+        }
+
+        if (result == TINYIMG_OK && tiny_work_over_limit()) {
+            result = TINYIMG_ERR_BUDGET;
+        }
     }
 
     if (result != TINYIMG_OK) return result;
@@ -1486,6 +1507,10 @@ static int decode_scan(JpegDecoder* decoder, size_t at, size_t* next) {
     bits_seek_marker(&decoder->bits);
 
     *next = decoder->bits.marker ? decoder->bits.marker_at : decoder->size;
+
+    if (*next > counted) {
+        tiny_work_add(TINYIMG_WORK_ENTROPY_BYTES, (uint32_t) (*next - counted));
+    }
 
     return TINYIMG_OK;
 }
@@ -2099,6 +2124,9 @@ static int walk(
                     uint32_t out_height;
                     TinyDecodeOpts resolved;
 
+                    tiny_work_begin_decode(
+                        TINYIMG_FORMAT_JPEG, decoder->progressive
+                    );
                     result = tiny_decode_resolve(
                         options, decoder->width, decoder->height, &resolved,
                         &out_width, &out_height
@@ -3133,12 +3161,14 @@ static int build_planes(JpegEncoder* encoder) {
 }
 
 /** Transforms and quantizes every block of every component. */
-static void build_coefficients(JpegEncoder* encoder) {
+static int build_coefficients(JpegEncoder* encoder) {
     for (uint32_t i = 0; i < encoder->count; i++) {
         JpegEncodeComponent* component = &encoder->components[i];
         const uint16_t* quant = encoder->quant[component->quant_table];
 
         for (uint32_t by = 0; by < component->blocks_y; by++) {
+            if (tiny_work_over_limit()) return TINYIMG_ERR_BUDGET;
+
             for (uint32_t bx = 0; bx < component->blocks_x; bx++) {
                 int32_t work[64];
 
@@ -3167,6 +3197,8 @@ static void build_coefficients(JpegEncoder* encoder) {
             }
         }
     }
+
+    return TINYIMG_OK;
 }
 
 /** One scan, either counting the symbols it would write or writing them. */
@@ -3362,7 +3394,9 @@ static void write_scan_header(JpegEncoder* encoder) {
  * write has been seen. It is worth between two and six percent against the
  * example tables in the standard, on every image measured.
  */
-static void emit_scan(JpegEncoder* encoder) {
+static int emit_scan(JpegEncoder* encoder) {
+    if (tiny_work_over_limit()) return TINYIMG_ERR_BUDGET;
+
     for (uint32_t slot = 0; slot < 2; slot++) {
         for (uint32_t i = 0; i < 256; i++) {
             encoder->dc_frequencies[slot][i] = 0;
@@ -3406,6 +3440,8 @@ static void emit_scan(JpegEncoder* encoder) {
 
     write_scan_header(encoder);
     run_scan(encoder);
+
+    return TINYIMG_OK;
 }
 
 #pragma endregion
@@ -3463,6 +3499,8 @@ static int jpeg_encode(
         return TINYIMG_ERR_TOO_LARGE;
     }
 
+    tiny_work_begin_encode(TINYIMG_FORMAT_JPEG, options, image->channels);
+
     TinyArenaMark mark;
     tiny_arena_mark(&mark);
 
@@ -3485,6 +3523,7 @@ static int jpeg_encode(
     // JPEG carries no alpha, so a channel it cannot represent is dropped rather
     // than composited against a background this codec would have to invent
     encoder->count = (uint8_t) (image->channels <= 2 ? 1 : 3);
+    tiny_work_count_alpha(image, 0);
 
     if (encoder->count == 1) {
         encoder->components[0].id = 1;
@@ -3558,7 +3597,12 @@ static int jpeg_encode(
         return result;
     }
 
-    build_coefficients(encoder);
+    result = build_coefficients(encoder);
+
+    if (result != TINYIMG_OK) {
+        tiny_arena_release(&mark);
+        return result;
+    }
 
     write_marker(writer, JPEG_SOI);
     write_jfif(writer);
@@ -3592,7 +3636,8 @@ static int jpeg_encode(
             encoder->ah = script[i].ah;
             encoder->al = script[i].al;
 
-            emit_scan(encoder);
+            result = emit_scan(encoder);
+            if (result != TINYIMG_OK) break;
         }
     }
     else {
@@ -3607,7 +3652,12 @@ static int jpeg_encode(
         encoder->ah = 0;
         encoder->al = 0;
 
-        emit_scan(encoder);
+        result = emit_scan(encoder);
+    }
+
+    if (result != TINYIMG_OK) {
+        tiny_arena_release(&mark);
+        return result;
     }
 
     write_marker(writer, JPEG_EOI);

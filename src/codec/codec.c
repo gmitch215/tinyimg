@@ -154,6 +154,7 @@ int tiny_decode_resolve(
     tiny_work_add(
         TINYIMG_WORK_DECODED_SAMPLES, resolved_width * resolved_height
     );
+    tiny_work_charge_decode(width, height, x, y, w, h, den, effort);
 
     return TINYIMG_OK;
 }

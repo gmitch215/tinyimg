@@ -3,6 +3,7 @@
 #include "tinyimg/codec/deflate.h"
 #include "tinyimg/codec/lzw.h"
 #include "tinyimg/memory.h"
+#include "tinyimg/work.h"
 
 #define TIFF_TAG_WIDTH 256u
 #define TIFF_TAG_HEIGHT 257u
@@ -424,6 +425,10 @@ static int unpack_bits(
         written += run;
     }
 
+    tiny_work_add(
+        TINYIMG_WORK_ENTROPY_BYTES, (uint32_t) (read < size ? read : size)
+    );
+
     return TINYIMG_OK;
 }
 
@@ -618,6 +623,7 @@ static int tiff_decode(
     uint32_t out_width;
     uint32_t out_height;
 
+    tiny_work_begin_decode(TINYIMG_FORMAT_TIFF, 0);
     result = tiny_decode_resolve(
         options, header.width, header.height, &resolved, &out_width, &out_height
     );
@@ -677,6 +683,11 @@ static int tiff_decode(
             uint32_t strip = y / header.rows_per_strip;
 
             if (strip != loaded) {
+                if (tiny_work_over_limit()) {
+                    result = TINYIMG_ERR_BUDGET;
+                    break;
+                }
+
                 result = read_strip(&header, strip, rows, (size_t) buffered);
                 if (result != TINYIMG_OK) break;
 
@@ -773,6 +784,8 @@ static int tiff_encode(
 ) {
     if (!image || !image->data || !writer) return TINYIMG_ERR_NULL;
     if (image->width == 0 || image->height == 0) return TINYIMG_ERR_RANGE;
+
+    tiny_work_begin_encode(TINYIMG_FORMAT_TIFF, options, image->channels);
 
     TinyArenaMark mark;
     tiny_arena_mark(&mark);
