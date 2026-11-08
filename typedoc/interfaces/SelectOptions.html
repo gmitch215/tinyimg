@@ -15,7 +15,7 @@
 </div></section>
 <div class="tsd-signature"><span class="tsd-signature-keyword">interface</span> <span class="tsd-kind-interface">SelectOptions</span> <span class="tsd-signature-symbol">{</span><br/>    <a class="tsd-kind-property" href="#assumeopaque">assumeOpaque</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#budgetms">budgetMs</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#formats">formats</a><span class="tsd-signature-symbol">?:</span> <a href="../types/ImageFormat.html" class="tsd-signature-type tsd-kind-type-alias">ImageFormat</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#mindb">minDb</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#objective">objective</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;quality&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;bytes&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;time&quot;</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#peakbytes">peakBytes</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#platformscale">platformScale</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#uncharacterized">uncharacterized</a><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;refuse&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;allow&quot;</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/08b2c1d73ec2314158cfa2e30d63a4e092a0d436/src/ts/image.ts#L206">src/ts/image.ts:206</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/905e6491b1bcf92cf85fcfd7c2aaaabd4708785a/src/ts/image.ts#L206">src/ts/image.ts:206</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
@@ -41,56 +41,56 @@
 <div class="tsd-comment tsd-typography"><p>Treat an RGBA source as opaque, so the search may pick JPEG, AVIF or GIF.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/08b2c1d73ec2314158cfa2e30d63a4e092a0d436/src/ts/image.ts#L222">src/ts/image.ts:222</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/905e6491b1bcf92cf85fcfd7c2aaaabd4708785a/src/ts/image.ts#L222">src/ts/image.ts:222</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="budgetms"><code class="tsd-tag">Optional</code><span>budget<wbr/>Ms</span><a href="#budgetms" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">budgetMs</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span></div>
 <div class="tsd-comment tsd-typography"><p>CPU the request may spend, in milliseconds on the machine it runs on. Omitted means no limit.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/08b2c1d73ec2314158cfa2e30d63a4e092a0d436/src/ts/image.ts#L208">src/ts/image.ts:208</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/905e6491b1bcf92cf85fcfd7c2aaaabd4708785a/src/ts/image.ts#L208">src/ts/image.ts:208</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="formats"><code class="tsd-tag">Optional</code><span>formats</span><a href="#formats" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">formats</span><span class="tsd-signature-symbol">?:</span> <a href="../types/ImageFormat.html" class="tsd-signature-type tsd-kind-type-alias">ImageFormat</a><span class="tsd-signature-symbol">[]</span></div>
 <div class="tsd-comment tsd-typography"><p>Output containers to consider. Defaults to the source's own, JPEG and WebP.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/08b2c1d73ec2314158cfa2e30d63a4e092a0d436/src/ts/image.ts#L216">src/ts/image.ts:216</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/905e6491b1bcf92cf85fcfd7c2aaaabd4708785a/src/ts/image.ts#L216">src/ts/image.ts:216</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="mindb"><code class="tsd-tag">Optional</code><span>min<wbr/>Db</span><a href="#mindb" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">minDb</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span></div>
 <div class="tsd-comment tsd-typography"><p>Quality floor as predicted PSNR in dB against the undegraded output. Omitted means no floor.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/08b2c1d73ec2314158cfa2e30d63a4e092a0d436/src/ts/image.ts#L214">src/ts/image.ts:214</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/905e6491b1bcf92cf85fcfd7c2aaaabd4708785a/src/ts/image.ts#L214">src/ts/image.ts:214</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="objective"><code class="tsd-tag">Optional</code><span>objective</span><a href="#objective" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">objective</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;quality&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;bytes&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;time&quot;</span></div>
 <div class="tsd-comment tsd-typography"><p>What to minimize among the candidates that fit. Defaults to <code>'bytes'</code>.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/08b2c1d73ec2314158cfa2e30d63a4e092a0d436/src/ts/image.ts#L218">src/ts/image.ts:218</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/905e6491b1bcf92cf85fcfd7c2aaaabd4708785a/src/ts/image.ts#L218">src/ts/image.ts:218</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="peakbytes"><code class="tsd-tag">Optional</code><span>peak<wbr/>Bytes</span><a href="#peakbytes" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">peakBytes</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span></div>
 <div class="tsd-comment tsd-typography"><p>Largest heap bound a candidate may have, in bytes. Defaults to the module's heap ceiling.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/08b2c1d73ec2314158cfa2e30d63a4e092a0d436/src/ts/image.ts#L212">src/ts/image.ts:212</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/905e6491b1bcf92cf85fcfd7c2aaaabd4708785a/src/ts/image.ts#L212">src/ts/image.ts:212</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="platformscale"><code class="tsd-tag">Optional</code><span>platform<wbr/>Scale</span><a href="#platformscale" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">platformScale</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">number</span></div>
 <div class="tsd-comment tsd-typography"><p>How much slower this machine is than the calibrated one. Defaults to 1.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/08b2c1d73ec2314158cfa2e30d63a4e092a0d436/src/ts/image.ts#L210">src/ts/image.ts:210</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/905e6491b1bcf92cf85fcfd7c2aaaabd4708785a/src/ts/image.ts#L210">src/ts/image.ts:210</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="uncharacterized"><code class="tsd-tag">Optional</code><span>uncharacterized</span><a href="#uncharacterized" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">uncharacterized</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">&quot;refuse&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;allow&quot;</span></div>
 <div class="tsd-comment tsd-typography"><p>What to do with a candidate whose quality is unknown. Defaults to <code>'refuse'</code>.</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/08b2c1d73ec2314158cfa2e30d63a4e092a0d436/src/ts/image.ts#L220">src/ts/image.ts:220</a></li></ul></aside></section></section></details></div>
+<li>Defined in <a href="https://github.com/gmitch215/tinyimg/blob/905e6491b1bcf92cf85fcfd7c2aaaabd4708785a/src/ts/image.ts#L220">src/ts/image.ts:220</a></li></ul></aside></section></section></details></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">
