@@ -1,5 +1,6 @@
 #include "tinyimg/plan.h"
 
+#include "cost-model-api.h"
 #include "tinyimg/codec/codec.h"
 #include "tinyimg/detect.h"
 #include "tinyimg/memory.h"
@@ -78,6 +79,7 @@ int tiny_plan_init(TinyPlan* plan, const uint8_t* buffer, size_t size) {
     plan->source_height = info.height;
     plan->source_channels = info.channels;
     plan->source_format = info.format;
+    plan->source_progressive = info.progressive;
 
     return TINYIMG_OK;
 }
@@ -119,6 +121,15 @@ int tiny_plan_set_budget(TinyPlan* plan, uint32_t microseconds) {
     if (!plan) return TINYIMG_ERR_NULL;
 
     plan->budget = microseconds;
+    return TINYIMG_OK;
+}
+
+TINYIMG_EXPORT("tiny_plan_set_budget_basis")
+int tiny_plan_set_budget_basis(TinyPlan* plan, uint8_t basis) {
+    if (!plan) return TINYIMG_ERR_NULL;
+    if (basis > TINYIMG_BASIS_UPPER) return TINYIMG_ERR_RANGE;
+
+    plan->budget_basis = basis;
     return TINYIMG_OK;
 }
 
@@ -423,6 +434,7 @@ uint32_t tiny_plan_field(
         case TINYIMG_FIELD_PASSES: return resolution->passes;
         case TINYIMG_FIELD_KERNELS: return resolution->kernels;
         case TINYIMG_FIELD_COST: return resolution->cost;
+        case TINYIMG_FIELD_COST_UPPER: return resolution->cost_upper;
         case TINYIMG_FIELD_DEGRADED: return resolution->degraded;
         default: return 0u;
     }
@@ -1552,8 +1564,9 @@ static int only_grayscale(const TinyPlanOp* ops, uint32_t count) {
  * The cost model lives in its own region, below; a budget makes the resolution
  * depend on it.
  */
-static uint32_t cost_of(
-    const TinyPlan* plan, const TinyPlanResolution* resolution
+static void cost_of(
+    const TinyPlan* plan, const TinyPlanResolution* resolution, uint32_t* point,
+    uint32_t* upper
 );
 
 /** One rung of the budget ladder; see tiny_plan_resolve. */
@@ -1821,8 +1834,16 @@ static int resolve_at(
         }
     }
 
-    resolution->cost = cost_of(plan, resolution);
+    cost_of(plan, resolution, &resolution->cost, &resolution->cost_upper);
     return TINYIMG_OK;
+}
+
+/** The cost the plan's budget is judged on. */
+static uint32_t basis_cost(
+    const TinyPlan* plan, const TinyPlanResolution* resolution
+) {
+    return plan->budget_basis == TINYIMG_BASIS_UPPER ? resolution->cost_upper
+                                                     : resolution->cost;
 }
 
 TINYIMG_EXPORT("tiny_plan_resolve")
@@ -1833,7 +1854,7 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
     int result = resolve_at(plan, none, resolution);
 
     if (result != TINYIMG_OK || plan->budget == 0u ||
-        resolution->cost <= plan->budget) {
+        basis_cost(plan, resolution) <= plan->budget) {
         return result;
     }
 
@@ -1880,6 +1901,7 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
     TinyResampleFilter baseline_x = resolution->filter_x;
     TinyResampleFilter baseline_y = resolution->filter_y;
     uint8_t baseline_den = resolution->decode.scale_den;
+    uint8_t baseline_effort = resolution->decode.effort;
     int chosen = 0;
 
     for (uint32_t rung = 0; rung < 5u; rung++) {
@@ -1889,22 +1911,24 @@ int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution) {
 
         // a rung that is not cheaper buys nothing, and taking it would give
         // something up for free
-        if (candidate.cost >= best.cost) continue;
+        if (basis_cost(plan, &candidate) >= basis_cost(plan, &best)) continue;
 
         best = candidate;
         chosen = 1;
 
-        if (best.cost <= plan->budget) break;
+        if (basis_cost(plan, &best) <= plan->budget) break;
     }
 
     if (chosen) {
-        best.degraded = TINYIMG_DEGRADE_EFFORT;
-
         // a rung the plan could not take changes nothing, and reporting
         // something it did not give up would be a lie: an explicitly requested
         // filter is never overridden, so the filter rung is unavailable to a
-        // caller who named one, and the scale rung is unavailable without a
-        // decoder to ask
+        // caller who named one, the scale rung is unavailable without a
+        // decoder to ask, and the effort rung is unavailable at FAST already
+        best.degraded = 0u;
+        if (best.decode.effort != baseline_effort) {
+            best.degraded |= TINYIMG_DEGRADE_EFFORT;
+        }
         if (best.filter_x != baseline_x || best.filter_y != baseline_y) {
             best.degraded |= TINYIMG_DEGRADE_FILTER;
         }
@@ -3337,8 +3361,17 @@ static int resolve_focus(const TinyPlan* plan, TinyPlan* out) {
     return TINYIMG_OK;
 }
 
-TINYIMG_EXPORT("tiny_plan_run")
-int tiny_plan_run(const TinyPlan* plan, TinyImage* out) {
+/**
+ * @brief The body of tiny_plan_run, with the lever setting as a parameter.
+ *
+ * @param plan The plan.
+ * @param candidate The lever setting to resolve at, or NULL for the plan's own
+ * resolution, which applies its budget.
+ * @param out Receives the output.
+ */
+static int run_plan(
+    const TinyPlan* plan, const TinyPlanCandidate* candidate, TinyImage* out
+) {
     if (!plan || !out) return TINYIMG_ERR_NULL;
     if (!plan->buffer && !plan->image) return TINYIMG_ERR_NULL;
 
@@ -3353,7 +3386,17 @@ int tiny_plan_run(const TinyPlan* plan, TinyImage* out) {
     }
 
     TinyPlanResolution resolution;
-    result = plan->fusion ? tiny_plan_resolve(plan, &resolution) : TINYIMG_OK;
+
+    if (!plan->fusion) {
+        result = TINYIMG_OK;
+    }
+    else if (candidate) {
+        Lever lever = {candidate->effort, candidate->nearest, candidate->steps};
+        result = resolve_at(plan, lever, &resolution);
+    }
+    else {
+        result = tiny_plan_resolve(plan, &resolution);
+    }
     if (result != TINYIMG_OK) return result;
 
     TinyImage decoded;
@@ -3399,41 +3442,40 @@ int tiny_plan_run(const TinyPlan* plan, TinyImage* out) {
     return result;
 }
 
+TINYIMG_EXPORT("tiny_plan_run")
+int tiny_plan_run(const TinyPlan* plan, TinyImage* out) {
+    return run_plan(plan, 0, out);
+}
+
+int tiny_plan_run_candidate(
+    const TinyPlan* plan, const TinyPlanCandidate* candidate, TinyImage* out
+) {
+    if (!candidate) return TINYIMG_ERR_NULL;
+    return run_plan(plan, candidate, out);
+}
+
 #pragma endregion
 
 #pragma region cost
 
 /*
- * Rates from scripts/measure/calibrate.ts, run against bin/tinyimg.wasm in bun
- * on darwin-arm64. Microseconds per million samples, so the arithmetic stays
- * integral and a rate reads as its own microseconds-per-megapixel figure.
+ * The decode and encode rates are in cost-model.h, generated by
+ * scripts/cost-model.ts from the cells scripts/measure/fit-cost.ts timed on
+ * bin/tinyimg.wasm in bun on darwin-arm64 over the calibration half of the
+ * corpus. Rates are microseconds per million samples (or per million entropy
+ * bytes for the byte term), so the arithmetic stays integral. A machine of a
+ * different speed wants every rate scaled by the same factor and nothing else
+ * changes; the planner applies none.
  *
- * Each was measured in isolation rather than fitted across a mixed workload,
- * because a fit spreads one stage's error over every other stage's constant.
- * Re-run the script to recalibrate; a machine of a different speed wants every
- * constant scaled by the same factor, and nothing else changes.
- *
- * Recalibrated 2026-09-10 for the `-O2` build, from the median of three runs
- * with the run-to-run spread checked. Decode fell 1.17x to 1.58x and WebP
- * encode 1.90x; the other encoders and the colour and neighborhood rates moved
- * by less than their own spread and were left alone rather than chased into
- * noise. A constant left unchanged here is a deliberate reading of that spread,
- * not an oversight.
+ * The constants below are the resample, color and neighborhood rates from
+ * scripts/measure/calibrate.ts. Each was measured in isolation rather than
+ * fitted across a mixed workload, because a fit spreads one stage's error over
+ * every other stage's constant. They were last recalibrated 2026-09-10 for the
+ * `-O2` build, and a constant left unchanged then was a deliberate reading of
+ * the run-to-run spread, not an oversight. The conformal bound carries no
+ * factor for these phases, because no calibration cell times them.
  */
-#define COST_DECODE_BMP 5668u
-#define COST_DECODE_GIF 6687u
-#define COST_DECODE_JPEG 8004u
-#define COST_DECODE_PNG 12977u
-#define COST_DECODE_WEBP 13673u
-#define COST_DECODE_TIFF 14328u
-#define COST_DECODE_AVIF 26461u
-
-#define COST_ENCODE_BMP 7900u
-#define COST_ENCODE_JPEG 17000u
-#define COST_ENCODE_GIF 50000u
-#define COST_ENCODE_WEBP 39000u
-#define COST_ENCODE_TIFF 240000u
-#define COST_ENCODE_PNG 480000u
+#include "cost-model.h"
 
 #define COST_SAMPLE_NEAREST 29500u
 #define COST_SAMPLE_BOX 35600u
@@ -3444,148 +3486,139 @@ int tiny_plan_run(const TinyPlan* plan, TinyImage* out) {
 #define COST_COLOR_MORE 700u
 #define COST_NEIGHBORHOOD 42400u
 
-/*
- * What a scaled decode costs as a fraction of a full one, in thousandths, per
- * format and per denominator.
- *
- * These used to be one set of factors applied to every codec, and they were
- * JPEG's. Only JPEG and BMP have a decode that shrinks: JPEG reduces in the
- * DCT domain and BMP skips rows, while every other codec decodes the whole
- * frame and box averages afterwards, so a scaled request buys them nothing and
- * costs them an averaging pass they would not otherwise run.
- *
- * **Three of the seven are above 1000, which is a cost and not a saving.** PNG
- * is the extreme: at 1.619 a half scale decode costs 62% more than a full one,
- * because at a denominator of one the row is a single `tiny_memcpy` and above
- * it the same row goes through `expand_row` and `accumulate`. The shared factor
- * charged 0.674 there, so the planner believed a 33% saving where the truth is
- * a 62% penalty, and it would take the scale rung under a budget expecting the
- * request to get cheaper.
- *
- * That also retires the capability rule this was going to need. The ladder
- * already skips a rung that does not come out cheaper; it was blind rather than
- * wrong, and correct factors are what let it see. Nothing needs a per-codec
- * flag saying the rung is unavailable.
- *
- * Measured 2026-09-10 by `scripts/measure/calibrate.ts`, five interleaved
- * repeats of a median of fifteen, spread within 2% on every cell. One pass per
- * format swung by up to 1.6x between runs and inverted the order of two
- * formats, which is why the sweep interleaves.
- */
-static uint32_t scale_fraction(TinyImageFormat format, uint8_t den) {
-    uint32_t at_half = 1000u;
-    uint32_t at_quarter = 1000u;
-    uint32_t at_eighth = 1000u;
+/** A format's row in the generated tables; unpriced formats read as row 0. */
+static uint32_t cost_row(TinyImageFormat format) {
+    return (uint32_t) format < 9u ? (uint32_t) format : 0u;
+}
 
-    switch (format) {
-        case TINYIMG_FORMAT_JPEG:
-            at_half = 350u;
-            at_quarter = 290u;
-            at_eighth = 203u;
-            break;
-        case TINYIMG_FORMAT_BMP:
-            at_half = 527u;
-            at_quarter = 384u;
-            at_eighth = 358u;
-            break;
-        case TINYIMG_FORMAT_PNG:
-            at_half = 1619u;
-            at_quarter = 1559u;
-            at_eighth = 1547u;
-            break;
-        case TINYIMG_FORMAT_WEBP:
-            at_half = 1024u;
-            at_quarter = 993u;
-            at_eighth = 975u;
-            break;
-        case TINYIMG_FORMAT_GIF:
-            at_half = 953u;
-            at_quarter = 882u;
-            at_eighth = 872u;
-            break;
-        case TINYIMG_FORMAT_TIFF:
-            at_half = 847u;
-            at_quarter = 811u;
-            at_eighth = 804u;
-            break;
-        case TINYIMG_FORMAT_AVIF:
-            at_half = 919u;
-            at_quarter = 879u;
-            at_eighth = 865u;
-            break;
-        default: break;
-    }
-
+static uint32_t den_index(uint8_t den) {
     switch (den) {
-        case 2: return at_half;
-        case 4: return at_quarter;
-        case 8: return at_eighth;
-        default: return 1000u;
+        case 2: return 1u;
+        case 4: return 2u;
+        case 8: return 3u;
+        default: return 0u;
     }
 }
 
-/*
+/**
+ * Whether a WebP file is lossless, read from the first image chunk.
+ *
+ * The plan does not carry the flag, and the two codings have different effort
+ * tables: VP8L has no filter to skip, so FAST changes nothing for it.
+ */
+static int webp_lossless(const uint8_t* data, uint64_t size) {
+    uint64_t at = 12u;
+
+    while (data && at + 8u <= size) {
+        uint64_t length =
+            (uint64_t) data[at + 4u] | ((uint64_t) data[at + 5u] << 8) |
+            ((uint64_t) data[at + 6u] << 16) | ((uint64_t) data[at + 7u] << 24);
+
+        if (data[at] == 'V' && data[at + 1u] == 'P' && data[at + 2u] == '8') {
+            if (data[at + 3u] == 'L') return 1;
+            if (data[at + 3u] == ' ') return 0;
+        }
+
+        at += 8u + length + (length & 1u);
+    }
+
+    return 0;
+}
+
+/**
  * What TINYIMG_EFFORT_FAST takes off a decode, in thousandths.
  *
- * Only the two lossy decoders have anything to drop, which is the structural
- * half of [[only-lossy-decoders-have-anything-to-drop]]: a lossless bitstream
- * defines its pixels exactly. The figures are the reciprocals of the speedups
- * recorded in TinyEffort's own documentation, VP8's 1.53x for skipping the
- * deblocking filter and the middle of JPEG's 1.11x-1.25x for replicating
- * chroma instead of interpolating it.
- *
- * The planner needs this because a budget's first lever is the effort tier. A
- * model that priced FAST the same as FANCY would report the lever as buying
- * nothing and skip straight to reducing the decode, which is the expensive
- * rung.
- *
- * JPEG's lever reaches subsampled files only, so a 4:4:4 source is charged a
- * saving it does not get. That is the wrong direction by about 13% on one
- * format and it is the conservative direction for the question a budget asks.
+ * Measured, not argued: cost-model.h carries the median FAST over FANCY ratio
+ * per format and denominator over the fit half of the calibration corpus, and
+ * a group whose median sits inside the half range of its own cells' ratios is
+ * exactly 1000. The planner needs a real figure because a budget's first
+ * lever is the effort tier, and a table that promises a saving the decoder
+ * does not give reports a request as fitting when it does not.
  */
 static uint32_t effort_fraction(
     TinyImageFormat format, uint8_t effort, uint8_t den
 ) {
     if (effort != TINYIMG_EFFORT_FAST) return 1000u;
 
-    switch (format) {
-        case TINYIMG_FORMAT_JPEG: return 870u;
-        case TINYIMG_FORMAT_WEBP:
-            /*
-             * WebP's two levers do not multiply, so this cannot be one number.
-             * FAST skips the deblocking filter at any scale and additionally
-             * reduces in the plane domain above a denominator of one, and the
-             * second saving grows with the denominator while `scale_fraction`
-             * was measured at full effort.
-             *
-             * The figures are the highest ratio observed across three fixtures
-             * rather than the mean, because a budget that is promised a saving
-             * it does not get reports that a request fits when it does not.
-             * `toyota_racing.webp` is the conservative one at every
-             * denominator; the reference photograph re-encoded as WebP is
-             * 1.4x better and is not what these are set from.
-             */
-            switch (den) {
-                case 2: return 568u;
-                case 4: return 513u;
-                case 8: return 487u;
-                default: return 654u;
-            }
-        default: return 1000u;
-    }
+    return cost_effort_decode[cost_row(format)][den_index(den)];
 }
 
-static uint32_t decode_rate(TinyImageFormat format) {
-    switch (format) {
-        case TINYIMG_FORMAT_BMP: return COST_DECODE_BMP;
-        case TINYIMG_FORMAT_GIF: return COST_DECODE_GIF;
-        case TINYIMG_FORMAT_JPEG: return COST_DECODE_JPEG;
-        case TINYIMG_FORMAT_PNG: return COST_DECODE_PNG;
-        case TINYIMG_FORMAT_WEBP: return COST_DECODE_WEBP;
-        case TINYIMG_FORMAT_TIFF: return COST_DECODE_TIFF;
-        case TINYIMG_FORMAT_AVIF: return COST_DECODE_AVIF;
-        default: return 0u;
+/** The same fraction for a plan's source, which knows whether WebP is VP8L. */
+static uint32_t effort_fraction_of(
+    const TinyPlan* plan, uint8_t effort, uint8_t den
+) {
+    if (effort == TINYIMG_EFFORT_FAST &&
+        plan->source_format == TINYIMG_FORMAT_WEBP &&
+        webp_lossless(plan->buffer, plan->size)) {
+        return cost_effort_decode[9][den_index(den)];
     }
+
+    return effort_fraction(plan->source_format, effort, den);
+}
+
+static uint32_t saturate(uint64_t value) {
+    return value > 0xFFFFFFFFu ? 0xFFFFFFFFu : (uint32_t) value;
+}
+
+/**
+ * What the decode costs, in microseconds, before the effort fraction.
+ *
+ * Two terms. The sample term is a rate per sample the decoder traverses, one
+ * rate per format and denominator: the whole frame for a decode a region does
+ * not shorten, the rows through the region's bottom edge for a stream read top
+ * down, the region itself for one that can skip. The byte term is a rate
+ * per entropy-coded byte the decoder consumes, which no scale lowers and a
+ * region lowers only for a stream read top down. The sample term alone
+ * mispriced a source by up to 12.78x, because compressed bytes predict a
+ * decode's cost on one half of the scale ladder and samples predict it on the
+ * other.
+ *
+ * The bytes are the file's, times the share a decoder reads at this scale and
+ * progressive flag, times the rows above the region's bottom edge for a stream
+ * read top down. A TIFF or BMP stored without compression has no entropy
+ * stream, which is recognised by the file holding at least as many bytes as
+ * the raw samples; the fit gives such a format no byte term.
+ */
+static uint64_t decode_micros(
+    const TinyPlan* plan, const TinyDecodeOpts* decode
+) {
+    uint32_t row = cost_row(plan->source_format);
+    uint32_t den = den_index(decode->scale_den);
+    uint64_t width = plan->source_width;
+    uint64_t height = plan->source_height;
+
+    uint64_t x = decode->x < width ? decode->x : width;
+    uint64_t y = decode->y < height ? decode->y : height;
+    uint64_t span =
+        decode->width && decode->width < width - x ? decode->width : width - x;
+    uint64_t rows = decode->height && decode->height < height - y
+                        ? decode->height
+                        : height - y;
+    uint64_t bottom = y + rows;
+
+    // a progressive stream covers the image in every scan, so a region does
+    // not shorten it
+    uint32_t progressive = plan->source_progressive ? 1u : 0u;
+    uint32_t rule = progressive ? 2u : cost_rows[row];
+
+    uint64_t traversed = span * rows;
+    if (rule == 1u) traversed = width * bottom;
+    if (rule == 2u) traversed = width * height;
+    uint64_t micros = traversed * cost_alpha[row][progressive][den] / 1000000u;
+
+    uint64_t raw = width * height * plan->source_channels;
+    int stored = cost_stored[row] != 0u &&
+                 (uint64_t) plan->size * 1000u >= raw * cost_stored[row];
+
+    if (cost_beta[row][progressive] != 0u && !stored && height != 0u) {
+        uint64_t bytes = (uint64_t) plan->size *
+                         cost_consumed[row][progressive][den] / 1000u;
+        if (rule == 1u) bytes = bytes * bottom / height;
+
+        micros += bytes * cost_beta[row][progressive] / 1000000u;
+    }
+
+    return micros;
 }
 
 static uint32_t sample_rate(TinyResampleFilter filter) {
@@ -3623,43 +3656,116 @@ static uint32_t at_rate(uint64_t samples, uint32_t rate) {
  */
 static uint32_t compression_fraction(uint8_t compression) {
     switch (compression) {
-        case TINYIMG_COMPRESSION_NONE: return 667u;
-        case TINYIMG_COMPRESSION_FAST: return 833u;
-        case TINYIMG_COMPRESSION_BEST: return 4300u;
+        case TINYIMG_COMPRESSION_NONE: return COST_COMPRESSION_NONE;
+        case TINYIMG_COMPRESSION_FAST: return COST_COMPRESSION_FAST;
+        case TINYIMG_COMPRESSION_BEST: return COST_COMPRESSION_BEST;
         default: return 1000u;
     }
+}
+
+/** The measured quality point nearest `quality`, the dearer one on a tie. */
+static uint32_t quality_point(uint8_t quality) {
+    uint32_t best = 0u;
+
+    for (uint32_t i = 1u; i < sizeof(cost_quality_points); i++) {
+        int near = (int) quality - (int) cost_quality_points[i];
+        int far = (int) quality - (int) cost_quality_points[best];
+
+        if (near < 0) near = -near;
+        if (far < 0) far = -far;
+        if (near <= far) best = i;
+    }
+
+    return best;
+}
+
+/**
+ * Encode microseconds scaled by `multiplier` thousandths, zero if unpriced.
+ *
+ * The default rate, then one factor per lever in a fixed order. Each factor
+ * was measured alone against the default on the same input, so a request
+ * that moves two of them is priced by their product.
+ */
+static uint32_t encode_micros(
+    TinyImageFormat format, uint32_t width, uint32_t height,
+    const TinyEncodePriceOpts* opts, const uint16_t* multiplier
+) {
+    uint32_t row = cost_row(format);
+    uint32_t rate = cost_encode[row];
+    if (rate == 0u) return 0u;
+
+    TinyEncodePriceOpts defaults;
+    tiny_memset(&defaults, 0, sizeof(defaults));
+    if (!opts) opts = &defaults;
+
+    uint64_t cost = (uint64_t) at_rate((uint64_t) width * height, rate);
+
+    // a format with no lossless mode measured ignores the flag, and so does
+    // its encoder price; the quality table is all 1000 for such a format
+    int lossless = opts->lossless && cost_lossless[row][0] != 0u;
+
+    if (lossless) {
+        uint64_t pixels = (uint64_t) width * height;
+        uint32_t size_class = pixels >= COST_LOSSLESS_LARGE    ? 2u
+                              : pixels >= COST_LOSSLESS_MEDIUM ? 1u
+                                                               : 0u;
+
+        cost = cost * cost_lossless[row][size_class] / 1000u;
+    }
+    else if (opts->quality != 0u) {
+        cost = cost * cost_quality[row][quality_point(opts->quality)] / 1000u;
+    }
+
+    if (opts->channels == 2u || opts->channels == 4u) {
+        cost = cost * cost_alpha_factor[row] / 1000u;
+    }
+
+    // a format with no deflate stream ignores the level, the same way its
+    // encoder does
+    if (format == TINYIMG_FORMAT_PNG || format == TINYIMG_FORMAT_TIFF) {
+        cost = cost * compression_fraction(opts->compression) / 1000u;
+    }
+
+    if (opts->effort == TINYIMG_EFFORT_FAST) {
+        uint32_t kind = lossless && format == TINYIMG_FORMAT_WEBP ? 9u : row;
+        cost = cost * cost_effort_encode[kind] / 1000u;
+    }
+
+    return saturate(cost * multiplier[row] / 1000u);
+}
+
+static const uint16_t cost_point[9] = {1000, 1000, 1000, 1000, 1000,
+                                       1000, 1000, 1000, 1000};
+
+uint32_t tiny_encode_cost_for(
+    TinyImageFormat format, uint32_t width, uint32_t height,
+    const TinyEncodePriceOpts* opts
+) {
+    return encode_micros(format, width, height, opts, cost_point);
+}
+
+TINYIMG_EXPORT("tiny_encode_cost_upper_for")
+uint32_t tiny_encode_cost_upper_for(
+    TinyImageFormat format, uint32_t width, uint32_t height,
+    const TinyEncodePriceOpts* opts
+) {
+    return encode_micros(format, width, height, opts, cost_q_encode);
 }
 
 TINYIMG_EXPORT("tiny_encode_cost_at")
 uint32_t tiny_encode_cost_at(
     TinyImageFormat format, uint32_t width, uint32_t height, uint8_t compression
 ) {
-    uint32_t rate = 0;
-    int deflated = 0;
+    TinyEncodePriceOpts opts = {0, 0, compression, 0, 0};
+    return tiny_encode_cost_for(format, width, height, &opts);
+}
 
-    switch (format) {
-        case TINYIMG_FORMAT_BMP: rate = COST_ENCODE_BMP; break;
-        case TINYIMG_FORMAT_JPEG: rate = COST_ENCODE_JPEG; break;
-        case TINYIMG_FORMAT_GIF: rate = COST_ENCODE_GIF; break;
-        case TINYIMG_FORMAT_WEBP: rate = COST_ENCODE_WEBP; break;
-        case TINYIMG_FORMAT_TIFF:
-            rate = COST_ENCODE_TIFF;
-            deflated = 1;
-            break;
-        case TINYIMG_FORMAT_PNG:
-            rate = COST_ENCODE_PNG;
-            deflated = 1;
-            break;
-        default: return 0u;
-    }
-
-    uint64_t cost = (uint64_t) at_rate((uint64_t) width * height, rate);
-
-    // a format with no deflate stream ignores the level, the same way its
-    // encoder does
-    if (deflated) cost = cost * compression_fraction(compression) / 1000u;
-
-    return cost > 0xFFFFFFFFu ? 0xFFFFFFFFu : (uint32_t) cost;
+TINYIMG_EXPORT("tiny_encode_cost_upper_at")
+uint32_t tiny_encode_cost_upper_at(
+    TinyImageFormat format, uint32_t width, uint32_t height, uint8_t compression
+) {
+    TinyEncodePriceOpts opts = {0, 0, compression, 0, 0};
+    return tiny_encode_cost_upper_for(format, width, height, &opts);
 }
 
 TINYIMG_EXPORT("tiny_encode_cost")
@@ -3669,10 +3775,12 @@ uint32_t tiny_encode_cost(
     return tiny_encode_cost_at(format, width, height, TINYIMG_COMPRESSION_AUTO);
 }
 
-static uint32_t cost_of(
-    const TinyPlan* plan, const TinyPlanResolution* resolution
+static void cost_of(
+    const TinyPlan* plan, const TinyPlanResolution* resolution, uint32_t* point,
+    uint32_t* upper
 ) {
-    uint32_t total = 0;
+    uint64_t total = 0;
+    uint64_t bounded = 0;
 
     if (!plan->image) {
         /*
@@ -3682,52 +3790,46 @@ static uint32_t cost_of(
          * A probe is cheap for five of the seven formats and `O(file bytes)`
          * for PNG, which is why nobody noticed.
          */
-        uint64_t source = (uint64_t) plan->source_width * plan->source_height;
-        uint32_t rate = decode_rate(plan->source_format);
-
-        // in 64 bits because a scale fraction above 1000 would otherwise
-        // overflow a full-second decode, and three formats are above it
-        uint64_t decode = (uint64_t) at_rate(source, rate);
+        uint64_t decode = decode_micros(plan, &resolution->decode);
 
         decode =
             decode *
-            scale_fraction(plan->source_format, resolution->decode.scale_den) /
+            effort_fraction_of(
+                plan, resolution->decode.effort, resolution->decode.scale_den
+            ) /
             1000u;
-        decode = decode *
-                 effort_fraction(
-                     plan->source_format, resolution->decode.effort,
-                     resolution->decode.scale_den
-                 ) /
-                 1000u;
 
-        total += (uint32_t) decode;
+        total += decode;
+        bounded +=
+            decode * cost_q_decode[cost_row(plan->source_format)] / 1000u;
     }
 
     uint64_t out = (uint64_t) resolution->width * resolution->height;
+    uint64_t rest = 0;
 
     if ((resolution->kernels & TINYIMG_KERNEL_RESAMPLE) != 0) {
         // the two axes may take different filters, so price the dearer one
         uint32_t x = sample_rate(resolution->filter_x);
         uint32_t y = sample_rate(resolution->filter_y);
 
-        total += at_rate(out, x > y ? x : y);
+        rest += at_rate(out, x > y ? x : y);
     }
 
     if (resolution->color_stages > 0) {
-        total += at_rate(out, COST_COLOR_FIRST);
-        total +=
-            at_rate(out, COST_COLOR_MORE * (resolution->color_stages - 1u));
+        rest += at_rate(out, COST_COLOR_FIRST);
+        rest += at_rate(out, COST_COLOR_MORE * (resolution->color_stages - 1u));
     }
 
     // a neighborhood operation ends a fused pass and runs over the whole image
     for (uint32_t i = 0; i < resolution->ops; i++) {
         if (tiny_plan_op_class(resolution->op[i].kind) ==
             TINYIMG_OP_CLASS_NEIGHBORHOOD) {
-            total += at_rate(out, COST_NEIGHBORHOOD);
+            rest += at_rate(out, COST_NEIGHBORHOOD);
         }
     }
 
-    return total;
+    *point = saturate(total + rest);
+    *upper = saturate(bounded + rest);
 }
 
 TINYIMG_EXPORT("tiny_plan_cost")
@@ -3738,6 +3840,1135 @@ uint32_t tiny_plan_cost(const TinyPlan* plan) {
     if (tiny_plan_resolve(plan, &resolution) != TINYIMG_OK) return 0u;
 
     return resolution.cost;
+}
+
+TINYIMG_EXPORT("tiny_plan_cost_upper")
+uint32_t tiny_plan_cost_upper(const TinyPlan* plan) {
+    if (!plan) return 0u;
+
+    TinyPlanResolution resolution;
+    if (tiny_plan_resolve(plan, &resolution) != TINYIMG_OK) return 0u;
+
+    return resolution.cost_upper;
+}
+
+#pragma endregion
+
+#pragma region admission
+
+uint32_t tiny_cost_decode_samples_us(
+    TinyImageFormat format, uint8_t variant, uint32_t width, uint32_t height,
+    uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t den, uint8_t effort
+) {
+    // size zero leaves the byte term empty; the clock charges that one as
+    // entropy bytes are counted
+    TinyPlan priced;
+    tiny_memset(&priced, 0, sizeof(priced));
+
+    priced.source_format = format;
+    priced.source_progressive = format == TINYIMG_FORMAT_JPEG ? variant : 0u;
+    priced.source_width = width;
+    priced.source_height = height;
+    priced.source_channels = 1;
+
+    // lossless WebP has no filter for FAST to skip, which the plan reads from
+    // the file and the decoder reports as the variant
+    uint32_t fraction = effort_fraction(format, effort, den);
+    if (format == TINYIMG_FORMAT_WEBP && variant != 0u &&
+        effort == TINYIMG_EFFORT_FAST) {
+        fraction = cost_effort_decode[9][den_index(den)];
+    }
+
+    TinyDecodeOpts decode = {x, y, w, h, den, 0, effort};
+    uint64_t micros = decode_micros(&priced, &decode) * fraction / 1000u;
+
+    return saturate(micros);
+}
+
+uint32_t tiny_cost_entropy_rate(TinyImageFormat format, uint8_t variant) {
+    return cost_beta[cost_row(format)]
+                    [format == TINYIMG_FORMAT_JPEG && variant ? 1u : 0u];
+}
+
+uint32_t tiny_cost_stage_rate(CostStage stage) {
+    return stage == COST_STAGE_NEIGHBORHOOD ? COST_NEIGHBORHOOD
+                                            : COST_SAMPLE_BOX;
+}
+
+TINYIMG_EXPORT("tiny_admit_opts_sizeof")
+uint32_t tiny_admit_opts_sizeof(void) {
+    return (uint32_t) sizeof(TinyAdmitOpts);
+}
+
+TINYIMG_EXPORT("tiny_admission_sizeof")
+uint32_t tiny_admission_sizeof(void) {
+    return (uint32_t) sizeof(TinyAdmission);
+}
+
+TINYIMG_EXPORT("tiny_admission_field")
+uint32_t tiny_admission_field(
+    const TinyAdmission* admission, TinyAdmissionField field
+) {
+    if (!admission) return 0u;
+
+    switch (field) {
+        case TINYIMG_ADMISSION_FIELD_DECISION: return admission->decision;
+        case TINYIMG_ADMISSION_FIELD_DEGRADED: return admission->degraded;
+        case TINYIMG_ADMISSION_FIELD_COST: return admission->cost_us;
+        case TINYIMG_ADMISSION_FIELD_COST_UPPER:
+            return admission->cost_upper_us;
+        case TINYIMG_ADMISSION_FIELD_ENCODE: return admission->encode_us;
+        case TINYIMG_ADMISSION_FIELD_ENCODE_UPPER:
+            return admission->encode_upper_us;
+        case TINYIMG_ADMISSION_FIELD_MARGIN:
+            return (uint32_t) admission->margin_us;
+        default: return 0u;
+    }
+}
+
+/** Microseconds times a machine factor in thousandths, rounded up. */
+static uint32_t scaled_up(uint64_t micros, uint32_t scale_milli) {
+    return saturate((micros * scale_milli + 999u) / 1000u);
+}
+
+TINYIMG_EXPORT("tiny_plan_admit")
+int tiny_plan_admit(
+    const TinyPlan* plan, const TinyAdmitOpts* opts, TinyAdmission* admission
+) {
+    if (!plan || !opts || !admission) return TINYIMG_ERR_NULL;
+    if (opts->scale_milli == 0u) return TINYIMG_ERR_RANGE;
+    if (opts->mode > TINYIMG_ADMIT_DEGRADE) return TINYIMG_ERR_RANGE;
+
+    TinyPlan priced = *plan;
+    priced.budget = 0u;
+    priced.budget_basis = TINYIMG_BASIS_POINT;
+
+    TinyPlanResolution resolution;
+    int result = tiny_plan_resolve(&priced, &resolution);
+    if (result != TINYIMG_OK) return result;
+
+    uint32_t scale = opts->scale_milli;
+    uint64_t limit = (uint64_t) opts->budget_us * 1000u;
+    TinyImageFormat format = (TinyImageFormat) opts->format;
+    TinyEncodePriceOpts price = {
+        (uint8_t) opts->quality, opts->lossless ? 1u : 0u,
+        (uint8_t) opts->compression, resolution.channels, (uint8_t) opts->effort
+    };
+
+    // the ladder never changes the output extent, so one encoder price serves
+    // every rung
+    uint32_t encode = tiny_encode_cost_for(
+        format, resolution.width, resolution.height, &price
+    );
+    uint32_t encode_upper = tiny_encode_cost_upper_for(
+        format, resolution.width, resolution.height, &price
+    );
+
+    uint32_t decision = TINYIMG_ADMISSION_ADMIT;
+
+    if ((uint64_t) (resolution.cost_upper + (uint64_t) encode_upper) * scale >
+        limit) {
+        decision = TINYIMG_ADMISSION_REJECT;
+
+        if (opts->mode == TINYIMG_ADMIT_DEGRADE) {
+            // the plan's budget is what is left for everything but the
+            // encoder, in the calibrated machine's microseconds
+            uint64_t room = limit / scale;
+            priced.budget =
+                room > encode_upper ? (uint32_t) (room - encode_upper) : 1u;
+            priced.budget_basis = TINYIMG_BASIS_UPPER;
+
+            result = tiny_plan_resolve(&priced, &resolution);
+            if (result != TINYIMG_OK) return result;
+
+            if ((uint64_t) (resolution.cost_upper + (uint64_t) encode_upper) *
+                    scale <=
+                limit) {
+                decision = TINYIMG_ADMISSION_DEGRADED;
+            }
+        }
+    }
+
+    uint64_t total = (uint64_t) resolution.cost + encode;
+    uint64_t upper = (uint64_t) resolution.cost_upper + encode_upper;
+
+    admission->decision = decision;
+    admission->degraded = resolution.degraded;
+    admission->cost_us = scaled_up(total, scale);
+    admission->cost_upper_us = scaled_up(upper, scale);
+    admission->encode_us = scaled_up(encode, scale);
+    admission->encode_upper_us = scaled_up(encode_upper, scale);
+    admission->margin_us = (int32_t) ((int64_t) opts->budget_us -
+                                      (int64_t) admission->cost_upper_us);
+
+    return TINYIMG_OK;
+}
+
+#pragma endregion
+
+#pragma region memory bound
+
+#define MEM_ARENA_CHUNK 65536u
+#define MEM_ARENA_HEADER 32u
+#define MEM_JPEG_DECODER 9216u
+#define MEM_INFLATE_WINDOW 32768u
+#define MEM_INFLATE_TABLE 4704u
+#define MEM_INFLATE_READ 32510u
+#define MEM_LZW_TABLE 16384u
+#define MEM_VP8_STATE 3688u
+#define MEM_AV1_FIXED 70000u
+#define MEM_LOSSLESS_GROUP 6512u
+#define MEM_LOSSLESS_STREAM 17344u
+#define MEM_EFFECT_IMAGES 3u
+
+/** Running total of payload bytes a stage holds at its peak. */
+typedef struct {
+    uint64_t bytes;
+} Meter;
+
+static uint64_t ceil_div_u64(uint64_t a, uint64_t b) {
+    return (a + b - 1u) / b;
+}
+
+static uint64_t max_u64(uint64_t a, uint64_t b) {
+    return a > b ? a : b;
+}
+
+static uint64_t heap_bytes(uint64_t n) {
+    return n == 0u ? 0u : (n + 15u) & ~(uint64_t) 15u;
+}
+
+static void meter_heap(Meter* m, uint64_t n) {
+    m->bytes += heap_bytes(n);
+}
+
+/**
+ * The arena hands out a 64 KiB chunk or the allocation, whichever is larger,
+ * and starts a new chunk when one does not fit, abandoning the tail of the
+ * last. That tail is shorter than the allocation that did not fit and shorter
+ * than a chunk, which is the slack charged here beside the alignment and the
+ * chunk header.
+ */
+static void meter_arena(Meter* m, uint64_t n) {
+    if (n == 0u) return;
+
+    uint64_t slack = n + 16u < MEM_ARENA_CHUNK ? n + 16u : MEM_ARENA_CHUNK;
+    m->bytes += n + 16u + MEM_ARENA_HEADER + slack;
+}
+
+/** The chunk the last allocation leaves open. */
+static void meter_open(Meter* m) {
+    m->bytes += MEM_ARENA_CHUNK + MEM_ARENA_HEADER;
+}
+
+static uint64_t sat_u32(uint64_t n) {
+    return n > 0xFFFFFFFFu ? 0xFFFFFFFFu : n;
+}
+
+#pragma region jpeg
+
+/** Reads each component's sampling factors from the frame header. */
+static int jpeg_frame(
+    const uint8_t* b, size_t size, uint32_t* count, uint32_t* h, uint32_t* v
+) {
+    size_t at = 2;
+
+    while (at + 1 < size) {
+        if (b[at] != 0xFFu) {
+            at++;
+            continue;
+        }
+
+        uint8_t marker = b[at + 1];
+        at += 2;
+
+        if (marker == 0xFFu || marker == 0x00u) continue;
+        if (marker == 0xD9u || marker == 0xDAu) break;
+        if (marker >= 0xD0u && marker <= 0xD7u) continue;
+        if (at + 2 > size) return TINYIMG_ERR_CORRUPT;
+
+        size_t length = ((size_t) b[at] << 8) | b[at + 1];
+        if (length < 2 || at + length > size) return TINYIMG_ERR_CORRUPT;
+
+        if (marker >= 0xC0u && marker <= 0xCFu && marker != 0xC4u &&
+            marker != 0xC8u && marker != 0xCCu) {
+            if (length < 8) return TINYIMG_ERR_CORRUPT;
+
+            uint32_t n = b[at + 7];
+            if (n < 1u || n > 4u || length < 8u + 3u * n) {
+                return TINYIMG_ERR_CORRUPT;
+            }
+
+            for (uint32_t i = 0; i < n; i++) {
+                uint8_t factors = b[at + 8u + 3u * i + 1u];
+
+                h[i] = factors >> 4;
+                v[i] = factors & 15u;
+                if (h[i] < 1u || h[i] > 4u || v[i] < 1u || v[i] > 4u) {
+                    return TINYIMG_ERR_CORRUPT;
+                }
+            }
+
+            *count = n;
+            return TINYIMG_OK;
+        }
+
+        at += length;
+    }
+
+    return TINYIMG_ERR_CORRUPT;
+}
+
+/**
+ * The component planes follow plan_planes in jpeg.c: the scaled block size,
+ * the row window a region needs and, for a progressive file, the whole
+ * coefficient plane beside them. A frame header that cannot be read is charged
+ * as four full resolution components, which is at least as much as any
+ * layout holds.
+ */
+static void jpeg_bytes(
+    Meter* m, const TinyPlan* plan, const TinyDecodeOpts* d, uint32_t out_w,
+    uint32_t out_h, int progressive
+) {
+    uint32_t count = 0;
+    uint32_t h[4] = {1, 1, 1, 1};
+    uint32_t v[4] = {1, 1, 1, 1};
+
+    if (jpeg_frame(plan->buffer, plan->size, &count, h, v) != TINYIMG_OK) {
+        count = 4;
+        for (uint32_t i = 0; i < 4u; i++) h[i] = v[i] = 1u;
+    }
+
+    uint64_t hmax = 1;
+    uint64_t vmax = 1;
+
+    for (uint32_t i = 0; i < count; i++) {
+        if (h[i] > hmax) hmax = h[i];
+        if (v[i] > vmax) vmax = v[i];
+    }
+
+    uint64_t den = d->scale_den ? d->scale_den : 1u;
+    uint64_t dct = 8u / den;
+    uint64_t mcus_x = ceil_div_u64(plan->source_width, 8u * hmax);
+    uint64_t mcus_y = ceil_div_u64(plan->source_height, 8u * vmax);
+
+    meter_open(m);
+    meter_arena(m, MEM_JPEG_DECODER);
+
+    for (uint32_t i = 0; i < count; i++) {
+        uint64_t height = ceil_div_u64(plan->source_height * v[i], vmax);
+        uint64_t blocks_x = mcus_x * h[i];
+        uint64_t blocks_y = mcus_y * v[i];
+
+        uint64_t size = dct;
+        while (size < 8u && h[i] * size * 2u <= hmax * dct &&
+               v[i] * size * 2u <= vmax * dct) {
+            size *= 2u;
+        }
+
+        uint64_t v_ratio = (vmax * dct) / (v[i] * size);
+        if (v_ratio == 0u) v_ratio = 1u;
+
+        uint64_t plane_height = ceil_div_u64(height * size, 8u);
+        uint64_t y0 = d->y / den;
+        uint64_t first = y0 / v_ratio;
+        uint64_t last = (y0 + out_h - 1u) / v_ratio;
+
+        if (first > 0u) first--;
+        last++;
+        if (plane_height > 0u && last > plane_height - 1u) {
+            last = plane_height - 1u;
+        }
+        if (first > last) first = last;
+
+        uint64_t rows = (last / size - first / size + 1u) * size;
+
+        meter_arena(m, blocks_x * size * rows);
+        if (progressive) meter_arena(m, blocks_x * blocks_y * 128u);
+    }
+
+    for (uint32_t i = 0; i < count; i++) meter_arena(m, out_w);
+}
+
+#pragma endregion
+
+#pragma region webp
+
+typedef struct {
+    int lossless;
+    uint64_t coded_width;
+    uint64_t coded_height;
+    uint64_t stream_size;
+    int alpha;
+    uint8_t alpha_method;
+    uint64_t alpha_size;
+} WebpShape;
+
+static uint32_t le32_at(const uint8_t* p) {
+    return (uint32_t) p[0] | ((uint32_t) p[1] << 8) | ((uint32_t) p[2] << 16) |
+           ((uint32_t) p[3] << 24);
+}
+
+static int tag_is(const uint8_t* p, const char* tag) {
+    return p[0] == (uint8_t) tag[0] && p[1] == (uint8_t) tag[1] &&
+           p[2] == (uint8_t) tag[2] && p[3] == (uint8_t) tag[3];
+}
+
+/** Walks the chunks the way webp_parse does, to find the frame's kind. */
+static int webp_shape(const uint8_t* b, size_t size, WebpShape* s) {
+    tiny_memset(s, 0, sizeof(*s));
+
+    if (size < 12u) return TINYIMG_ERR_CORRUPT;
+
+    size_t limit = (size_t) le32_at(b + 4) + 8u;
+    if (limit > size || limit < 12u) limit = size;
+
+    size_t at = 12;
+    int inside = 0;
+    size_t frame_end = 0;
+    uint32_t frames = 0;
+    size_t stream_at = 0;
+    size_t alpha_at = 0;
+
+    while (at + 8u <= limit) {
+        const uint8_t* tag = b + at;
+        size_t length = le32_at(b + at + 4);
+        size_t payload = at + 8u;
+
+        if (length > limit - payload) length = limit - payload;
+
+        if (tag_is(tag, "ANMF")) {
+            frames++;
+
+            if (frames == 1u && length > 16u) {
+                inside = 1;
+                frame_end = payload + length;
+                at = payload + 16u;
+                continue;
+            }
+        }
+        else if (tag_is(tag, "ALPH")) {
+            if (!alpha_at) {
+                alpha_at = payload;
+                s->alpha_size = length;
+            }
+        }
+        else if (tag_is(tag, "VP8L") || tag_is(tag, "VP8 ")) {
+            if (!stream_at) {
+                stream_at = payload;
+                s->stream_size = length;
+                s->lossless = tag_is(tag, "VP8L");
+            }
+        }
+
+        at = payload + length + (length & 1u);
+        if (inside && at >= frame_end) inside = 0;
+    }
+
+    if (!stream_at || s->stream_size < 10u) return TINYIMG_ERR_CORRUPT;
+
+    const uint8_t* stream = b + stream_at;
+
+    if (s->lossless) {
+        uint32_t bits = le32_at(stream + 1);
+
+        s->coded_width = (bits & 0x3FFFu) + 1u;
+        s->coded_height = ((bits >> 14) & 0x3FFFu) + 1u;
+    }
+    else {
+        s->coded_width =
+            ((uint32_t) stream[6] | ((uint32_t) stream[7] << 8)) & 0x3FFFu;
+        s->coded_height =
+            ((uint32_t) stream[8] | ((uint32_t) stream[9] << 8)) & 0x3FFFu;
+    }
+
+    if (alpha_at && s->alpha_size > 0u) {
+        s->alpha = 1;
+        s->alpha_method = (uint8_t) (b[alpha_at] & 3u);
+    }
+
+    return TINYIMG_OK;
+}
+
+/**
+ * One lossless stream: the coded plane, the plane a color indexing transform
+ * widens it into, a sub-image for each of the four transforms and the meta
+ * Huffman image. The number of Huffman groups lives in the entropy image,
+ * which is itself coded, so it is bounded by what the stream could hold: one
+ * group per entropy pixel, per 20 bits of stream, and no more than the format
+ * names.
+ */
+static void lossless_bytes(
+    Meter* m, uint64_t width, uint64_t height, uint64_t stream_size
+) {
+    uint64_t sub =
+        ceil_div_u64(width, 4u) * ceil_div_u64(height, 4u) * sizeof(uint32_t);
+    uint64_t groups = ceil_div_u64(width, 4u) * ceil_div_u64(height, 4u);
+
+    if (groups > 65536u) groups = 65536u;
+    if (groups > stream_size * 8u / 20u + 1u)
+        groups = stream_size * 8u / 20u + 1u;
+    if (groups < 1u) groups = 1u;
+
+    meter_arena(m, width * height * 4u);
+    meter_arena(m, width * height * 4u);
+    for (uint32_t i = 0; i < 4u; i++) meter_arena(m, sub);
+    meter_arena(m, sub);
+    meter_arena(m, groups * 240u);
+    meter_arena(m, groups * 3136u * 2u);
+
+    for (uint32_t i = 0; i < 6u; i++) meter_arena(m, MEM_LOSSLESS_STREAM);
+}
+
+static void webp_bytes(
+    Meter* m, const TinyPlan* plan, const TinyDecodeOpts* d
+) {
+    uint64_t width = plan->source_width;
+    uint64_t height = plan->source_height;
+    uint64_t count = width * height;
+    WebpShape shape;
+
+    meter_open(m);
+
+    if (webp_shape(plan->buffer, plan->size, &shape) != TINYIMG_OK) {
+        shape.lossless = 1;
+        shape.alpha = 1;
+        shape.alpha_method = 1u;
+        shape.coded_width = width;
+        shape.coded_height = height;
+        shape.stream_size = plan->size;
+        shape.alpha_size = plan->size;
+    }
+
+    if (shape.lossless) {
+        meter_arena(m, count * 4u);
+        lossless_bytes(m, width, height, shape.stream_size);
+        return;
+    }
+
+    int folded = d->scale_den > 1u && d->effort == TINYIMG_EFFORT_FAST;
+    int canvas = shape.coded_width < width || shape.coded_height < height;
+
+    if (!folded || canvas) meter_arena(m, count * 4u);
+
+    uint64_t mb_w = ceil_div_u64(shape.coded_width, 16u);
+    uint64_t mb_h = ceil_div_u64(shape.coded_height, 16u);
+
+    meter_arena(m, MEM_VP8_STATE);
+    meter_arena(m, mb_w * 16u * mb_h * 16u);
+    meter_arena(m, mb_w * 8u * mb_h * 8u);
+    meter_arena(m, mb_w * 8u * mb_h * 8u);
+    meter_arena(m, mb_w * 9u);
+    meter_arena(m, mb_w * 4u);
+    meter_arena(m, mb_w * mb_h);
+    meter_arena(m, mb_w * mb_h);
+
+    if (shape.alpha) {
+        meter_arena(m, count);
+
+        if (shape.alpha_method == 1u) {
+            lossless_bytes(m, width, height, shape.alpha_size);
+        }
+    }
+}
+
+#pragma endregion
+
+#pragma region avif
+
+typedef struct {
+    uint32_t planes;
+    uint32_t sub_x;
+    uint32_t sub_y;
+} Av1Layout;
+
+/**
+ * Reads the color item's layout from the `av1C` property. A file without one
+ * is charged as three full resolution planes, which is the most any layout
+ * holds.
+ */
+static Av1Layout av1_layout(const TinyPlan* plan, const TinyImageInfo* info) {
+    Av1Layout layout = {
+        info->channels == 1u || info->channels == 2u ? 1u : 3u, 0u, 0u
+    };
+
+    for (size_t i = 0; i + 7u <= plan->size; i++) {
+        const uint8_t* p = plan->buffer + i;
+
+        if (!tag_is(p, "av1C") || p[4] != 0x81u) continue;
+
+        if (p[6] & 0x08u) {
+            layout.planes = 1u;
+        }
+        else {
+            layout.sub_x = (p[6] >> 2) & 1u;
+            layout.sub_y = (p[6] >> 1) & 1u;
+        }
+
+        break;
+    }
+
+    return layout;
+}
+
+/**
+ * One AV1 frame decode: the superblock aligned planes, a second set for the
+ * CDEF copy, and a byte of mode info for each four by four cell. Superblocks
+ * are charged at 128 pixels, the larger of the two sizes.
+ */
+static void av1_bytes(
+    Meter* m, const TinyPlan* plan, const Av1Layout* layout, uint64_t out_bytes
+) {
+    uint64_t mi_cols = 2u * ((plan->source_width + 7u) >> 3);
+    uint64_t mi_rows = 2u * ((plan->source_height + 7u) >> 3);
+    uint64_t cells = mi_cols * mi_rows;
+    uint64_t store_w = ceil_div_u64(mi_cols, 32u) * 32u * 4u;
+    uint64_t store_h = ceil_div_u64(mi_rows, 32u) * 32u * 4u;
+
+    meter_heap(m, MEM_AV1_FIXED);
+    meter_heap(m, cells * 6u);
+    meter_heap(m, cells / 256u + 64u);
+    meter_heap(m, cells * 4u);
+    meter_heap(m, (mi_cols + 64u) * 6u + (mi_rows + 64u) * 6u);
+
+    for (uint32_t i = 0; i < layout->planes; i++) {
+        uint64_t w = i == 0u ? store_w : store_w >> layout->sub_x;
+        uint64_t h = i == 0u ? store_h : store_h >> layout->sub_y;
+
+        meter_heap(m, w * h);
+        meter_heap(m, cells);
+        meter_heap(m, w * h);
+    }
+
+    meter_heap(m, out_bytes);
+}
+
+static void avif_bytes(
+    Meter* m, const TinyPlan* plan, const TinyImageInfo* info, uint64_t out_w,
+    uint64_t out_h, uint64_t out_c
+) {
+    Av1Layout color_layout = av1_layout(plan, info);
+    uint64_t out = out_w * out_h * out_c;
+
+    Meter color = {0};
+    meter_heap(&color, plan->size);
+    av1_bytes(&color, plan, &color_layout, out);
+
+    m->bytes += color.bytes;
+
+    if (info->has_alpha) {
+        Av1Layout mono = {1u, 0u, 0u};
+        Meter alpha = {0};
+
+        meter_heap(&alpha, out);
+        meter_heap(&alpha, plan->size);
+        av1_bytes(&alpha, plan, &mono, out_w * out_h);
+
+        if (alpha.bytes > m->bytes) m->bytes = alpha.bytes;
+    }
+}
+
+#pragma endregion
+
+/**
+ * The decoder's working set, with the image it returns, for one format at
+ * the window and scale in `d`.
+ */
+static void decode_bytes(
+    Meter* m, const TinyPlan* plan, const TinyImageInfo* info,
+    const TinyDecodeOpts* d
+) {
+    uint64_t den = d->scale_den ? d->scale_den : 1u;
+    uint64_t width = plan->source_width;
+    uint64_t height = plan->source_height;
+    uint64_t region_w = d->width ? d->width : width;
+    uint64_t region_h = d->height ? d->height : height;
+    uint64_t out_w = ceil_div_u64(region_w, den);
+    uint64_t out_h = ceil_div_u64(region_h, den);
+    uint64_t out_c = d->channels ? d->channels : plan->source_channels;
+    uint64_t out = out_w * out_h * out_c;
+
+    switch (plan->source_format) {
+        case TINYIMG_FORMAT_JPEG:
+            meter_heap(m, out);
+            jpeg_bytes(
+                m, plan, d, (uint32_t) out_w, (uint32_t) out_h,
+                info->progressive
+            );
+            break;
+
+        case TINYIMG_FORMAT_PNG: {
+            uint64_t bits = (uint64_t) info->channels * info->bit_depth;
+            uint64_t stride = width * bits / 8u + 8u;
+
+            meter_heap(m, out);
+            meter_open(m);
+            meter_arena(m, plan->size);
+            meter_arena(m, MEM_INFLATE_WINDOW);
+            meter_arena(m, MEM_INFLATE_TABLE);
+            meter_arena(m, MEM_INFLATE_TABLE);
+            meter_arena(m, MEM_INFLATE_READ);
+            meter_arena(m, out_w * 16u);
+            meter_arena(m, out_w * 4u);
+            meter_arena(m, width * 4u);
+
+            if (info->progressive) {
+                meter_arena(m, width * height * 4u);
+                meter_arena(m, width * 4u);
+            }
+
+            meter_arena(m, stride);
+            meter_arena(m, stride);
+            break;
+        }
+
+        case TINYIMG_FORMAT_GIF:
+            meter_heap(m, out);
+            meter_open(m);
+            meter_arena(m, width * height);
+            meter_arena(m, width * height);
+            meter_arena(m, MEM_LZW_TABLE);
+            break;
+
+        case TINYIMG_FORMAT_BMP: {
+            // compression 1 and 2 are the run length layouts, which expand a
+            // whole index plane on the heap before any row is read
+            const uint8_t* b = plan->buffer;
+            int rle = plan->size >= 34u && le32_at(b + 14) >= 40u &&
+                      (le32_at(b + 30) == 1u || le32_at(b + 30) == 2u);
+
+            meter_heap(m, out);
+            if (rle) meter_heap(m, width * height);
+            meter_open(m);
+            meter_arena(m, out_w * 16u);
+            meter_arena(m, out_w * 4u);
+            break;
+        }
+
+        case TINYIMG_FORMAT_TIFF: {
+            // the strip buffer is a strip of rows, and the strip layout is in a
+            // directory the planner has not read, so it is charged as the
+            // whole image, which a single strip is. The compression is not
+            // known either, so the dearer of the two decompressors is charged
+            uint64_t buffered = width * height * info->channels;
+
+            meter_heap(m, out);
+            meter_open(m);
+            meter_arena(m, buffered);
+            meter_arena(m, out_w * 16u);
+            meter_arena(m, out_w * 4u);
+            meter_heap(m, buffered);
+            meter_arena(m, MEM_INFLATE_WINDOW);
+            meter_arena(m, MEM_INFLATE_TABLE);
+            meter_arena(m, MEM_INFLATE_TABLE);
+            meter_arena(m, MEM_INFLATE_READ);
+            break;
+        }
+
+        case TINYIMG_FORMAT_WEBP:
+            meter_heap(m, out);
+            webp_bytes(m, plan, d);
+            break;
+
+        case TINYIMG_FORMAT_AVIF:
+            avif_bytes(m, plan, info, out_w, out_h, out_c);
+            break;
+
+        default:
+            meter_heap(m, out);
+            meter_arena(m, width * height * 4u);
+            break;
+    }
+}
+
+/** Tap tables, color stages and the output of one fused pass. */
+static void fused_bytes(Meter* m, const TinyPlanResolution* r) {
+    double step_x = r->source_width / (double) r->sample_width;
+    double step_y = r->source_height / (double) r->sample_height;
+
+    meter_open(m);
+    meter_arena(m, (uint64_t) r->sample_width * sizeof(Tap));
+    meter_arena(m, (uint64_t) r->sample_height * sizeof(Tap));
+    meter_arena(m, (uint64_t) r->color_stages * sizeof(TinyColorStage));
+    meter_arena(
+        m, (uint64_t) r->sample_width * taps_bound(r->filter_x, step_x) *
+               sizeof(int32_t)
+    );
+    meter_arena(
+        m, (uint64_t) r->sample_height * taps_bound(r->filter_y, step_y) *
+               sizeof(int32_t)
+    );
+    meter_heap(m, (uint64_t) r->width * r->height * r->channels);
+}
+
+/**
+ * What a neighborhood operation holds beside the image it runs on. A box blur
+ * keeps one line. An effect is charged a fixed number of whole copies, which
+ * the sweep in TECHNICAL_REPORT.md measured against every effect kind.
+ */
+static uint64_t neighborhood_bytes(
+    const TinyPlanOp* op, uint32_t width, uint32_t height, uint8_t channels
+) {
+    uint64_t image = (uint64_t) width * height * channels;
+
+    if (op->kind == TINYIMG_OP_EFFECT) {
+        Meter e = {MEM_EFFECT_IMAGES * heap_bytes(image)};
+
+        meter_open(&e);
+        meter_open(&e);
+        return e.bytes;
+    }
+
+    Meter m = {0};
+    meter_open(&m);
+    meter_arena(&m, (uint64_t) tiny_max_u32(width, height) * channels);
+    meter_arena(&m, channels * sizeof(uint32_t));
+    return m.bytes;
+}
+
+/**
+ * The operations after a fused pass, each run on the image the last one left,
+ * which stays live beside whatever it makes.
+ *
+ * @param grouped Non-zero to run consecutive non-neighborhood operations as
+ * one plan, as run_remainder does; zero for one plan each, as run_eager does.
+ */
+static uint64_t remainder_bytes(
+    const TinyPlan* plan, const TinyPlanOp* ops, uint32_t first, uint32_t count,
+    uint32_t width, uint32_t height, uint8_t channels, uint64_t live,
+    int grouped
+) {
+    static uint8_t token;
+    uint64_t peak = live + heap_bytes((uint64_t) width * height * channels);
+    uint32_t at = first;
+
+    while (at < count) {
+        uint64_t current =
+            live + heap_bytes((uint64_t) width * height * channels);
+
+        if (tiny_plan_op_class(ops[at].kind) == TINYIMG_OP_CLASS_NEIGHBORHOOD) {
+            peak = max_u64(
+                peak,
+                current + neighborhood_bytes(&ops[at], width, height, channels)
+            );
+            at++;
+            continue;
+        }
+
+        TinyImage stand;
+        tiny_memset(&stand, 0, sizeof(stand));
+        stand.width = width;
+        stand.height = height;
+        stand.channels = channels;
+        stand.data = &token;
+
+        TinyPlan rest;
+        if (tiny_plan_init_image(&rest, &stand) != TINYIMG_OK) break;
+
+        for (uint32_t i = 0; i < 4u; i++)
+            rest.background[i] = plan->background[i];
+
+        do {
+            rest.ops[rest.count++] = ops[at++];
+        } while (grouped && at < count &&
+                 tiny_plan_op_class(ops[at].kind) !=
+                     TINYIMG_OP_CLASS_NEIGHBORHOOD);
+
+        TinyPlanResolution step;
+        if (tiny_plan_resolve(&rest, &step) != TINYIMG_OK) break;
+
+        Meter m = {current};
+        fused_bytes(&m, &step);
+        peak = max_u64(peak, m.bytes);
+
+        width = step.width;
+        height = step.height;
+        channels = step.channels;
+    }
+
+    return peak;
+}
+
+/** Whether any fit still needs a focus resolved from the pixels. */
+static int focus_wanted(const TinyPlan* plan) {
+    for (uint32_t i = 0; i < plan->count; i++) {
+        const TinyPlanOp* op = &plan->ops[i];
+
+        if (op->kind != TINYIMG_OP_FIT || op->fit.focused) continue;
+        if (op->fit.gravity == TINYIMG_GRAVITY_AUTO ||
+            op->fit.gravity == TINYIMG_GRAVITY_FACE) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * The scaled decode resolve_focus makes, the detector's grayscale copy and
+ * the face search's planes and integral image.
+ */
+static uint64_t focus_bytes(const TinyPlan* plan, const TinyImageInfo* info) {
+    uint64_t width = plan->source_width;
+    uint64_t height = plan->source_height;
+    uint8_t channels = plan->source_channels;
+    uint64_t probe_w = width;
+    uint64_t probe_h = height;
+    uint8_t den = 1;
+
+    if (plan->buffer) {
+        for (uint8_t candidate = 8; candidate > 1u; candidate /= 2u) {
+            uint64_t w = ceil_div_u64(width, candidate);
+            uint64_t h = ceil_div_u64(height, candidate);
+
+            if (w >= TINYIMG_DETECT_LONG_SIDE &&
+                h >= TINYIMG_DETECT_LONG_SIDE) {
+                den = candidate;
+                break;
+            }
+        }
+
+        probe_w = ceil_div_u64(width, den);
+        probe_h = ceil_div_u64(height, den);
+    }
+
+    uint64_t longest = probe_w > probe_h ? probe_w : probe_h;
+    uint64_t small_w = probe_w;
+    uint64_t small_h = probe_h;
+    uint64_t probe = probe_w * probe_h * channels;
+
+    // a probe past the detector's long side is reduced into a copy first
+    if (longest > TINYIMG_DETECT_LONG_SIDE) {
+        small_w = probe_w * TINYIMG_DETECT_LONG_SIDE / longest;
+        small_h = probe_h * TINYIMG_DETECT_LONG_SIDE / longest;
+    }
+
+    Meter m = {0};
+
+    if (plan->buffer) {
+        TinyDecodeOpts opts = {0, 0, 0, 0, den, 0, 0};
+        decode_bytes(&m, plan, info, &opts);
+    }
+    else {
+        probe = 0;
+    }
+
+    Meter detect = {probe};
+    meter_open(&detect);
+    if (longest > TINYIMG_DETECT_LONG_SIDE) {
+        meter_arena(&detect, probe_w * probe_h);
+        meter_arena(&detect, small_w * small_h);
+    }
+    meter_arena(&detect, small_w * small_h);
+    meter_arena(&detect, small_w * small_h);
+    meter_arena(&detect, (small_w + 1u) * (small_h + 1u) * sizeof(uint32_t));
+    meter_arena(
+        &detect, (uint64_t) TINYIMG_MAX_RAW_DETECTIONS * sizeof(TinyFaceBox)
+    );
+
+    return max_u64(m.bytes, detect.bytes);
+}
+
+static int peak_of(
+    const TinyPlan* plan, const TinyPlanResolution* resolution, uint64_t* out
+) {
+    TinyImageInfo info;
+    tiny_memset(&info, 0, sizeof(info));
+
+    if (plan->buffer) {
+        int result = tiny_image_probe(plan->buffer, plan->size, &info);
+        if (result != TINYIMG_OK) return result;
+    }
+
+    uint64_t peak = 0;
+
+    if (focus_wanted(plan)) peak = focus_bytes(plan, &info);
+
+    if (plan->fusion) {
+        uint64_t decoded = 0;
+
+        if (plan->buffer) {
+            Meter m = {0};
+            decode_bytes(&m, plan, &info, &resolution->decode);
+            peak = max_u64(peak, m.bytes);
+
+            uint64_t channels = resolution->decode.channels
+                                    ? resolution->decode.channels
+                                    : plan->source_channels;
+            decoded = heap_bytes(
+                (uint64_t) resolution->decode_width *
+                resolution->decode_height * channels
+            );
+        }
+
+        Meter m = {decoded};
+        fused_bytes(&m, resolution);
+        peak = max_u64(peak, m.bytes);
+
+        peak = max_u64(
+            peak, remainder_bytes(
+                      plan, resolution->op, resolution->consumed,
+                      resolution->ops, resolution->width, resolution->height,
+                      resolution->channels, decoded, 1
+                  )
+        );
+    }
+    else {
+        uint64_t decoded = 0;
+
+        if (plan->buffer) {
+            TinyDecodeOpts whole = {0, 0, 0, 0, 1, 0, plan->effort};
+            Meter m = {0};
+
+            decode_bytes(&m, plan, &info, &whole);
+            peak = max_u64(peak, m.bytes);
+            decoded = heap_bytes(
+                (uint64_t) plan->source_width * plan->source_height *
+                plan->source_channels
+            );
+        }
+
+        peak = max_u64(
+            peak, remainder_bytes(
+                      plan, plan->ops, 0, plan->count, plan->source_width,
+                      plan->source_height, plan->source_channels, decoded, 0
+                  )
+        );
+    }
+
+    *out = peak;
+    return TINYIMG_OK;
+}
+
+int tiny_plan_peak_bytes(
+    const TinyPlan* plan, const TinyPlanResolution* resolution, size_t* bytes
+) {
+    if (!plan || !bytes) return TINYIMG_ERR_NULL;
+
+    TinyPlanResolution own;
+
+    if (!resolution) {
+        int result = tiny_plan_resolve(plan, &own);
+        if (result != TINYIMG_OK) return result;
+
+        resolution = &own;
+    }
+
+    uint64_t peak = 0;
+    int result = peak_of(plan, resolution, &peak);
+    if (result != TINYIMG_OK) return result;
+
+    *bytes = (size_t) sat_u32(peak);
+    return TINYIMG_OK;
+}
+
+#pragma endregion
+
+#pragma region candidates
+
+/** Whether two resolutions ask the decoder and the passes for the same work. */
+static int same_resolution(
+    const TinyPlanResolution* a, const TinyPlanResolution* b
+) {
+    return a->decode.x == b->decode.x && a->decode.y == b->decode.y &&
+           a->decode.width == b->decode.width &&
+           a->decode.height == b->decode.height &&
+           a->decode.scale_den == b->decode.scale_den &&
+           a->decode.channels == b->decode.channels &&
+           a->decode.effort == b->decode.effort &&
+           a->decode_width == b->decode_width &&
+           a->decode_height == b->decode_height && a->source_x == b->source_x &&
+           a->source_y == b->source_y && a->source_width == b->source_width &&
+           a->source_height == b->source_height &&
+           a->sample_width == b->sample_width &&
+           a->sample_height == b->sample_height && a->filter_x == b->filter_x &&
+           a->filter_y == b->filter_y && a->width == b->width &&
+           a->height == b->height && a->channels == b->channels &&
+           a->offset_x == b->offset_x && a->offset_y == b->offset_y &&
+           a->kernels == b->kernels && a->color_stages == b->color_stages &&
+           a->color_stages_before == b->color_stages_before &&
+           a->consumed == b->consumed && a->passes == b->passes;
+}
+
+int tiny_plan_enumerate(
+    const TinyPlan* plan, TinyPlanCandidate* out, uint32_t max, uint32_t* count
+) {
+    if (!plan || !count || (max > 0u && !out)) return TINYIMG_ERR_NULL;
+
+    TinyPlanResolution seen[TINYIMG_PLAN_MAX_CANDIDATES];
+    uint32_t found = 0;
+
+    uint8_t efforts[2] = {plan->effort, TINYIMG_EFFORT_FAST};
+    uint32_t effort_count = plan->effort == TINYIMG_EFFORT_FAST ? 1u : 2u;
+
+    *count = 0;
+
+    for (uint32_t e = 0; e < effort_count; e++) {
+        for (uint8_t nearest = 0; nearest < 2u; nearest++) {
+            for (uint8_t steps = 0; steps < 4u; steps++) {
+                Lever lever = {efforts[e], nearest, steps};
+                TinyPlanResolution resolution;
+
+                int result = resolve_at(plan, lever, &resolution);
+                if (result != TINYIMG_OK) {
+                    if (found == 0u) return result;
+                    continue;
+                }
+
+                int duplicate = 0;
+                for (uint32_t i = 0; i < found; i++) {
+                    if (same_resolution(&seen[i], &resolution)) {
+                        duplicate = 1;
+                        break;
+                    }
+                }
+                if (duplicate) continue;
+
+                seen[found] = resolution;
+
+                if (found < max) {
+                    TinyPlanCandidate* c = &out[found];
+                    size_t peak = 0;
+
+                    tiny_memset(c, 0, sizeof(*c));
+                    c->effort = resolution.decode.effort;
+                    c->nearest = nearest;
+                    c->steps = steps;
+                    c->scale_den = resolution.decode.scale_den;
+                    c->filter_x = resolution.filter_x;
+                    c->filter_y = resolution.filter_y;
+                    c->cost = resolution.cost;
+                    c->cost_upper = resolution.cost_upper;
+
+                    if (tiny_plan_peak_bytes(plan, &resolution, &peak) ==
+                        TINYIMG_OK) {
+                        c->peak_bytes = (uint32_t) peak;
+                    }
+
+                    if (found > 0u) {
+                        const TinyPlanResolution* base = &seen[0];
+
+                        if (resolution.decode.effort != base->decode.effort) {
+                            c->degraded |= TINYIMG_DEGRADE_EFFORT;
+                        }
+                        if (resolution.filter_x != base->filter_x ||
+                            resolution.filter_y != base->filter_y) {
+                            c->degraded |= TINYIMG_DEGRADE_FILTER;
+                        }
+                        if (resolution.decode.scale_den >
+                            base->decode.scale_den) {
+                            c->degraded |= TINYIMG_DEGRADE_SCALE;
+                        }
+                    }
+                }
+
+                found++;
+            }
+        }
+    }
+
+    *count = found;
+    return TINYIMG_OK;
 }
 
 #pragma endregion

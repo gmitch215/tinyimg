@@ -400,6 +400,8 @@ typedef struct {
     uint8_t source_channels;
     /** The source's container format. */
     TinyImageFormat source_format;
+    /** Non-zero for a progressive JPEG, which the cost model prices apart. */
+    uint8_t source_progressive;
 
     /** Zero to run one operation per pass; see tiny_plan_set_fusion. */
     uint8_t fusion;
@@ -407,6 +409,8 @@ typedef struct {
     uint8_t effort;
     /** Microseconds the plan may cost, or zero for no budget. */
     uint32_t budget;
+    /** A TinyBudgetBasis: which cost the budget ladder compares. */
+    uint8_t budget_basis;
     /** What padding is filled with, as many channels as the output has. */
     uint8_t background[4];
 
@@ -589,6 +593,12 @@ typedef struct {
     uint32_t kernels;
     /** What running this is estimated to cost, in microseconds. */
     uint32_t cost;
+    /**
+     * @brief The calibrated upper bound on `cost`, in the same unit.
+     *
+     * See tiny_plan_cost_upper for what the bound does and does not promise.
+     */
+    uint32_t cost_upper;
     /** A bitmask of TinyPlanDegrade; zero when nothing was given up. */
     uint32_t degraded;
 } TinyPlanResolution;
@@ -715,10 +725,11 @@ int tiny_plan_set_effort(TinyPlan* plan, uint8_t effort);
  * **A rung that is not cheaper is skipped rather than taken**, so what comes
  * back is never softer for more CPU than the undegraded plan.
  *
- * **A budget is a request, not a guarantee.** The estimate is within about 20%,
- * the levers run out, and a plan can still be over budget after all of them; a
- * caller that has to know reads `cost` back and compares. Nothing is degraded
- * silently and nothing is degraded when the estimate already fits.
+ * **A budget is a request, not a guarantee.** The estimate is a point estimate
+ * with a documented spread (see tiny_plan_cost_upper), the levers run out, and
+ * a plan can still be over budget after all of them; a caller that has to know
+ * reads `cost` back and compares. Nothing is degraded silently and nothing is
+ * degraded when the estimate already fits.
  *
  * The encoder is not priced here, because a plan does not carry one. Subtract
  * tiny_encode_cost for the format being written before setting this.
@@ -728,6 +739,33 @@ int tiny_plan_set_effort(TinyPlan* plan, uint8_t effort);
  * @return int TINYIMG_OK or TINYIMG_ERR_NULL.
  */
 int tiny_plan_set_budget(TinyPlan* plan, uint32_t microseconds);
+
+/** @brief Which cost a budget is compared against. */
+typedef enum
+{
+    /** The point estimate, which is what a budget has always been judged on. */
+    TINYIMG_BASIS_POINT = 0,
+    /**
+     * The calibrated upper bound of tiny_plan_cost_upper, so a rung that fits
+     * is one whose bound fits.
+     */
+    TINYIMG_BASIS_UPPER = 1,
+} TinyBudgetBasis;
+
+/**
+ * @brief Chooses the cost the budget ladder compares.
+ *
+ * The ladder, its order and its skip rule are the same on both bases; only the
+ * number compared to the budget, and the number a rung must beat to be taken,
+ * change. TINYIMG_BASIS_POINT is the default and reproduces every plan that
+ * existed before the basis did.
+ *
+ * @param plan The plan.
+ * @param basis A TinyBudgetBasis.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL, or TINYIMG_ERR_RANGE for a value
+ * that is not a TinyBudgetBasis.
+ */
+int tiny_plan_set_budget_basis(TinyPlan* plan, uint8_t basis);
 
 /**
  * @brief Sets what padding is filled with.
@@ -1045,13 +1083,16 @@ TinyPlanOpClass tiny_plan_op_class(TinyPlanOpKind kind);
  * The plan is resolved, which reads the source header and no pixels, so this
  * costs about as much as tiny_plan_resolve and nothing like the plan itself.
  *
- * **This is an estimate and says so.** The rates come from
- * `scripts/measure/calibrate.ts` on one machine, and a machine of a different
- * speed wants all of them scaled. Measured against real transforms it lands
- * within about 20%, which is the accuracy a budget question needs when the
- * question is whether 7 milliseconds of work will fit inside 10. It is not a
- * substitute for measuring: a caller that needs to know what a request cost
- * should read the work counters afterwards.
+ * **This is an estimate and says so.** The decode and encode rates come from
+ * `scripts/measure/fit-cost.ts` and the resample, color and neighborhood rates
+ * from `scripts/measure/calibrate.ts`, all on one machine, and a machine of a
+ * different speed wants all of them scaled. On a held-out half of the
+ * calibration corpus the median decode error is within 10% for every format
+ * except TIFF (54% under, because the compression coding is not visible to the
+ * plan), and single requests spread wider, so a question about whether work
+ * fits should ask tiny_plan_cost_upper. It is not a substitute for
+ * measuring: a caller that needs to know what a request cost should read the
+ * work counters afterwards.
  *
  * The encoder is not included, because a plan does not carry one. Add
  * tiny_encode_cost for the format being written.
@@ -1063,12 +1104,54 @@ TinyPlanOpClass tiny_plan_op_class(TinyPlanOpKind kind);
 uint32_t tiny_plan_cost(const TinyPlan* plan);
 
 /**
+ * @brief A calibrated upper bound on what tiny_plan_cost estimates.
+ *
+ * The decode phase is multiplied by a factor per source format, taken from the
+ * 95th percentile rank of the log ratio of measured to estimated time over a
+ * held-out half of the calibration corpus (split conformal prediction, target
+ * miscoverage 0.05). The other phases carry no calibration data and are added
+ * unscaled. The factor is never below one, so the bound is never below the
+ * point estimate.
+ *
+ * **This is a prediction bound under exchangeability, not a guarantee.** It
+ * holds for requests that resemble the corpus cells it was calibrated on, on
+ * the machine those cells were timed on (darwin, native node, the shipping
+ * module), in the same unit as tiny_plan_cost. A Worker runs the same module
+ * 1.90x slower at the median and 2.4x to 4.7x slower on cheap requests, so a
+ * caller admitting work against a Worker's CPU limit multiplies by its own
+ * machine factor first; none is applied here. The encoder is not included, as
+ * for tiny_plan_cost; add tiny_encode_cost_upper_at.
+ *
+ * @param plan The plan to price.
+ * @return uint32_t Microseconds, or 0 when the plan cannot be resolved or its
+ * source header cannot be read.
+ */
+uint32_t tiny_plan_cost_upper(const TinyPlan* plan);
+
+/**
+ * @brief The calibrated upper bound on tiny_encode_cost_at, for one extent.
+ *
+ * The same construction and the same caveats as tiny_plan_cost_upper, with the
+ * factor taken over the encode cells of the format being written.
+ *
+ * @param format The format to write.
+ * @param width Output width.
+ * @param height Output height.
+ * @param compression A TinyCompression; AUTO prices as the default level.
+ * @return uint32_t Microseconds, or 0 for a format this build cannot write.
+ */
+uint32_t tiny_encode_cost_upper_at(
+    TinyImageFormat format, uint32_t width, uint32_t height, uint8_t compression
+);
+
+/**
  * @brief What encoding an image of this extent is expected to cost.
  *
  * Separate from tiny_plan_cost so a caller choosing between formats can price
  * each one without building a plan per candidate. The spread is the reason the
- * function exists: at the rates measured, PNG costs 29 times JPEG per sample
- * and WebP costs 4, so a request that does not fit as WebP may fit as JPEG.
+ * function exists: at the default rates measured, PNG costs 18 times JPEG per
+ * pixel and WebP costs 2.2, so a request that does not fit as WebP may fit as
+ * JPEG.
  *
  * Prices the default compression level. Use tiny_encode_cost_at to price
  * another one, which is the lever a budgeted lossless request has.
@@ -1086,8 +1169,9 @@ uint32_t tiny_encode_cost(
  * @brief What encoding an image of this extent costs at one compression level.
  *
  * The lever a budget has over a lossless output. PNG and TIFF carry a deflate
- * stream whose level moves the encoder by 1.5x to 2.4x measured, which on a
- * PNG-output request is worth more than anything the planner can do to the
+ * stream whose level moves the encoder from 0.33x (none) through 0.61x (fast)
+ * to 1.88x (best) of the default measured, which on a PNG-output request is
+ * worth more than anything the planner can do to the
  * pixels: the encoder is the larger half of the cost and the only half a
  * budget could not previously reach.
  *
@@ -1102,6 +1186,230 @@ uint32_t tiny_encode_cost(
  */
 uint32_t tiny_encode_cost_at(
     TinyImageFormat format, uint32_t width, uint32_t height, uint8_t compression
+);
+
+/**
+ * @brief What an encode request carries beyond its extent, for pricing.
+ *
+ * A zeroed structure prices the defaults, which is what tiny_encode_cost_at
+ * prices. Each field is a lever the encoder reads and the price follows:
+ *
+ * - `quality` for JPEG, WebP and AVIF, at the nearest of the measured points
+ *   50, 75, 85, 90 and 95; zero is the format's own default.
+ * - `lossless` for WebP, the only format here with a lossless mode measured.
+ * - `compression` for PNG and deflate-compressed TIFF.
+ * - `channels`, the source's channel count; 2 and 4 carry an alpha channel,
+ *   and every other value prices as opaque.
+ * - `effort`, a TinyEffort for the encoder; PNG and lossy WebP read it.
+ *
+ * The factors were measured one at a time against the default. A request that
+ * moves several at once multiplies them, and that product is not itself
+ * measured.
+ */
+typedef struct {
+    /** Quality, 0 to 100; zero prices the format's default quality. */
+    uint8_t quality;
+    /** Non-zero to price WebP's lossless mode. Ignored by other formats. */
+    uint8_t lossless;
+    /** A TinyCompression; AUTO prices as the default level. */
+    uint8_t compression;
+    /** Channels of the image being written; 2 and 4 price the alpha channel. */
+    uint8_t channels;
+    /** A TinyEffort for the encoder; zero is FANCY. */
+    uint8_t effort;
+} TinyEncodePriceOpts;
+
+/**
+ * @brief What encoding an image of this extent costs for a described request.
+ *
+ * The general form of tiny_encode_cost_at: quality tier, WebP lossless, the
+ * alpha channel, the compression level and the encoder effort all move the
+ * price. tiny_encode_cost_at calls this with the defaults, so the two agree
+ * wherever the request is a default one.
+ *
+ * Not priced: the composition of the factors above (each was measured alone),
+ * a quality outside 50 to 95 beyond the nearest measured point, and any
+ * content effect. See the cost model section of TECHNICAL_REPORT.md.
+ *
+ * @param format The format to write.
+ * @param width Output width.
+ * @param height Output height.
+ * @param opts The request, or NULL for the defaults.
+ * @return uint32_t Microseconds, or 0 for a format this build cannot write.
+ */
+uint32_t tiny_encode_cost_for(
+    TinyImageFormat format, uint32_t width, uint32_t height,
+    const TinyEncodePriceOpts* opts
+);
+
+/**
+ * @brief The calibrated upper bound on tiny_encode_cost_for.
+ *
+ * The same construction as tiny_encode_cost_upper_at, with the factor taken
+ * over every encode cell the price function prices, default and not.
+ *
+ * @param format The format to write.
+ * @param width Output width.
+ * @param height Output height.
+ * @param opts The request, or NULL for the defaults.
+ * @return uint32_t Microseconds, or 0 for a format this build cannot write.
+ */
+uint32_t tiny_encode_cost_upper_for(
+    TinyImageFormat format, uint32_t width, uint32_t height,
+    const TinyEncodePriceOpts* opts
+);
+
+/** @brief What tiny_plan_admit does with a request that is over budget. */
+typedef enum
+{
+    /** Reject it; nothing is given up. */
+    TINYIMG_ADMIT_STRICT = 0,
+    /** Walk the budget ladder on the upper bound, then reject if no rung fits.
+     */
+    TINYIMG_ADMIT_DEGRADE = 1,
+} TinyAdmitMode;
+
+/** @brief What tiny_plan_admit decided. */
+typedef enum
+{
+    /** The undegraded request fits. */
+    TINYIMG_ADMISSION_ADMIT = 0,
+    /** It fits after the levers in `degraded` were taken. */
+    TINYIMG_ADMISSION_DEGRADED = 1,
+    /** It does not fit, and in DEGRADE mode no rung of the ladder fits either.
+     */
+    TINYIMG_ADMISSION_REJECT = 2,
+} TinyAdmissionDecision;
+
+/**
+ * @brief What tiny_plan_admit is asked.
+ *
+ * Every member is a 32 bit unsigned integer, in this order, so a host can write
+ * the structure with eight `setUint32` calls; tiny_admit_opts_sizeof gives the
+ * size to reserve. The last four describe the encoder and price it through
+ * tiny_encode_cost_for; the output's channel count is the plan's own.
+ */
+typedef struct {
+    /** CPU the request may spend, in microseconds, on the machine it runs on.
+     */
+    uint32_t budget_us;
+    /**
+     * How much slower the running machine is than the one the cost model was
+     * calibrated on, times 1000. 1000 means the same machine; 1900 is what a
+     * Worker measured at the median. The library applies no factor of its own.
+     */
+    uint32_t scale_milli;
+    /** A TinyAdmitMode. */
+    uint32_t mode;
+    /** The TinyImageFormat the result is written as; unknown prices no encoder.
+     */
+    uint32_t format;
+    /** A TinyCompression the encoder runs at. */
+    uint32_t compression;
+    /** The encoder's quality, 0 to 100; zero prices the format's default. */
+    uint32_t quality;
+    /** Non-zero for WebP's lossless mode. */
+    uint32_t lossless;
+    /** A TinyEffort for the encoder. */
+    uint32_t effort;
+} TinyAdmitOpts;
+
+/**
+ * @brief What tiny_plan_admit decided and the numbers behind it.
+ *
+ * Read it through tiny_admission_field; the layout is not part of the ABI.
+ */
+typedef struct {
+    /** A TinyAdmissionDecision. */
+    uint32_t decision;
+    /** A TinyPlanDegrade bitmask: the levers the numbers below assume. */
+    uint32_t degraded;
+    /** Point estimate of decode, resample and encode, times the scale. */
+    uint32_t cost_us;
+    /** The calibrated upper bound on the same, times the scale. */
+    uint32_t cost_upper_us;
+    /** The encoder's share of `cost_us`. */
+    uint32_t encode_us;
+    /** The encoder's share of `cost_upper_us`. */
+    uint32_t encode_upper_us;
+    /** `budget_us - cost_upper_us`; negative when over. */
+    int32_t margin_us;
+} TinyAdmission;
+
+/** @brief A field of a TinyAdmission, named rather than offset. */
+typedef enum TinyAdmissionField
+{
+    /** A TinyAdmissionDecision. */
+    TINYIMG_ADMISSION_FIELD_DECISION = 0,
+    /** A TinyPlanDegrade bitmask. */
+    TINYIMG_ADMISSION_FIELD_DEGRADED = 1,
+    /** Point estimate, scaled, encoder included. */
+    TINYIMG_ADMISSION_FIELD_COST = 2,
+    /** Upper bound, scaled, encoder included. */
+    TINYIMG_ADMISSION_FIELD_COST_UPPER = 3,
+    /** The encoder's share of the point estimate. */
+    TINYIMG_ADMISSION_FIELD_ENCODE = 4,
+    /** The encoder's share of the upper bound. */
+    TINYIMG_ADMISSION_FIELD_ENCODE_UPPER = 5,
+    /** Budget minus upper bound; read as a signed 32 bit value. */
+    TINYIMG_ADMISSION_FIELD_MARGIN = 6,
+} TinyAdmissionField;
+
+/**
+ * @brief Bytes a host reserves for a TinyAdmitOpts.
+ *
+ * @return uint32_t `sizeof(TinyAdmitOpts)`.
+ */
+uint32_t tiny_admit_opts_sizeof(void);
+
+/**
+ * @brief Bytes a host reserves for a TinyAdmission.
+ *
+ * @return uint32_t `sizeof(TinyAdmission)`.
+ */
+uint32_t tiny_admission_sizeof(void);
+
+/**
+ * @brief Reads one named field of an admission.
+ *
+ * @param admission An admission from tiny_plan_admit.
+ * @param field Which field.
+ * @return uint32_t Its value, or 0 for a NULL admission or an unknown field.
+ */
+uint32_t tiny_admission_field(
+    const TinyAdmission* admission, TinyAdmissionField field
+);
+
+/**
+ * @brief Decides whether a request fits a CPU budget on the calibrated bound.
+ *
+ * The request is admitted when `cost_upper_us <= budget_us`, where
+ * `cost_upper_us` is tiny_plan_cost_upper plus tiny_encode_cost_upper_at for
+ * the output format, times `scale_milli / 1000`, rounded up. The plan's own
+ * budget and basis are ignored; the plan is priced undegraded first.
+ *
+ * In TINYIMG_ADMIT_STRICT mode an over-budget request is rejected as it is. In
+ * TINYIMG_ADMIT_DEGRADE mode the budget ladder of tiny_plan_resolve runs with
+ * the budget left after the encoder, divided by the scale, on
+ * TINYIMG_BASIS_UPPER; the request is DEGRADED when the rung it settles on
+ * fits and rejected when none does. A rejected request reports the cheapest
+ * rung's numbers and levers, so a caller can see how far over it was.
+ *
+ * **The bound is a prediction under exchangeability, not a guarantee**, and it
+ * is relative to the machine the model was calibrated on; `scale_milli` carries
+ * the caller's own factor. The encoder is priced by tiny_encode_cost_for from
+ * the quality, lossless, compression and effort in `opts` and the plan's output
+ * channels; the factors were measured one at a time, so a request that moves
+ * several is priced by their product, which is not itself measured.
+ *
+ * @param plan The plan.
+ * @param opts The budget, the machine factor, the mode and the output format.
+ * @param admission Receives the decision and the numbers.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL, TINYIMG_ERR_RANGE for a zero
+ * `scale_milli` or an unknown mode, or what tiny_plan_resolve returns.
+ */
+int tiny_plan_admit(
+    const TinyPlan* plan, const TinyAdmitOpts* opts, TinyAdmission* admission
 );
 
 /**
@@ -1152,6 +1460,8 @@ typedef enum TinyPlanField
     TINYIMG_FIELD_COST = 16,
     /** A bitmask of TinyPlanDegrade. */
     TINYIMG_FIELD_DEGRADED = 17,
+    /** The calibrated upper bound on the cost, in microseconds. */
+    TINYIMG_FIELD_COST_UPPER = 18,
 } TinyPlanField;
 
 /**
@@ -1187,6 +1497,110 @@ uint32_t tiny_plan_field(
  * allocate its output.
  */
 int tiny_plan_resolve(const TinyPlan* plan, TinyPlanResolution* resolution);
+
+/**
+ * @brief Most candidates tiny_plan_enumerate can return: two efforts, two
+ * filter settings and four scale steps.
+ */
+#define TINYIMG_PLAN_MAX_CANDIDATES 16u
+
+/**
+ * @brief One distinct way to run a plan, as the budget ladder's levers
+ * combine.
+ *
+ * tiny_plan_resolve walks one path through these, cheapest give-up first;
+ * tiny_plan_enumerate lists all of them so a chooser can weigh cost against
+ * peak memory instead of taking the ladder's order. Candidate 0 is always the
+ * plan undegraded, and every `degraded` bit is relative to it.
+ */
+typedef struct {
+    /** A TinyEffort the decode runs at. */
+    uint8_t effort;
+    /** Non-zero when a filter left on AUTO is taken as nearest. */
+    uint8_t nearest;
+    /** Halvings of the decode past what the scale ladder picks. */
+    uint8_t steps;
+    /**
+     * Reserved for the output format choice; zero means the plan's own
+     * container. Nothing reads it yet.
+     */
+    uint8_t output_format;
+    /** Decode denominator that resulted, which `steps` may not reach. */
+    uint8_t scale_den;
+    /** Filter chosen for the horizontal axis. */
+    TinyResampleFilter filter_x;
+    /** Filter chosen for the vertical axis. */
+    TinyResampleFilter filter_y;
+    /** A bitmask of TinyPlanDegrade, relative to candidate 0. */
+    uint32_t degraded;
+    /** Estimated cost in microseconds, the same figure tiny_plan_cost gives. */
+    uint32_t cost;
+    /**
+     * Calibrated upper bound on that cost in microseconds, the same figure
+     * tiny_plan_cost_upper gives for the plan resolved at this candidate.
+     */
+    uint32_t cost_upper;
+    /** Upper bound on the heap bytes running it peaks at. */
+    uint32_t peak_bytes;
+} TinyPlanCandidate;
+
+/**
+ * @brief Lists every distinct resolution the degrade levers can reach.
+ *
+ * Crosses effort (the plan's own and TINYIMG_EFFORT_FAST), the nearest filter
+ * and zero to three extra scale steps, resolves each with the same function
+ * tiny_plan_resolve uses, and drops a combination whose resolution matches an
+ * earlier one in decode window, scale, filters, extent, effort and stages. A
+ * filter the caller named is never overridden, and a decode with no scale
+ * ladder to climb stops at the denominator it has, so those levers collapse
+ * into fewer candidates.
+ *
+ * The plan's budget is ignored. tiny_plan_resolve's result for any budget
+ * equals one of these candidates in every field the ladder can change.
+ *
+ * @param plan The plan.
+ * @param out Receives up to `max` candidates, candidate 0 first.
+ * @param max Capacity of `out`; TINYIMG_PLAN_MAX_CANDIDATES always suffices.
+ * @param count Receives how many distinct candidates exist, which may exceed
+ * `max`; only the first `max` are written.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL, or the error the undegraded
+ * resolution reports.
+ */
+int tiny_plan_enumerate(
+    const TinyPlan* plan, TinyPlanCandidate* out, uint32_t max, uint32_t* count
+);
+
+/**
+ * @brief Upper bound on the heap a plan's run will use at its peak.
+ *
+ * Built from the executor's own allocation structure: the decoder's working
+ * set for the source's format at the resolved window, scale and effort, then
+ * the fused pass's tap tables beside the decoded image and the output, then
+ * whatever each operation after a neighborhood operation holds. The peak is
+ * the largest of those stages, not their sum, since the decode's scratch is
+ * released before the pass starts.
+ *
+ * The figure is payload bytes as tiny_heap_stats().peak counts them. It leaves
+ * out the allocator's per block headers and any fragmentation, so compare it
+ * against the heap with that headroom. Arena allocations are charged their
+ * chunk overhead.
+ *
+ * It is a bound, not an estimate, so it can sit well above the measured peak
+ * for formats whose working set depends on data the planner does not read:
+ * lossless WebP and TIFF in particular. The measured ratios are in
+ * TECHNICAL_REPORT.md.
+ *
+ * @param plan The plan.
+ * @param resolution A resolution of `plan`, or NULL to resolve it with the
+ * plan's own budget.
+ * @param bytes Receives the bound, saturating at 0xFFFFFFFF. A bound above
+ * TINYIMG_HEAP_MAX means the plan cannot run.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL, or an error from resolving or
+ * probing the source.
+ */
+int tiny_plan_peak_bytes(
+    const TinyPlan* plan, const TinyPlanResolution* resolution, size_t* bytes
+);
 
 /**
  * @brief Collapses a resolved plan's color operations into stages.
@@ -1261,6 +1675,25 @@ int tiny_plan_blur_box(TinyImage* image, uint32_t radius);
  * @return int TINYIMG_OK or a negative TinyImageError.
  */
 int tiny_plan_run(const TinyPlan* plan, TinyImage* out);
+
+/**
+ * @brief Runs the plan at one lever setting from tiny_plan_enumerate.
+ *
+ * @internal Produces the bytes tiny_plan_run produces when its resolution
+ * lands on this candidate, which is what lets a measurement run every point of
+ * the lattice rather than only the one a budget picks. The plan's budget is
+ * ignored, as it is by tiny_plan_enumerate. Only the `effort`, `nearest` and
+ * `steps` members are read. A plan with fusion off ignores the lever setting
+ * and runs as tiny_plan_run does.
+ *
+ * @param plan The plan.
+ * @param candidate A candidate enumerated from `plan`.
+ * @param out Receives the output. Its previous contents are not freed.
+ * @return int TINYIMG_OK, TINYIMG_ERR_NULL or a negative TinyImageError.
+ */
+int tiny_plan_run_candidate(
+    const TinyPlan* plan, const TinyPlanCandidate* candidate, TinyImage* out
+);
 
 /**
  * @brief Runs the plan and encodes the result in one call.

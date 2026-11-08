@@ -77,8 +77,67 @@ static int leavesAffordableRequestsAlone(void) {
  * The rung is only reachable at all because the cost model knows what the
  * effort tier is worth: a model that priced FAST the same as FANCY would
  * report it as buying nothing and skip to a rung that softens the picture.
+ *
+ * The cases are the two formats where FAST buys a measured fraction at the
+ * denominator the plan picks: lossy WebP at 0.763 and AVIF at 0.382 of the
+ * FANCY decode, both at a denominator of 2.
  */
 static int takesEffortFirst(void) {
+    int failures = 0;
+
+    static const struct {
+        const char* name;
+        uint32_t width;
+    } cases[] = {{"toyota_racing.webp", 500u}, {"fox.avif", 400u}};
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(*cases); i++) {
+        size_t size = 0;
+        unsigned char* bytes = readFixture(cases[i].name, &size);
+        if (!bytes) return failures + 1;
+
+        TinyPlanResolution none;
+        failures += assertEquals(
+            resolveAt(bytes, size, cases[i].width, 0u, &none), TINYIMG_OK
+        );
+
+        // just under the estimate, which the effort tier alone covers: the
+        // decode gets cheaper and the resample keeps the filter it had
+        // (9,654 to 7,366 microseconds for the WebP, 192,259 to 75,783 for
+        // the AVIF)
+        TinyPlanResolution eased;
+        failures += assertEquals(
+            resolveAt(bytes, size, cases[i].width, none.cost - 1u, &eased),
+            TINYIMG_OK
+        );
+
+        failures +=
+            assertEquals((long) eased.degraded, (long) TINYIMG_DEGRADE_EFFORT);
+        failures += assertEquals(
+            (long) eased.decode.effort, (long) TINYIMG_EFFORT_FAST
+        );
+        failures += assertLessThan((double) eased.cost, (double) none.cost);
+
+        // and the output extent is untouched, which is what separates
+        // degrading from resizing: a budget changes how the pixels are made,
+        // never how many
+        failures += assertEquals((long) eased.width, (long) none.width);
+        failures += assertEquals((long) eased.height, (long) none.height);
+
+        free(bytes);
+    }
+
+    return failures;
+}
+
+/**
+ * An effort tier that buys nothing is not reported as the rung taken.
+ *
+ * JPEG's FAST fraction measured 0.902 at a denominator of 1 and 1.00 at 2, 4
+ * and 8, so a 400 px request from a 2400 px source (denominator 4) has no
+ * effort rung to give. The ladder skips it and the cheaper filter rung is
+ * what fits, which reports the filter and never the effort tier alone.
+ */
+static int skipsAnEffortTierThatBuysNothing(void) {
     int failures = 0;
 
     size_t size = 0;
@@ -88,27 +147,33 @@ static int takesEffortFirst(void) {
     TinyPlanResolution none;
     failures +=
         assertEquals(resolveAt(bytes, size, 400u, 0u, &none), TINYIMG_OK);
+    failures += assertEquals((long) none.decode.scale_den, 4L);
 
-    // just under the estimate, which the effort tier alone should cover: the
-    // decode gets cheaper and the resample keeps the filter it had, because at
-    // 400 wide from 2400 this is a reduction and a reduction already takes box
     TinyPlanResolution eased;
     failures += assertEquals(
         resolveAt(bytes, size, 400u, none.cost - 1u, &eased), TINYIMG_OK
     );
 
+    failures += assertTrue(eased.degraded != TINYIMG_DEGRADE_EFFORT);
     failures += assertEquals(
-        (long) (eased.degraded & TINYIMG_DEGRADE_EFFORT),
-        (long) TINYIMG_DEGRADE_EFFORT
+        (long) (eased.degraded & TINYIMG_DEGRADE_FILTER),
+        (long) TINYIMG_DEGRADE_FILTER
     );
-    failures +=
-        assertEquals((long) eased.decode.effort, (long) TINYIMG_EFFORT_FAST);
     failures += assertLessThan((double) eased.cost, (double) none.cost);
 
-    // and the output extent is untouched, which is what separates degrading
-    // from resizing: a budget changes how the pixels are made, never how many
-    failures += assertEquals((long) eased.width, (long) none.width);
-    failures += assertEquals((long) eased.height, (long) none.height);
+    // at a denominator of 1 the same source's FAST decode is 0.902 of FANCY
+    // and the effort tier alone is the rung that fits
+    TinyPlanResolution whole;
+    failures +=
+        assertEquals(resolveAt(bytes, size, 1200u, 0u, &whole), TINYIMG_OK);
+    failures += assertEquals((long) whole.decode.scale_den, 1L);
+
+    TinyPlanResolution wholeEased;
+    failures += assertEquals(
+        resolveAt(bytes, size, 1200u, whole.cost - 1u, &wholeEased), TINYIMG_OK
+    );
+    failures +=
+        assertEquals((long) wholeEased.degraded, (long) TINYIMG_DEGRADE_EFFORT);
 
     free(bytes);
     return failures;
@@ -144,13 +209,14 @@ static int reducesTheDecodeNext(void) {
     failures +=
         assertLessThan((double) floored.decode_width, (double) floored.width);
 
-    // still the same picture, at the same extent, for less cost: 12,846
-    // microseconds against 21,801, which is 1.70x and is what every rung
-    // together buys on this request
+    // still the same picture, at the same extent, for less cost: 21,200
+    // microseconds against 27,355, which is 1.29x and is what every rung
+    // together buys on this request now that JPEG's FAST decode is priced at
+    // 1.00 of FANCY above a denominator of 1
     failures += assertEquals((long) floored.width, (long) none.width);
     failures += assertEquals((long) floored.height, (long) none.height);
     failures +=
-        assertLessThan((double) floored.cost, (double) none.cost * 0.75);
+        assertLessThan((double) floored.cost, (double) none.cost * 0.85);
 
     // eight is the coarsest grid any codec offers, so the ladder stops there
     // rather than reporting a reduction it did not take
@@ -170,25 +236,25 @@ static int stopsAtTheFirstFit(void) {
     int failures = 0;
 
     size_t size = 0;
-    unsigned char* bytes = readFixture("mountains.jpg", &size);
+    unsigned char* bytes = readFixture("fox.avif", &size);
     if (!bytes) return 1;
 
     TinyPlanResolution none;
     failures +=
-        assertEquals(resolveAt(bytes, size, 600u, 0u, &none), TINYIMG_OK);
+        assertEquals(resolveAt(bytes, size, 400u, 0u, &none), TINYIMG_OK);
 
     TinyPlanResolution effortOnly;
     failures += assertEquals(
-        resolveAt(bytes, size, 600u, none.cost - 1u, &effortOnly), TINYIMG_OK
+        resolveAt(bytes, size, 400u, none.cost - 1u, &effortOnly), TINYIMG_OK
     );
 
     TinyPlanResolution floored;
     failures +=
-        assertEquals(resolveAt(bytes, size, 600u, 1u, &floored), TINYIMG_OK);
+        assertEquals(resolveAt(bytes, size, 400u, 1u, &floored), TINYIMG_OK);
 
     // a budget one microsecond under the estimate took the cheap rung; an
-    // unmeetable one went further. 20,077 microseconds against 12,846, from a
-    // baseline of 21,801
+    // unmeetable one went further. 75,783 microseconds against 73,873, from
+    // a baseline of 192,259
     failures +=
         assertEquals((long) effortOnly.degraded, (long) TINYIMG_DEGRADE_EFFORT);
     failures +=
@@ -483,13 +549,41 @@ static int chargesAScaledDecodePerFormat(void) {
     return failures;
 }
 
+static int doesNotReportEffortAlreadyAtFast(void) {
+    int failures = 0;
+
+    TinyImage source;
+    memset(&source, 0, sizeof(source));
+    failures +=
+        assertEquals(tiny_image_create(&source, 1200u, 800u, 3u), TINYIMG_OK);
+
+    TinyPlan plan;
+    failures += assertEquals(tiny_plan_init_image(&plan, &source), TINYIMG_OK);
+    failures += assertEquals(tiny_plan_resize(&plan, 900u, 0u), TINYIMG_OK);
+    failures += assertEquals(
+        tiny_plan_set_effort(&plan, TINYIMG_EFFORT_FAST), TINYIMG_OK
+    );
+    failures += assertEquals(tiny_plan_set_budget(&plan, 1u), TINYIMG_OK);
+
+    TinyPlanResolution resolution;
+    failures += assertEquals(tiny_plan_resolve(&plan, &resolution), TINYIMG_OK);
+
+    failures +=
+        assertEquals((long) resolution.degraded, (long) TINYIMG_DEGRADE_FILTER);
+
+    tiny_image_destroy(&source);
+    return failures;
+}
+
 int main(void) {
     int failures = 0;
 
     tiny_init();
 
+    failures += doesNotReportEffortAlreadyAtFast();
     failures += leavesAffordableRequestsAlone();
     failures += takesEffortFirst();
+    failures += skipsAnEffortTierThatBuysNothing();
     failures += reducesTheDecodeNext();
     failures += stopsAtTheFirstFit();
     failures += reportsOnlyWhatItGave();
