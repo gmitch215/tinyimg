@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.1.1</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.2.0</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for WebAssembly</div>
   </td>
@@ -139,6 +139,8 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:ac3b41d2e7f2900eceed7eede1eee7945" id="r_ac3b41d2e7f2900eceed7eede1eee7945"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#ac3b41d2e7f2900eceed7eede1eee7945">passes</a></td></tr>
 <tr class="memitem:ab657a5956aea87ffa805eb76dab78bf7" id="r_ab657a5956aea87ffa805eb76dab78bf7"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#ab657a5956aea87ffa805eb76dab78bf7">kernels</a></td></tr>
 <tr class="memitem:ad6d8e721e3a48ad6af368b002216a9ba" id="r_ad6d8e721e3a48ad6af368b002216a9ba"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#ad6d8e721e3a48ad6af368b002216a9ba">cost</a></td></tr>
+<tr class="memitem:a66dc3a39d24a9200583b206fc8e1ea98" id="r_a66dc3a39d24a9200583b206fc8e1ea98"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a66dc3a39d24a9200583b206fc8e1ea98">cost_upper</a></td></tr>
+<tr class="memdesc:a66dc3a39d24a9200583b206fc8e1ea98"><td class="mdescLeft">&#160;</td><td class="mdescRight">The calibrated upper bound on <span class="tt"><a class="el" href="#ad6d8e721e3a48ad6af368b002216a9ba">cost</a></span>, in the same unit.  <br /></td></tr>
 <tr class="memitem:a7fb78594b995580cd12f8d45ec406542" id="r_a7fb78594b995580cd12f8d45ec406542"><td class="memItemLeft">uint32_t&#160;</td><td class="memItemRight"><a class="el" href="#a7fb78594b995580cd12f8d45ec406542">degraded</a></td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
@@ -234,6 +236,23 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>What running this is estimated to cost, in microseconds. </p>
+
+</div>
+</div>
+<a id="a66dc3a39d24a9200583b206fc8e1ea98" name="a66dc3a39d24a9200583b206fc8e1ea98"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a66dc3a39d24a9200583b206fc8e1ea98">&#9670;&#160;</a></span>cost_upper</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t TinyPlanResolution::cost_upper</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The calibrated upper bound on <span class="tt"><a class="el" href="#ad6d8e721e3a48ad6af368b002216a9ba">cost</a></span>, in the same unit. </p>
+<p>See tiny_plan_cost_upper for what the bound does and does not promise. </p>
 
 </div>
 </div>

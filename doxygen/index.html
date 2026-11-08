@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.1.1</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.2.0</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for WebAssembly</div>
   </td>
@@ -242,14 +242,15 @@ Speed</h2>
 <td class="markdownTableBodyNone">3600x2700  </td><td class="markdownTableBodyRight">9.72  </td><td class="markdownTableBodyRight">2721 KB  </td><td class="markdownTableBodyRight">53 ms  </td></tr>
 </table>
 <p><b>Compressed bytes predict it and megapixels do not.</b> The second and fourth rows make the point on their own: 2272x3000 carries 2.8x the pixels of 1920x1280, a quarter of the bytes, and finishes in half the time. Across twelve JPEGs, milliseconds per megapixel spread 7.1x while milliseconds per megabyte spread 1.95x at this scale. The practical rule for a 200 px thumbnail is roughly <b>480 KB of compressed source</b>, whatever its dimensions.</p>
-<p>The estimate <span class="tt">decide()</span> returns still prices against source samples and is wrong by up to 12.8x for that reason, so treat <span class="tt">budgetMs</span> as a coarse guard rather than a promise. Past the ceiling the artifact has to be computed once and cached; see <a class="el" href="#caching" title="Caching">Caching</a>.</p>
+<p><span class="tt">decide().estimateMs</span> covers decode and resample and leaves the encoder out. On 878 held-out cells timed against the v1.1.1 model (one machine, sources with alpha excluded) it ran a median 2.0x under the clock, 38.6% of cells landed within 0.6x to 2.0x, and the worst was 10.97x under. Adding the encoder, which is what <span class="tt">budgetMs</span> compares against, moved the median to 1.3x under and 59.8% in band, with the worst at 9.04x under (a JPEG source) and 7.44x over (a PNG). AVIF sources were the worst group, 3.7% in band. The model in this release prices the compressed bytes as well as the samples and carries a calibrated upper bound, described under <a class="el" href="#admission" title="Admission">Admission</a>. Treat <span class="tt">budgetMs</span> as a coarse guard with no guarantee behind it. Past the ceiling the artifact has to be computed once and cached; see <a class="el" href="#caching" title="Caching">Caching</a>.</p>
 <p>A progressive JPEG is the exception worth knowing about. At an eighth scale the transform reads the DC term alone, so the scans that carry only high-frequency detail are stepped over rather than decoded: <span class="tt">road.jpg</span> at 160 px goes from 28.5 ms to <b>6.5 ms</b>, byte-identical, which moves that request from outside the Free budget to inside it.</p>
 <p>JPEG and PNG decode are slightly ahead of libjpeg and libpng, at 1.06x-1.09x and 1.03x-1.08x; WebP decode is 0.68x-0.72x behind libwebp. JPEG and WebP encode are ahead at 3.8x-4.0x and 1.31x-1.38x. PNG encode is 12x behind, and that row is an operating-point difference as much as a speed one, since it produces a file 47% smaller; <span class="tt">compression: 'fast'</span> closes most of it at a stated size cost. <a href="https://github.com/gmitch215/tinyimg/blob/master/TECHNICAL_REPORT.md"><span class="tt">TECHNICAL_REPORT.md</span></a> has the per-stage profile and the comparison against <span class="tt">@jsquash</span>.</p>
 <h2 class="doxsection"><a class="anchor" id="gaps"></a>
 Gaps</h2>
 <ul>
-<li><b>AVIF encode has no partition search.</b> Decode is complete and matches <span class="tt">dav1d</span> exactly. The encoder uses fixed 8x8 blocks and picks the luma mode from four candidates by absolute difference, so its files run 1.1x to 1.3x libaom's size at matched quality. A partition search is where most of AV1's compression lives.</li>
+<li><b>AVIF encode has no partition search.</b> Decode reads AV1 intra. The encoder uses fixed 8x8 blocks and picks the luma mode from four candidates by absolute difference, so its files run 1.1x to 1.3x libaom's size at matched quality. A partition search is where most of AV1's compression lives.</li>
 <li><b>No 10 or 12 bit AVIF.</b> The reconstruction is 8 bits a sample end to end, so an HDR AVIF is refused rather than truncated. 4:2:2 is refused too, for a reason in the format: the specification's own subsampled-size table has no answer for a tall block on such a plane.</li>
+<li><b>Some AVIF files are refused rather than decoded wrong.</b> Film grain, superres, <span class="tt">grid</span> and <span class="tt">iovl</span> images, a cropping <span class="tt">clap</span> aperture, PQ and HLG transfer, and an alpha plane the decoder cannot read each return an unsupported-variant error.</li>
 <li><b>No animation.</b> Both decode a first frame; neither re-times or composes one.</li>
 <li><b>You own the caching.</b> Images caches derivatives at the edge as a product feature. tinyimg gives you the key and leaves the cache to you; see <a class="el" href="#caching" title="Caching">Caching</a>.</li>
 </ul>
@@ -344,7 +345,7 @@ Transformations</h1>
 <td class="markdownTableBodyNone"><span class="tt">metadata</span>  </td><td class="markdownTableBodyNone"><span class="tt">'keep' \| 'none'</span>  </td><td class="markdownTableBodyNone">Accepted, but a transformation writes no EXIF either way.  </td></tr>
 </table>
 <p>The options apply in a fixed order, exported as <span class="tt">TRANSFORM_ORDER</span>: crop, resize or fit, rotate, flip, the color adjustments, blur, sharpen, trim. An option object has no order of its own, so two callers writing the same keys get the same image.</p>
-<p>A JPEG with an EXIF orientation is turned upright before anything else runs, so <span class="tt">width</span>, <span class="tt">height</span>, <span class="tt">crop</span> and <span class="tt">fit</span> all read the image as displayed. A phone photo stored landscape and tagged 90 degrees comes out portrait, and a request for 400 wide is a portrait 400 wide. <span class="tt">probe</span> reports the tag as <span class="tt">orientation</span>, and the chainable API applies it with <span class="tt">Image.autoOrient()</span>, which has to be the first operation. Only JPEG reports it; every other format reports 1.</p>
+<p>A JPEG with an EXIF orientation, or an AVIF with <span class="tt">irot</span> and <span class="tt">imir</span> properties, is turned upright before anything else runs, so <span class="tt">width</span>, <span class="tt">height</span>, <span class="tt">crop</span> and <span class="tt">fit</span> all read the image as displayed. A phone photo stored landscape and tagged 90 degrees comes out portrait, and a request for 400 wide is a portrait 400 wide. <span class="tt">probe</span> reports the tag as <span class="tt">orientation</span>, and the chainable API applies it with <span class="tt">Image.autoOrient()</span>, which has to be the first operation. Only JPEG and AVIF report it; every other format reports 1.</p>
 <h2 class="doxsection"><a class="anchor" id="fit-modes"></a>
 Fit Modes</h2>
 <table class="markdownTable">
@@ -390,6 +391,7 @@ Chaining</h1>
 <div class="line">const png = await image.bytes(&#39;png&#39;);</div>
 </div><!-- fragment --><p>The handle lives in the module's memory, so <span class="tt">using</span> is the shortest correct way to hold one. Without it, call <span class="tt">dispose()</span> in a <span class="tt">finally</span>. Encoding does not consume the plan.</p>
 <p><span class="tt">pixels()</span> hands back the raw samples for a caller who wants them rather than a container.</p>
+<p><span class="tt">edit(fn)</span> runs after the plan, like <span class="tt">trim</span> and <span class="tt">rotateFree</span>, and hands <span class="tt">fn</span> the materialized image as RGBA to change in place. It is for per-pixel arithmetic the library does not carry, such as another library's exact blend or a fixed convolution kernel. The extent and channel count cannot change, and the view is valid only inside the call.</p>
 <h1 class="doxsection"><a class="anchor" id="the-planner"></a>
 The Planner</h1>
 <p>Nothing runs until the output is asked for. Operations append to a fixed-capacity list, and the plan runs once:</p>
@@ -422,7 +424,7 @@ Codec Support</h1>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">JPEG  </td><td class="markdownTableBodyNone">baseline and progressive, 4:4:4 / 4:2:2 / 4:2:0, CMYK and YCCK, restart markers  </td><td class="markdownTableBodyNone">quality-scaled tables, optimized Huffman, progressive scan script  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone">WebP  </td><td class="markdownTableBodyNone">VP8 lossy and VP8L lossless  </td><td class="markdownTableBodyNone">both modes  </td></tr>
+<td class="markdownTableBodyNone">WebP  </td><td class="markdownTableBodyNone">VP8 lossy and VP8L lossless  </td><td class="markdownTableBodyNone">both modes, alpha kept through an <span class="tt">ALPH</span> chunk when lossy  </td></tr>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">GIF  </td><td class="markdownTableBodyNone">LZW, local and global palettes, interlace, transparency  </td><td class="markdownTableBodyNone">median-cut palette with Floyd-Steinberg dithering  </td></tr>
 <tr class="markdownTableRowOdd">
@@ -434,6 +436,7 @@ Codec Support</h1>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone">HEIF  </td><td class="markdownTableBodyNone">container only; <span class="tt">probe</span> answers and decode reports a specific error  </td><td class="markdownTableBodyNone">no  </td></tr>
 </table>
+<p>A lossy WebP with transparency is written as a <span class="tt">VP8X</span> header, an <span class="tt">ALPH</span> chunk holding the alpha plane as a lossless stream, and the lossy frame, so alpha is exact at any <span class="tt">quality</span>; an image whose alpha is all 255 gets the plain frame. The JPEG and AVIF encoders write no alpha, and GIF keeps one bit of it. When a <span class="tt">transform</span> output has transparency its format cannot carry, <span class="tt">degraded</span> contains <span class="tt">'alpha'</span>.</p>
 <p>JPEG carries true DCT-domain scaled decode at 1/2, 1/4 and 1/8, and region decode that Huffman-scans past blocks outside the box without transforming them. PNG, GIF, TIFF and BMP row-skip and column-skip.</p>
 <p>PNG and deflate-compressed TIFF take a <span class="tt">compression</span> option, which is a third axis beside quality and effort: for a lossless format the whole output is the compressor's, so quality says nothing about it.</p>
 <table class="markdownTable">
@@ -642,7 +645,7 @@ Budget and Effort</h1>
 <div class="line">});</div>
 <div class="line"> </div>
 <div class="line">result.format; // &#39;webp&#39; if it fits inside 7 ms, otherwise &#39;jpeg&#39;</div>
-</div><!-- fragment --><p>A format you name is never substituted, however far over budget it is. The estimate is accurate to about 20% on the machine its rates were measured on, so give a budget below the limit rather than at it, and use <a class="el" href="#work-counters" title="Work Counters">`measure`</a> when you need what a request cost.</p>
+</div><!-- fragment --><p>A format you name is never substituted, however far over budget it is. On the machine its rates were measured on, the estimate's median decode error on images held out of the fit is within 10% for every format except TIFF (54% under), the encoder is priced separately, and single requests spread wider, so give a budget below the limit rather than at it, and use <a class="el" href="#work-counters" title="Work Counters">`measure`</a> when you need what a request cost.</p>
 <p><b>A budget the container change cannot meet degrades the plan, and the result says what it gave up.</b> Container first, because a cheaper encoder costs bytes and nothing else; then the planner's own levers, in the order of what they cost the picture:</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
@@ -662,6 +665,61 @@ Budget and Effort</h1>
 <div class="line">result.degraded; // [&#39;effort&#39;] when the effort tier was enough to fit</div>
 </div><!-- fragment --><p>The order is not the intuitive one, and a measurement decided it: reducing the decode before the filter turns a cheap box reduction into an interpolating enlargement, which on one 600 px request measured 22,780 microseconds against 21,801 for no degradation at all. A rung that is not cheaper is skipped, so what comes back is never softer for more CPU than the undegraded plan.</p>
 <p>The output extent never changes. A budget decides how the pixels are made, not how many, and nothing is degraded when the estimate already fits. <span class="tt">degraded</span> is empty on a pass-through, which needs no lever at all.</p>
+<h2 class="doxsection"><a class="anchor" id="admission"></a>
+Admission</h2>
+<p>Naming <span class="tt">admission</span> beside <span class="tt">budgetMs</span> turns the budget into a decision on the calibrated upper bound instead of the point estimate. <span class="tt">'strict'</span> throws <span class="tt">TinyImgBudgetError</span>, carrying the numbers, when the bound plus the encoder is over budget, and gives nothing up. <span class="tt">'degrade'</span> takes the ladder above, judged on the bound, and runs the cheapest request that results. <span class="tt">'passthrough'</span> degrades the same way and returns the source bytes unchanged, with <span class="tt">'passthrough'</span> in <span class="tt">degraded</span>, when no rung fits; that needs the output format to be the source's own, or none asked for.</p>
+<div class="fragment"><div class="line">const result = await transform(tinyimg, source, {</div>
+<div class="line">  width: 200,</div>
+<div class="line">  budgetMs: 10,</div>
+<div class="line">  admission: &#39;passthrough&#39;,</div>
+<div class="line">  platformScale: 1.9</div>
+<div class="line">});</div>
+</div><!-- fragment --><p>An admitted request also stops itself. The module sums the work its decoders and encoders have counted into a work clock, a function of the counters and not of a timer, because a Worker's timers do not advance during CPU work. When the clock passes the budget, the operation returns <span class="tt"><a class="el" href="d6/d18/tinyimg_8h.html#a2dc7ed040dee60bd0964470b39225668a904fe7cd33484c4be2923bd38f06edf5" title="The work clock passed the limit set with tiny_work_set_limit, so the operation stopped and released w...">TINYIMG_ERR_BUDGET</a></span>, which <span class="tt">transform</span> throws as <span class="tt">TinyImgBudgetError</span>, or answers with the source under <span class="tt">'passthrough'</span>. <span class="tt">Image.admit(budgetMs, options)</span> returns the decision without running anything.</p>
+<p>The bound is a calibrated prediction under exchangeability, not a guarantee. It is relative to the machine the cost model was timed on, so <span class="tt">platformScale</span> carries your own factor; a Worker ran the same module 1.9x slower at the median and 2.4x to 4.7x slower on cheap requests, and the library applies none. Leaving <span class="tt">admission</span> unset keeps <span class="tt">budgetMs</span> exactly as described above.</p>
+<p>How it held on 423 requests the model never saw, at five budgets from 5 to 100 ms (2,115 request and budget pairs, timed on the Apple M2 Pro the model was calibrated on): the bound admitted 739 pairs and 67 of them, 9.07%, ran over budget. The v1.1.1 estimate admitted 1,174 and 451 of them, 38.42%, ran over, so the bound admits with 6.73x fewer overruns. It misses the 5% overrun rate set for it before the run, so use it as a filter and not as a limit. AVIF sources are the weak spot: 26 of the 32 pairs admitted for them ran over. The other formats together ran over on about 6%. The bound also refuses requests that fit, 7.31% of the pairs that did (WebP sources 33.9%). The test left out sources with alpha, and lossy WebP with alpha and TIFF encode are priced less tightly (held-out coverage 0.82 and 0.89). The tables are in <span class="tt">bench/baselines/v1.2/admission-summary.md</span>.</p>
+<h2 class="doxsection"><a class="anchor" id="selection"></a>
+Selection</h2>
+<p><span class="tt">Image.select(options)</span> searches the decode levers (scale, filter, effort), the output format and its quality together, drops each combination that breaks a limit, and returns the best of the rest. It reads no pixels and no clock. <span class="tt">Image.bytesFor(selection)</span> runs the choice and returns the encoded bytes.</p>
+<div class="fragment"><div class="line">using image = await Image.open(tinyimg, source);</div>
+<div class="line">image.resize(400, 300);</div>
+<div class="line"> </div>
+<div class="line">const selection = image.select({ budgetMs: 20, platformScale: 1.9, minDb: 35 });</div>
+<div class="line"> </div>
+<div class="line">if (selection.feasible) {</div>
+<div class="line">  const bytes = await image.bytesFor(selection);</div>
+<div class="line">  // serve bytes as selection.choice.format</div>
+<div class="line">} else {</div>
+<div class="line">  // selection.reason names the check the nearest miss failed</div>
+<div class="line">}</div>
+</div><!-- fragment --><table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone">Option  </th><th class="markdownTableHeadNone">Default  </th><th class="markdownTableHeadNone">Meaning  </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">budgetMs</span>  </td><td class="markdownTableBodyNone">no limit  </td><td class="markdownTableBodyNone">CPU the request may spend, judged on the calibrated upper bound  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><span class="tt">platformScale</span>  </td><td class="markdownTableBodyNone"><span class="tt">1</span>  </td><td class="markdownTableBodyNone">How much slower your machine is than the calibrated one  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">peakBytes</span>  </td><td class="markdownTableBodyNone">the module's heap ceiling  </td><td class="markdownTableBodyNone">Largest heap bound a candidate may have  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><span class="tt">minDb</span>  </td><td class="markdownTableBodyNone">no floor  </td><td class="markdownTableBodyNone">Predicted PSNR against the undegraded output, in dB  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">formats</span>  </td><td class="markdownTableBodyNone">the source's own, JPEG and WebP  </td><td class="markdownTableBodyNone">Output containers to consider  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><span class="tt">objective</span>  </td><td class="markdownTableBodyNone"><span class="tt">'bytes'</span>  </td><td class="markdownTableBodyNone"><span class="tt">'bytes'</span>, <span class="tt">'time'</span> or <span class="tt">'quality'</span>, among the candidates that fit  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><span class="tt">uncharacterized</span>  </td><td class="markdownTableBodyNone"><span class="tt">'refuse'</span>  </td><td class="markdownTableBodyNone"><span class="tt">'allow'</span> keeps a candidate whose quality is unknown  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><span class="tt">assumeOpaque</span>  </td><td class="markdownTableBodyNone"><span class="tt">false</span>  </td><td class="markdownTableBodyNone">Treat an RGBA source as opaque, so JPEG, AVIF and GIF qualify  </td></tr>
+</table>
+<p>A <span class="tt">Selection</span> carries <span class="tt">feasible</span>, <span class="tt">reason</span>, <span class="tt">choice</span> (format, quality, whether it is lossless, the lattice position <span class="tt">bytesFor</span> runs, and the predicted upper-bound cost, peak heap, dB and bytes), the output <span class="tt">width</span> and <span class="tt">height</span>, whether the source counted as having <span class="tt">alpha</span>, the measured <span class="tt">coverage</span> of each table, and every candidate in <span class="tt">considered</span> with the check that removed it. An infeasible selection is a normal answer.</p>
+<p>On the held-out test images at 10, 20 and 50 ms, with and without a 35 dB floor, the joint search served 37.8% of 1,137 requests, the planner's own ladder 17.2% and format-and-quality chosen independently 33.8%. Against independent choice the gain is 4 points, interval 3.0 to 5.1, and all of it comes from requests without a quality floor. The tables are in <span class="tt">bench/baselines/v1.2/selector-summary.md</span>.</p>
+<p>The predictions come from tables measured on other images, so each one has a stated reach:</p>
+<ul>
+<li><b><span class="tt">db</span> is a table percentile.</b> It composes the fifth percentile of the decode lever with the fifth percentile of the encoder. On images held out of the fit the lever table's percentile held for 89.3% of cells (WebP sources 64.5%) and the encode table's for 94.8%, against a 95% target. Read it as a likely floor, not a guarantee; <span class="tt">coverage</span> reports the figure for your source and format.</li>
+<li><b><span class="tt">bytes</span> is a median over 99 opaque images.</b> On the images the table was fitted on, it ordered two formats at the same quality tier correctly in 93.5% of pairs. It cannot say how large this image will be: measured bytes over predicted ran from 0.32 to 0.58 at the fifth percentile and 1.27 to 1.84 at the 95th, by format, at quality 75.</li>
+<li><b>Alpha is priced pessimistically.</b> The tables come from opaque images, so <span class="tt">db</span> is low and <span class="tt">bytes</span> leaves out the alpha plane. An RGBA source cannot go to JPEG, AVIF or GIF unless <span class="tt">assumeOpaque</span> is set, and the planner cannot see whether the pixels are opaque.</li>
+<li><b>Lossless TIFF, BMP and WebP outputs have no quality class.</b> Their error is unmeasured, so <span class="tt">'refuse'</span> drops them, and asking for <span class="tt">formats: ['tiff']</span> or <span class="tt">['bmp']</span> returns an infeasible selection with reason <span class="tt">'uncharacterized'</span>. A TIFF or BMP source can still go to JPEG or WebP. <span class="tt">uncharacterized: 'allow'</span> keeps the unclassified candidates with an unknown <span class="tt">db</span>, which cannot satisfy a <span class="tt">minDb</span>.</li>
+</ul>
 <h1 class="doxsection"><a class="anchor" id="caching"></a>
 Caching</h1>
 <p>A cache hit costs no CPU at all, which is how a request too expensive to serve synchronously still gets served: it is computed once. <span class="tt">artifactKey</span> builds the canonical key, identifying the source by the hash of its bytes so the same picture from two places is one artifact:</p>
@@ -685,6 +743,9 @@ Work Counters</h1>
 <div class="line">work.samplesPerTransform; // 1 at an eighth scale, 4 at a quarter, 64 at full</div>
 <div class="line">work.decodedSamples / work.sourceSamples; // what the reduction was worth</div>
 <div class="line">work.filtered; // macroblocks a region did not skip</div>
+<div class="line">work.entropyBytes; // compressed bytes the decoder read, which a region or progressive 1/8 lowers</div>
+<div class="line">work.encodeProbes; // match candidates a PNG encode compared, the cost `encoded` cannot see</div>
+<div class="line">work.alphaDropped; // samples whose alpha a JPEG, AVIF or GIF encode wrote without it</div>
 </div><!-- fragment --><p><span class="tt">samplesPerTransform</span> is the one to read for a scaled decode: a decode transforming whole blocks and averaging them away reads 64 whatever its name is.</p>
 <h1 class="doxsection"><a class="anchor" id="blobs"></a>
 Blobs</h1>

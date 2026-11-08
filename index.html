@@ -510,9 +510,15 @@ their own: 2272x3000 carries 2.8x the pixels of 1920x1280, a quarter of the byte
 half the time. Across twelve JPEGs, milliseconds per megapixel spread 7.1x while milliseconds per
 megabyte spread 1.95x at this scale. The practical rule for a 200 px thumbnail is roughly <strong>480 KB of
 compressed source</strong>, whatever its dimensions.</p>
-<p>The estimate <code>decide()</code> returns still prices against source samples and is wrong by up to 12.8x for
-that reason, so treat <code>budgetMs</code> as a coarse guard rather than a promise. Past the ceiling the
-artifact has to be computed once and cached; see <a href="#caching">Caching</a>.</p>
+<p><code>decide().estimateMs</code> covers decode and resample and leaves the encoder out. On 878 held-out cells
+timed against the v1.1.1 model (one machine, sources with alpha excluded) it ran a median 2.0x under
+the clock, 38.6% of cells landed within 0.6x to 2.0x, and the worst was 10.97x under. Adding the
+encoder, which is what <code>budgetMs</code> compares against, moved the median to 1.3x under and 59.8% in
+band, with the worst at 9.04x under (a JPEG source) and 7.44x over (a PNG). AVIF sources were the
+worst group, 3.7% in band. The model in this release prices the compressed bytes as well as the
+samples and carries a calibrated upper bound, described under <a href="#admission">Admission</a>. Treat
+<code>budgetMs</code> as a coarse guard with no guarantee behind it. Past the ceiling the artifact has to be computed
+once and cached; see <a href="#caching">Caching</a>.</p>
 <p>A progressive JPEG is the exception worth knowing about. At an eighth scale the transform reads the
 DC term alone, so the scans that carry only high-frequency detail are stepped over rather than
 decoded: <code>road.jpg</code> at 160 px goes from 28.5 ms to <strong>6.5 ms</strong>, byte-identical, which moves that
@@ -525,13 +531,16 @@ it produces a file 47% smaller; <code>compression: &#39;fast&#39;</code> closes 
 the per-stage profile and the comparison against <code>@jsquash</code>.</p>
 <h3 id="gaps">Gaps</h3>
 <ul>
-<li><strong>AVIF encode has no partition search.</strong> Decode is complete and matches <code>dav1d</code> exactly. The
+<li><strong>AVIF encode has no partition search.</strong> Decode reads AV1 intra. The
 encoder uses fixed 8x8 blocks and picks the luma mode from four candidates by absolute
 difference, so its files run 1.1x to 1.3x libaom&#39;s size at matched quality. A partition search is
 where most of AV1&#39;s compression lives.</li>
 <li><strong>No 10 or 12 bit AVIF.</strong> The reconstruction is 8 bits a sample end to end, so an HDR AVIF is
 refused rather than truncated. 4:2:2 is refused too, for a reason in the format: the
 specification&#39;s own subsampled-size table has no answer for a tall block on such a plane.</li>
+<li><strong>Some AVIF files are refused rather than decoded wrong.</strong> Film grain, superres, <code>grid</code> and
+<code>iovl</code> images, a cropping <code>clap</code> aperture, PQ and HLG transfer, and an alpha plane the decoder
+cannot read each return an unsupported-variant error.</li>
 <li><strong>No animation.</strong> Both decode a first frame; neither re-times or composes one.</li>
 <li><strong>You own the caching.</strong> Images caches derivatives at the edge as a product feature. tinyimg gives
 you the key and leaves the cache to you; see <a href="#caching">Caching</a>.</li>
@@ -695,11 +704,11 @@ carry <code>.bytes()</code>, <code>.blob()</code>, <code>.response()</code> and 
 <p>The options apply in a fixed order, exported as <code>TRANSFORM_ORDER</code>: crop, resize or fit, rotate, flip,
 the color adjustments, blur, sharpen, trim. An option object has no order of its own, so two callers
 writing the same keys get the same image.</p>
-<p>A JPEG with an EXIF orientation is turned upright before anything else runs, so <code>width</code>, <code>height</code>,
+<p>A JPEG with an EXIF orientation, or an AVIF with <code>irot</code> and <code>imir</code> properties, is turned upright before anything else runs, so <code>width</code>, <code>height</code>,
 <code>crop</code> and <code>fit</code> all read the image as displayed. A phone photo stored landscape and tagged 90
 degrees comes out portrait, and a request for 400 wide is a portrait 400 wide. <code>probe</code> reports the
 tag as <code>orientation</code>, and the chainable API applies it with <code>Image.autoOrient()</code>, which has to be
-the first operation. Only JPEG reports it; every other format reports 1.</p>
+the first operation. Only JPEG and AVIF report it; every other format reports 1.</p>
 <h3 id="fit-modes">Fit Modes</h3>
 <div class="table"><table>
 <thead>
@@ -785,6 +794,10 @@ transformation or an operation the option object does not cover.</p>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> png</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> image.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">bytes</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'png'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span></code></pre><p>The handle lives in the module&#39;s memory, so <code>using</code> is the shortest correct way to hold one. Without
 it, call <code>dispose()</code> in a <code>finally</code>. Encoding does not consume the plan.</p>
 <p><code>pixels()</code> hands back the raw samples for a caller who wants them rather than a container.</p>
+<p><code>edit(fn)</code> runs after the plan, like <code>trim</code> and <code>rotateFree</code>, and hands <code>fn</code> the materialized image as
+RGBA to change in place. It is for per-pixel arithmetic the library does not carry, such as another
+library&#39;s exact blend or a fixed convolution kernel. The extent and channel count cannot change, and
+the view is valid only inside the call.</p>
 <h2 id="the-planner">The Planner</h2>
 <p>Nothing runs until the output is asked for. Operations append to a fixed-capacity list, and the plan
 runs once:</p>
@@ -829,7 +842,7 @@ through a reduced IDCT.</li>
 <tr>
 <td>WebP</td>
 <td>VP8 lossy and VP8L lossless</td>
-<td>both modes</td>
+<td>both modes, alpha kept through an <code>ALPH</code> chunk when lossy</td>
 </tr>
 <tr>
 <td>GIF</td>
@@ -857,6 +870,11 @@ through a reduced IDCT.</li>
 <td>no</td>
 </tr>
 </tbody></table></div>
+<p>A lossy WebP with transparency is written as a <code>VP8X</code> header, an <code>ALPH</code> chunk holding the alpha plane
+as a lossless stream, and the lossy frame, so alpha is exact at any <code>quality</code>; an image whose alpha
+is all 255 gets the plain frame. The JPEG and AVIF encoders write no alpha, and GIF keeps one bit of
+it. When a <code>transform</code> output has transparency its format cannot carry, <code>degraded</code> contains
+<code>&#39;alpha&#39;</code>.</p>
 <p>JPEG carries true DCT-domain scaled decode at 1/2, 1/4 and 1/8, and region decode that Huffman-scans
 past blocks outside the box without transforming them. PNG, GIF, TIFF and BMP row-skip and
 column-skip.</p>
@@ -1233,9 +1251,9 @@ JPEG when it does not:</p>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">	effort: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'fast'</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">});</span></span>
 <span class="line"></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">result.format; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// 'webp' if it fits inside 7 ms, otherwise 'jpeg'</span></span></code></pre><p>A format you name is never substituted, however far over budget it is. The estimate is accurate to
-about 20% on the machine its rates were measured on, so give a budget below the limit rather than at
-it, and use <a href="#work-counters"><code>measure</code></a> when you need what a request cost.</p>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">result.format; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// 'webp' if it fits inside 7 ms, otherwise 'jpeg'</span></span></code></pre><p>A format you name is never substituted, however far over budget it is. On the machine its rates were
+measured on, the estimate&#39;s median decode error on images held out of the fit is within 10% for every
+format except TIFF (54% under), the encoder is priced separately, and single requests spread wider, so give a budget below the limit rather than at it, and use <a href="#work-counters"><code>measure</code></a> when you need what a request cost.</p>
 <p><strong>A budget the container change cannot meet degrades the plan, and the result says what it gave up.</strong>
 Container first, because a cheaper encoder costs bytes and nothing else; then the planner&#39;s own
 levers, in the order of what they cost the picture:</p>
@@ -1276,6 +1294,129 @@ skipped, so what comes back is never softer for more CPU than the undegraded pla
 <p>The output extent never changes. A budget decides how the pixels are made, not how many, and nothing
 is degraded when the estimate already fits. <code>degraded</code> is empty on a pass-through, which needs no
 lever at all.</p>
+<h3 id="admission">Admission</h3>
+<p>Naming <code>admission</code> beside <code>budgetMs</code> turns the budget into a decision on the calibrated upper bound
+instead of the point estimate. <code>&#39;strict&#39;</code> throws <code>TinyImgBudgetError</code>, carrying the numbers, when the
+bound plus the encoder is over budget, and gives nothing up. <code>&#39;degrade&#39;</code> takes the ladder above,
+judged on the bound, and runs the cheapest request that results. <code>&#39;passthrough&#39;</code> degrades the same
+way and returns the source bytes unchanged, with <code>&#39;passthrough&#39;</code> in <code>degraded</code>, when no rung fits;
+that needs the output format to be the source&#39;s own, or none asked for.</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> result</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> transform</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(tinyimg, source, {</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">  width: </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">200</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">  budgetMs: </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">10</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">  admission: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">'passthrough'</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">  platformScale: </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">1.9</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">});</span></span></code></pre><p>An admitted request also stops itself. The module sums the work its decoders and encoders have
+counted into a work clock, a function of the counters and not of a timer, because a Worker&#39;s timers
+do not advance during CPU work. When the clock passes the budget, the operation returns
+<code>TINYIMG_ERR_BUDGET</code>, which <code>transform</code> throws as <code>TinyImgBudgetError</code>, or answers with the source
+under <code>&#39;passthrough&#39;</code>. <code>Image.admit(budgetMs, options)</code> returns the decision without running
+anything.</p>
+<p>The bound is a calibrated prediction under exchangeability, not a guarantee. It is relative to the
+machine the cost model was timed on, so <code>platformScale</code> carries your own factor; a Worker ran the same
+module 1.9x slower at the median and 2.4x to 4.7x slower on cheap requests, and the library applies
+none. Leaving <code>admission</code> unset keeps <code>budgetMs</code> exactly as described above.</p>
+<p>How it held on 423 requests the model never saw, at five budgets from 5 to 100 ms (2,115 request and
+budget pairs, timed on the Apple M2 Pro the model was calibrated on): the bound admitted 739 pairs
+and 67 of them, 9.07%, ran over budget. The v1.1.1 estimate admitted 1,174 and 451 of them, 38.42%,
+ran over, so the bound admits with 6.73x fewer overruns. It misses the 5% overrun rate set for it
+before the run, so use it as a filter and not as a limit. AVIF sources are the weak spot: 26 of the
+32 pairs admitted for them ran over. The other formats together ran over on about 6%. The bound also
+refuses requests that fit, 7.31% of the pairs that did (WebP sources 33.9%). The test left out
+sources with alpha, and lossy WebP with alpha and TIFF encode are priced less tightly (held-out
+coverage 0.82 and 0.89). The tables are in <code>bench/baselines/v1.2/admission-summary.md</code>.</p>
+<h3 id="selection">Selection</h3>
+<p><code>Image.select(options)</code> searches the decode levers (scale, filter, effort), the output format and its
+quality together, drops each combination that breaks a limit, and returns the best of the rest. It
+reads no pixels and no clock. <code>Image.bytesFor(selection)</code> runs the choice and returns the encoded bytes.</p>
+<pre class="shiki shiki-themes github-light github-dark" style="--shiki-light:#24292e;--shiki-dark:#e1e4e8;--shiki-light-bg:#fff;--shiki-dark-bg:#24292e" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">using</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> image</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> Image.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">open</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(tinyimg, source);</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">image.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">resize</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">400</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">300</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> selection</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> image.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">select</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">({ budgetMs: </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">20</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, platformScale: </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">1.9</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, minDb: </span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">35</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> });</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">if</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> (selection.feasible) {</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">  const</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> bytes</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> =</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> await</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> image.</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">bytesFor</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">(selection);</span></span>
+<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">  // serve bytes as selection.choice.format</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">} </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">else</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">  // selection.reason names the check the nearest miss failed</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">}</span></span></code></pre><div class="table"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>budgetMs</code></td>
+<td>no limit</td>
+<td>CPU the request may spend, judged on the calibrated upper bound</td>
+</tr>
+<tr>
+<td><code>platformScale</code></td>
+<td><code>1</code></td>
+<td>How much slower your machine is than the calibrated one</td>
+</tr>
+<tr>
+<td><code>peakBytes</code></td>
+<td>the module&#39;s heap ceiling</td>
+<td>Largest heap bound a candidate may have</td>
+</tr>
+<tr>
+<td><code>minDb</code></td>
+<td>no floor</td>
+<td>Predicted PSNR against the undegraded output, in dB</td>
+</tr>
+<tr>
+<td><code>formats</code></td>
+<td>the source&#39;s own, JPEG and WebP</td>
+<td>Output containers to consider</td>
+</tr>
+<tr>
+<td><code>objective</code></td>
+<td><code>&#39;bytes&#39;</code></td>
+<td><code>&#39;bytes&#39;</code>, <code>&#39;time&#39;</code> or <code>&#39;quality&#39;</code>, among the candidates that fit</td>
+</tr>
+<tr>
+<td><code>uncharacterized</code></td>
+<td><code>&#39;refuse&#39;</code></td>
+<td><code>&#39;allow&#39;</code> keeps a candidate whose quality is unknown</td>
+</tr>
+<tr>
+<td><code>assumeOpaque</code></td>
+<td><code>false</code></td>
+<td>Treat an RGBA source as opaque, so JPEG, AVIF and GIF qualify</td>
+</tr>
+</tbody></table></div>
+<p>A <code>Selection</code> carries <code>feasible</code>, <code>reason</code>, <code>choice</code> (format, quality, whether it is lossless, the
+lattice position <code>bytesFor</code> runs, and the predicted upper-bound cost, peak heap, dB and bytes), the
+output <code>width</code> and <code>height</code>, whether the source counted as having <code>alpha</code>, the measured <code>coverage</code> of
+each table, and every candidate in <code>considered</code> with the check that removed it. An infeasible
+selection is a normal answer.</p>
+<p>On the held-out test images at 10, 20 and 50 ms, with and without a 35 dB floor, the joint search
+served 37.8% of 1,137 requests, the planner&#39;s own ladder 17.2% and format-and-quality chosen
+independently 33.8%. Against independent choice the gain is 4 points, interval 3.0 to 5.1, and all of
+it comes from requests without a quality floor. The tables are in
+<code>bench/baselines/v1.2/selector-summary.md</code>.</p>
+<p>The predictions come from tables measured on other images, so each one has a stated reach:</p>
+<ul>
+<li><strong><code>db</code> is a table percentile.</strong> It composes the fifth percentile of the decode lever with the fifth
+percentile of the encoder. On images held out of the fit the lever table&#39;s percentile held for
+89.3% of cells (WebP sources 64.5%) and the encode table&#39;s for 94.8%, against a 95% target. Read it
+as a likely floor, not a guarantee; <code>coverage</code> reports the figure for your source and format.</li>
+<li><strong><code>bytes</code> is a median over 99 opaque images.</strong> On the images the table was fitted on, it ordered
+two formats at the same quality tier correctly in 93.5% of pairs. It cannot say how large this
+image will be: measured bytes over predicted ran from 0.32 to 0.58 at the fifth percentile and
+1.27 to 1.84 at the 95th, by format, at quality 75.</li>
+<li><strong>Alpha is priced pessimistically.</strong> The tables come from opaque images, so <code>db</code> is low and <code>bytes</code>
+leaves out the alpha plane. An RGBA source cannot go to JPEG, AVIF or GIF unless <code>assumeOpaque</code> is
+set, and the planner cannot see whether the pixels are opaque.</li>
+<li><strong>Lossless TIFF, BMP and WebP outputs have no quality class.</strong> Their error is unmeasured, so
+<code>&#39;refuse&#39;</code> drops them, and asking for <code>formats: [&#39;tiff&#39;]</code> or <code>[&#39;bmp&#39;]</code> returns an infeasible
+selection with reason <code>&#39;uncharacterized&#39;</code>. A TIFF or BMP source can still go to JPEG or WebP.
+<code>uncharacterized: &#39;allow&#39;</code> keeps the unclassified candidates with an unknown <code>db</code>, which cannot
+satisfy a <code>minDb</code>.</li>
+</ul>
 <h2 id="caching">Caching</h2>
 <p>A cache hit costs no CPU at all, which is how a request too expensive to serve synchronously still
 gets served: it is computed once. <code>artifactKey</code> builds the canonical key, identifying the source by
@@ -1298,7 +1439,10 @@ evidence. <code>measure</code> returns what the module did:</p>
 <span class="line"></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.samplesPerTransform; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// 1 at an eighth scale, 4 at a quarter, 64 at full</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.decodedSamples </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">/</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> work.sourceSamples; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// what the reduction was worth</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.filtered; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// macroblocks a region did not skip</span></span></code></pre><p><code>samplesPerTransform</code> is the one to read for a scaled decode: a decode transforming whole blocks and
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.filtered; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// macroblocks a region did not skip</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.entropyBytes; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// compressed bytes the decoder read, which a region or progressive 1/8 lowers</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.encodeProbes; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// match candidates a PNG encode compared, the cost `encoded` cannot see</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">work.alphaDropped; </span><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D">// samples whose alpha a JPEG, AVIF or GIF encode wrote without it</span></span></code></pre><p><code>samplesPerTransform</code> is the one to read for a scaled decode: a decode transforming whole blocks and
 averaging them away reads 64 whatever its name is.</p>
 <h2 id="blobs">Blobs</h2>
 <p>A default of each kind is compiled into the module: a Latin face, the four ICC profiles and both LBP

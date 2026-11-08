@@ -12,5 +12,10 @@ var searchData=
   ['bmp_2eh_9',['bmp.h',['../d2/dc6/bmp_8h.html',1,'']]],
   ['budget_10',['budget',['../d4/dc3/structTinyPlan.html#a790fdb5a6bf974c6b69329a642d2cee4',1,'TinyPlan']]],
   ['budget_20and_20effort_11',['Budget and Effort',['../index.html#budget-and-effort',1,'']]],
-  ['buffer_12',['buffer',['../d4/dc3/structTinyPlan.html#a734f0af01aea7e95365affb48e0d1c18',1,'TinyPlan']]]
+  ['budget_5fbasis_12',['budget_basis',['../d4/dc3/structTinyPlan.html#a298dc36ab0b4670087ae791fdbabfb3f',1,'TinyPlan']]],
+  ['budget_5fus_13',['budget_us',['../d0/d8a/structTinyAdmitOpts.html#ab68b3738968edf6636214eea461eb1d5',1,'TinyAdmitOpts::budget_us'],['../d4/d3d/structTinySelectOpts.html#afcbf5503ab0020c746d46c1c4772eb9d',1,'TinySelectOpts::budget_us']]],
+  ['buffer_14',['buffer',['../d4/dc3/structTinyPlan.html#a734f0af01aea7e95365affb48e0d1c18',1,'TinyPlan']]],
+  ['bytes_5fknown_15',['bytes_known',['../d1/da0/structTinySelectConsidered.html#a14b00ab93243b558b719745a3a57d266',1,'TinySelectConsidered']]],
+  ['bytes_5fper_5fpixel_16',['bytes_per_pixel',['../d9/d39/structTinyEncodeDistortion.html#a32ad434cadfa1a3f8ca0021a8fe984f2',1,'TinyEncodeDistortion::bytes_per_pixel'],['../d1/da0/structTinySelectConsidered.html#a883009b567686d8fd4727c67ea84fb13',1,'TinySelectConsidered::bytes_per_pixel']]],
+  ['bytes_5fper_5fpixel_5fp95_17',['bytes_per_pixel_p95',['../d9/d39/structTinyEncodeDistortion.html#a31b73ca0090541f674dc901ec20cfe85',1,'TinyEncodeDistortion']]]
 ];

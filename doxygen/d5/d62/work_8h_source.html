@@ -24,7 +24,7 @@
  <tr id="projectrow">
   <td id="projectlogo"><img alt="Logo" src="../../tinyimg_64.png"/></td>
   <td id="projectalign">
-   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.1.1</span>
+   <div id="projectname">tinyimg<span id="projectnumber">&#160;1.2.0</span>
    </div>
    <div id="projectbrief">Lightweight image manipulation library for WebAssembly</div>
   </td>
@@ -105,38 +105,66 @@ document.addEventListener('DOMContentLoaded', codefold.init);
 <div class="fragment"><div class="line"><a id="l00001" name="l00001"></a><span class="lineno">    1</span><span class="preprocessor">#ifndef TINYIMG_WORK_H</span></div>
 <div class="line"><a id="l00002" name="l00002"></a><span class="lineno">    2</span><span class="preprocessor">#define TINYIMG_WORK_H</span></div>
 <div class="line"><a id="l00003" name="l00003"></a><span class="lineno">    3</span> </div>
-<div class="line"><a id="l00004" name="l00004"></a><span class="lineno">    4</span><span class="preprocessor">#include &quot;<a class="code" href="../../d6/d18/tinyimg_8h.html">tinyimg/tinyimg.h</a>&quot;</span></div>
-<div class="line"><a id="l00005" name="l00005"></a><span class="lineno">    5</span> </div>
-<div class="line"><a id="l00006" name="l00006"></a><span class="lineno">    6</span><span class="preprocessor">#ifdef __cplusplus</span></div>
-<div class="line"><a id="l00007" name="l00007"></a><span class="lineno">    7</span><span class="keyword">extern</span> <span class="stringliteral">&quot;C&quot;</span> {</div>
-<div class="line"><a id="l00008" name="l00008"></a><span class="lineno">    8</span><span class="preprocessor">#endif</span></div>
-<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span></div>
-<div class="line"><a id="l00024" name="l00024"></a><span class="lineno">   24</span><span class="keyword">typedef</span> <span class="keyword">enum</span></div>
-<div class="line"><a id="l00025" name="l00025"></a><span class="lineno">   25</span>{</div>
-<div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span>    TINYIMG_WORK_SOURCE_SAMPLES = 0,</div>
-<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span>    TINYIMG_WORK_DECODED_SAMPLES = 1,</div>
-<div class="line"><a id="l00031" name="l00031"></a><span class="lineno">   31</span>    TINYIMG_WORK_BLOCKS = 2,</div>
-<div class="line"><a id="l00033" name="l00033"></a><span class="lineno">   33</span>    TINYIMG_WORK_TRANSFORMS = 3,</div>
-<div class="line"><a id="l00041" name="l00041"></a><span class="lineno">   41</span>    TINYIMG_WORK_TRANSFORM_SAMPLES = 4,</div>
-<div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span>    TINYIMG_WORK_MACROBLOCKS = 5,</div>
-<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span>    TINYIMG_WORK_FILTERED = 6,</div>
-<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span>    TINYIMG_WORK_RESAMPLED = 7,</div>
-<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span>    TINYIMG_WORK_ENCODED = 8,</div>
-<div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span>    TINYIMG_WORK_PASSES = 9,</div>
-<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>    TINYIMG_WORK_SCANS_SKIPPED = 10,</div>
-<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>} TinyWorkCounter;</div>
-<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span></div>
-<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span><span class="keywordtype">void</span> tiny_work_reset(<span class="keywordtype">void</span>);</div>
-<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span></div>
-<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span>uint32_t tiny_work_read(TinyWorkCounter counter);</div>
-<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span></div>
-<div class="line"><a id="l00090" name="l00090"></a><span class="lineno">   90</span><span class="keywordtype">void</span> tiny_work_add(TinyWorkCounter counter, uint32_t amount);</div>
-<div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span> </div>
-<div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span><span class="preprocessor">#ifdef __cplusplus</span></div>
-<div class="line"><a id="l00093" name="l00093"></a><span class="lineno">   93</span>}</div>
-<div class="line"><a id="l00094" name="l00094"></a><span class="lineno">   94</span><span class="preprocessor">#endif</span></div>
-<div class="line"><a id="l00095" name="l00095"></a><span class="lineno">   95</span> </div>
-<div class="line"><a id="l00096" name="l00096"></a><span class="lineno">   96</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00004" name="l00004"></a><span class="lineno">    4</span><span class="preprocessor">#include &quot;<a class="code" href="../../d5/db2/image_8h.html">tinyimg/image.h</a>&quot;</span></div>
+<div class="line"><a id="l00005" name="l00005"></a><span class="lineno">    5</span><span class="preprocessor">#include &quot;<a class="code" href="../../d6/d18/tinyimg_8h.html">tinyimg/tinyimg.h</a>&quot;</span></div>
+<div class="line"><a id="l00006" name="l00006"></a><span class="lineno">    6</span> </div>
+<div class="line"><a id="l00007" name="l00007"></a><span class="lineno">    7</span><span class="preprocessor">#ifdef __cplusplus</span></div>
+<div class="line"><a id="l00008" name="l00008"></a><span class="lineno">    8</span><span class="keyword">extern</span> <span class="stringliteral">&quot;C&quot;</span> {</div>
+<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span></div>
+<div class="line"><a id="l00025" name="l00025"></a><span class="lineno">   25</span><span class="keyword">typedef</span> <span class="keyword">enum</span></div>
+<div class="line"><a id="l00026" name="l00026"></a><span class="lineno">   26</span>{</div>
+<div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span>    TINYIMG_WORK_SOURCE_SAMPLES = 0,</div>
+<div class="line"><a id="l00030" name="l00030"></a><span class="lineno">   30</span>    TINYIMG_WORK_DECODED_SAMPLES = 1,</div>
+<div class="line"><a id="l00032" name="l00032"></a><span class="lineno">   32</span>    TINYIMG_WORK_BLOCKS = 2,</div>
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno">   34</span>    TINYIMG_WORK_TRANSFORMS = 3,</div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span>    TINYIMG_WORK_TRANSFORM_SAMPLES = 4,</div>
+<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span>    TINYIMG_WORK_MACROBLOCKS = 5,</div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span>    TINYIMG_WORK_FILTERED = 6,</div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span>    TINYIMG_WORK_RESAMPLED = 7,</div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span>    TINYIMG_WORK_ENCODED = 8,</div>
+<div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span>    TINYIMG_WORK_PASSES = 9,</div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>    TINYIMG_WORK_SCANS_SKIPPED = 10,</div>
+<div class="line"><a id="l00084" name="l00084"></a><span class="lineno">   84</span>    TINYIMG_WORK_ENTROPY_BYTES = 11,</div>
+<div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span>    TINYIMG_WORK_ENCODE_PROBES = 12,</div>
+<div class="line"><a id="l00102" name="l00102"></a><span class="lineno">  102</span>    TINYIMG_WORK_ALPHA_DROPPED = 13,</div>
+<div class="line"><a id="l00110" name="l00110"></a><span class="lineno">  110</span>    TINYIMG_WORK_DECODE_MICROS = 14,</div>
+<div class="line"><a id="l00111" name="l00111"></a><span class="lineno">  111</span>} TinyWorkCounter;</div>
+<div class="line"><a id="l00112" name="l00112"></a><span class="lineno">  112</span></div>
+<div class="line"><a id="l00119" name="l00119"></a><span class="lineno">  119</span><span class="keywordtype">void</span> tiny_work_reset(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00120" name="l00120"></a><span class="lineno">  120</span></div>
+<div class="line"><a id="l00130" name="l00130"></a><span class="lineno">  130</span>uint32_t tiny_work_read(TinyWorkCounter counter);</div>
+<div class="line"><a id="l00131" name="l00131"></a><span class="lineno">  131</span></div>
+<div class="line"><a id="l00141" name="l00141"></a><span class="lineno">  141</span><span class="keywordtype">void</span> tiny_work_add(TinyWorkCounter counter, uint32_t amount);</div>
+<div class="line"><a id="l00142" name="l00142"></a><span class="lineno">  142</span></div>
+<div class="line"><a id="l00154" name="l00154"></a><span class="lineno">  154</span><span class="keywordtype">void</span> tiny_work_count_alpha(<span class="keyword">const</span> <a class="code hl_struct" href="../../d5/d8c/structTinyImage.html">TinyImage</a>* image, <span class="keywordtype">int</span> partial_only);</div>
+<div class="line"><a id="l00155" name="l00155"></a><span class="lineno">  155</span></div>
+<div class="line"><a id="l00171" name="l00171"></a><span class="lineno">  171</span><span class="keywordtype">void</span> tiny_work_set_limit(uint32_t micros);</div>
+<div class="line"><a id="l00172" name="l00172"></a><span class="lineno">  172</span></div>
+<div class="line"><a id="l00188" name="l00188"></a><span class="lineno">  188</span>uint32_t tiny_work_clock_us(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00189" name="l00189"></a><span class="lineno">  189</span></div>
+<div class="line"><a id="l00195" name="l00195"></a><span class="lineno">  195</span><span class="keywordtype">int</span> tiny_work_over_limit(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00196" name="l00196"></a><span class="lineno">  196</span></div>
+<div class="line"><a id="l00206" name="l00206"></a><span class="lineno">  206</span><span class="keywordtype">void</span> tiny_work_begin_decode(<a class="code hl_enumeration" href="../../d5/db2/image_8h.html#a0cfa60bdfdbf3bc49b738a9f19accb8b">TinyImageFormat</a> format, <span class="keywordtype">int</span> variant);</div>
+<div class="line"><a id="l00207" name="l00207"></a><span class="lineno">  207</span></div>
+<div class="line"><a id="l00218" name="l00218"></a><span class="lineno">  218</span><span class="keywordtype">void</span> tiny_work_begin_encode(</div>
+<div class="line"><a id="l00219" name="l00219"></a><span class="lineno">  219</span>    <a class="code hl_enumeration" href="../../d5/db2/image_8h.html#a0cfa60bdfdbf3bc49b738a9f19accb8b">TinyImageFormat</a> format, <span class="keyword">const</span> <a class="code hl_struct" href="../../d8/db2/structTinyEncodeOpts.html">TinyEncodeOpts</a>* opts, uint8_t channels</div>
+<div class="line"><a id="l00220" name="l00220"></a><span class="lineno">  220</span>);</div>
+<div class="line"><a id="l00221" name="l00221"></a><span class="lineno">  221</span></div>
+<div class="line"><a id="l00234" name="l00234"></a><span class="lineno">  234</span><span class="keywordtype">void</span> tiny_work_charge_decode(</div>
+<div class="line"><a id="l00235" name="l00235"></a><span class="lineno">  235</span>    uint32_t width, uint32_t height, uint32_t x, uint32_t y, uint32_t w,</div>
+<div class="line"><a id="l00236" name="l00236"></a><span class="lineno">  236</span>    uint32_t h, uint8_t den, uint8_t effort</div>
+<div class="line"><a id="l00237" name="l00237"></a><span class="lineno">  237</span>);</div>
+<div class="line"><a id="l00238" name="l00238"></a><span class="lineno">  238</span> </div>
+<div class="line"><a id="l00239" name="l00239"></a><span class="lineno">  239</span><span class="preprocessor">#ifdef __cplusplus</span></div>
+<div class="line"><a id="l00240" name="l00240"></a><span class="lineno">  240</span>}</div>
+<div class="line"><a id="l00241" name="l00241"></a><span class="lineno">  241</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00242" name="l00242"></a><span class="lineno">  242</span> </div>
+<div class="line"><a id="l00243" name="l00243"></a><span class="lineno">  243</span><span class="preprocessor">#endif</span></div>
+<div class="ttc" id="aimage_8h_html"><div class="ttname"><a href="../../d5/db2/image_8h.html">image.h</a></div><div class="ttdoc">Image processing library utilities.</div></div>
+<div class="ttc" id="aimage_8h_html_a0cfa60bdfdbf3bc49b738a9f19accb8b"><div class="ttname"><a href="../../d5/db2/image_8h.html#a0cfa60bdfdbf3bc49b738a9f19accb8b">TinyImageFormat</a></div><div class="ttdeci">TinyImageFormat</div><div class="ttdoc">Image formats supported by TinyImage for conversion and saving.</div><div class="ttdef"><b>Definition</b> image.h:32</div></div>
+<div class="ttc" id="astructTinyEncodeOpts_html"><div class="ttname"><a href="../../d8/db2/structTinyEncodeOpts.html">TinyEncodeOpts</a></div><div class="ttdoc">Options an encoder honors.</div><div class="ttdef"><b>Definition</b> image.h:269</div></div>
+<div class="ttc" id="astructTinyImage_html"><div class="ttname"><a href="../../d5/d8c/structTinyImage.html">TinyImage</a></div><div class="ttdoc">Represents an image with its width, height, and pixel data.</div><div class="ttdef"><b>Definition</b> image.h:90</div></div>
 <div class="ttc" id="atinyimg_8h_html"><div class="ttname"><a href="../../d6/d18/tinyimg_8h.html">tinyimg.h</a></div><div class="ttdoc">Umbrella header, version and error codes.</div></div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->
